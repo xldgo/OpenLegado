@@ -20,6 +20,16 @@ data/services/native_reader_layout_transport.dart独占原生句柄及DTO映射�
 app/bootstrap/reader_layout_factory.dart提供默认实现，reader/layout的InheritedWidget只注入接口。
 默认仍使用正式Rust传输；取消/释放边界与只读缓冲共享保持，不保留旧services排版转发入口。
 
+音频跳过窗口经AudioBookService由Rust audio_skip_policy计算；播放器仅消费毫秒窗口并执行seek/切章。
+ReadConfig.useGlobalAudioSkip完整透传，不能依据片头片尾是否为零推断作用域；相同输入的窗口结果可复用。
+详情自动更新操作经BookshelfRepository.setCanUpdate提交稳定标识和目标状态，Rust事务读取最新书籍并只写策略字段；
+界面在保存成功后接收返回快照，未入架仅更新临时展示对象，不将旧页面快照回写数据库。
+
+书签导出格式集中在Rust legado-core/bookmark_export，BookmarkExportService返回文件名、MIME和内容快照；
+书签DTO映射由查询、编辑与导出共用。features/bookmarks/bookmark_export只编排生成和保存，
+platform/files/bookmark_document_saver保留SAF、目录选择及文件写入；旧services/bookmark_export入口移除，
+不在Dart重建JSON字段、Markdown模板或文件名规则。Mock明确不提供真实格式生成，不调用FFI。
+
 后续设置领域的分类、键所有权、数据性质及迁移顺序统一见
 [设置分类与访问架构方案](SETTINGS_ARCHITECTURE.md)。本文件保留已实施的数据边界，
 不另外维护设置分类任务状态。

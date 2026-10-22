@@ -1,5 +1,28 @@
 # API 契约文档
 
+### BOOKMARK-EXPORT-20261023：书签导出格式与平台保存分离（实施前冻结）
+
+- 新增只读FFI `bookmark_export(book_name: String, book_author: String, bookmarks: Vec<BookmarkDto>, format: BookmarkExportFormatDto) → Result<BookmarkExportDocumentDto, BridgeError>`；format仅Json/Markdown。文档包含file_name、mime_type、content三个String字段，不访问数据库、不写文件、不改变书签顺序。
+- Rust唯一生成JSON/Markdown及文件名/MIME。JSON保留time/bookName/bookAuthor/chapterIndex/chapterPos/chapterName/bookText/content八字段，排除本地主键id；Markdown保持既有标题、原文、摘要、空行与前置空格。文件名为bookmark-书名 作者.json/.md，沿用非法字符及控制字符替换为下划线、末尾空白清理；不修改原书名和正文。
+- Dart BookmarkExportService仅适配类型化入参和返回文档；导出编排调用该接口后交平台保存，不再序列化书签或拼接模板/文件名。目录页仍按书名+作者读取书签，空列表提示、不保存，导出成功/失败提示及取消静默保持。
+- Flutter平台保存保留现有SAF目录选择与UTF-8写入、异常时应用专属外部目录回退、其他平台file_picker目录选择及initialDirectory。选择器取消返回null，不进入回退；文件保存失败向调用方传播，不报告成功。
+- Mock不调用FFI、不复制Rust算法；未提供真实格式能力时明确报不支持，不生成伪成功的空导出文件。格式语义由Rust测试验证，Dart只验证编排、取消和保存结果。
+- 新增1个FFI方法、1个格式枚举及1个文档DTO；生成绑定，不手改生成物。无数据库、应用版本、依赖和UI样式变更，不扩大为通用文件管理或其他导出重构。
+
+编写者：Codex + Rust / UI / Bridge｜2026-10-23
+
+### AUDIO-BOOK-POLICY-20261023：音频跳过与自动更新状态归属（实施前冻结）
+
+- 新增`audio_resolve_skip_window(read_config: Option<ReadConfigDto>, duration_ms: i64, global_open_credits: i32, global_close_credits: i32) → Option<AudioSkipWindowDto>`；DTO包含`intro_end_ms/outro_start_ms: i64`。纯计算，只调用既有Rust audio_skip_policy，不读写数据库。无配置或明确使用全局时取全局值，其他情况取书级值；未知/过短时长返回None。
+- Dart ReadConfig补齐既有`useGlobalAudioSkip`布尔字段，缺省false，与Rust既有默认一致；DTO及JSON双向保留，不再通过片头片尾非零推断作用域。不增加旧值迁移、数据库列或新设置入口。
+- Flutter只在播放输入变化后调用窗口计算，同输入复用在途/完成结果（包括None），不在进度采样时反复调用FFI；seek、片尾检测及播放器生命周期仍归Flutter。
+- 跳过设置sheet读写明确的useGlobalAudioSkip，全局模式保存不清零书级值；书级零值表示本书不跳过。保存经既有书级配置队列合并并更新播放器绑定，不再将旧路由Book绑回。音频配置从None首次物化时明确初始化为全局，避免保存播放模式/倍速反而关闭全局跳过；已有配置仍保留明确的作用域。没有新增设置项或第三个FFI方法。
+- 新增`bookshelf_set_can_update(book_url: String, can_update: bool) → Result<BookDto, BridgeError>`；在Rust事务内读取最新记录，仅修改canUpdate，关闭时清除updateError位。返回最新完整记录；书籍不存在报错，不创建记录，不回写页面旧快照。
+- BookshelfRepository新增`setCanUpdate`；已入架详情保存成功后才接受返回快照，失败保留原状态；未入架仍只修改临时展示对象的canUpdate，不落库、不清除错误位，与既有语义一致。
+- 既有方法不变，新增2方法及1 DTO；FRB、Freezed/JSON生成物由生成器产出。Mock音频只提供无跳过的示例，不调用FFI或另立策略；测试通过端口返回明确窗口，Rust语义由Rust测试验收。应用版本不变；本批不涉及书签导出、文本清洗、TTS分片或漫画处理。
+
+编写者：Codex + Rust / UI / Bridge｜2026-10-23
+
 ### FEATURE-OWNERSHIP-20261022：阅读内部数据职责归位（实施前冻结）
 
 - 仅调整Dart内部目录与依赖：ReaderSourceAnchor模型归domain，ReaderPositionStore偏好读写归data；原键reader_source_anchor_v2、version=2、coordinate=utf16、字段名及恢复/拒绝规则不变，不增加迁移或清洗。
@@ -2065,7 +2088,7 @@ setStringList落盘；不扩展共享快照承载实体列表、凭据或可变�
 
 > 共 **47 个方法模块**（§2.1–§2.50，编号跳过 2.24/2.27）+ §2.44 数据层实现备注；计数由 `tool/check_api_contract.dart` 自动校验。
 > BookApi 接口当前共 **97 个方法**（按当前Dart接口声明计数；2026-10-04 B1 将音频缓存 4 方法封装进 BookApi：284→288；2026-10-03 B2 冻结音频预下载写入面 2 方法，契约先行、待实现批封装进 BookApi：288→290；2026-10-05 P2-29c 后续批冻结失败章查询 1 方法，契约先行、待实现批封装进 BookApi：290→291；2026-10-05 V-B1 冻结视频弹幕查询 1 方法，契约先行、待实现批封装进 BookApi：291→292；2026-10-05 V-B2 冻结弹幕解析 1 方法，契约先行、待实现批封装进 BookApi：292→293；2026-10-13 书签七项旧方法迁走：293→286；阅读记录六项旧方法迁走：286→280；HTTP 引擎配置八项旧方法迁走：280→272；HTTP 合成及无调用方包装三项迁走：272→269；书架与分组十五项迁走：269→254；书源十一项迁走：254→243；书源校验三项迁走：243→240；登录凭据四项迁走：240→236；备份四项与WebDAV七项迁走：224→213；阅读目录、正文及进度八项迁走：213→205；章节缓存与批量下载十一项迁走、无消费者旧下载包装七项移除：205→187；RSS批次前语法树复核为188（上一版文档少计一项），RSS源/文章/已读/收藏二十一项迁走：188→167；替换规则配置六项与执行两项迁走：167→159；规则订阅配置五项与更新两项迁走：159→152；正文标注七项与高亮规则四项迁走：152→141；词典查询一项与规则七项迁走：141→133；应用日志五项迁走：133→128；全局缓存五项与数据库维护一项迁走：128→122；书籍内容十四项迁走、无生产消费者包装十一项移除：122→97）。
-> 附录 §2.x 行合计 **299** = BookApi 236 + BookmarkRepository 6 + ReadRecordRepository 10 + HttpTtsRepository 7 + HttpTtsSynthesizer 1 + BookshelfRepository 10 + BookGroupRepository 5 + BookSourceRepository 11 + SourceChecker 3 + SourceLoginRepository 4 + 纯 FFI 4 + Runtime 缓存设置 1 + 缓存查询重复登记 1；纯 FFI 为 `bookmarkGetAll`、`chapterPayAction`、`rssUpdateSource`、`ttsSpeak`，缓存查询在 §2.16 / §2.41 登记同一能力。既有 Rust/FRB 签名不变；删除无调用方的 Dart 阅读记录和 HTTP 列表别名，各减少一行登记。
+> 附录按模块登记行合计 **307**（书签导出本批新增一项）。这是文档登记行数，不等于FRB导出方法总数；Dart实际归属以各窄接口为准，旧BookApi拆分过程仅作历史记录。
 
 ### 2.1 初始化/版本（2 个方法）
 
@@ -2074,7 +2097,7 @@ setStringList落盘；不扩展共享快照承载实体列表、凭据或可变�
 | `initialize()` | 无 | `Future<void>` | 初始化 Rust 运行时和数据库连接 |
 | `getVersion()` | 无 | `Future<String>` | 获取引擎版本号 |
 
-### 2.2 书架操作（10 个方法）
+### 2.2 书架操作（11 个方法）
 
 > 以下方法由 BookshelfRepository 承担，根只提供共享引用；正式实现直接 FRB，Mock 与进度、章节和本地导入共用唯一存储。旧 BookApi 方法及临时转发已删除。
 
@@ -2082,6 +2105,7 @@ setStringList落盘；不扩展共享快照承载实体列表、凭据或可变�
 |------|------|------|------|
 | `getBooks()` | 无 | `Future<List<Book>>` | 获取书架上所有书籍 |
 | `addBook(Book book)` | book: Book 对象 | `Future<Book>` | 添加书籍到书架 |
+| `setCanUpdate(String bookUrl, bool canUpdate)` | 稳定书籍标识、目标状态 | `Future<Book>` | Rust事务读取最新记录，仅修改自动更新策略及关闭时的更新失败位，返回最新快照；不存在报错 |
 | `updateBook(Book book)` | book: Book 对象 | `Future<void>` | 更新书籍信息。Book JSON 的 `readConfig` 承载加法式书级字段：可选 `mangaScrollMode`（书级翻页模式）与 `webtoonSidePaddingDp`（书级条漫侧边留白）——缺失/null = 未覆盖、跟随全局；后者键名沿用参考版（legado-with-MD3）但**单位不是 dp**，值为 Flutter 现行百分比口径 0..45（每侧留白 = 视口宽 × p/100，不做 dp/百分比换算）。Rust `ReadConfig` 类型化接收后全行回写不丢该两字段（旧 JSON 缺键 → None，空值序列化省略）；进度列按既有「不回滚」语义仍由 `update_progress` 单列写入 |
 | `deleteBook(String bookUrl)` | bookUrl | `Future<void>` | 从书架删除书籍 |
 | `getBook(String bookUrl)` | bookUrl | `Future<Book?>` | 按 bookUrl 获取书籍详情 |
@@ -2232,7 +2256,7 @@ setStringList落盘；不扩展共享快照承载实体列表、凭据或可变�
 >
 > 编写者：Codex + Bridge｜2026-10-17
 
-### 2.7 书签操作（7 个方法）
+### 2.7 书签操作（8 个方法）
 
 > **FFI-TRANSPORT-20261017 / P1 冻结（2026-10-17）**：本批以强类型 FRB 替换书签和每日阅读明细的内部 JSON 载荷。
 > Flutter 领域 Repository、DB schema、导入/导出及 REST JSON 不变。以下新约定覆盖本节历史 JSON 传输说明。
@@ -2276,6 +2300,7 @@ setStringList落盘；不扩展共享快照承载实体列表、凭据或可变�
 
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
+| `buildDocument({required String bookName, required String bookAuthor, required List<Bookmark> bookmarks, required BookmarkExportFormat format})` | 书籍名称/作者、有序书签快照、JSON或Markdown | `Future<BookmarkExportDocument>` | BookmarkExportService直连只读bookmarkExport；返回文件名/MIME/内容，不读库、不写文件 |
 | `bookmarkGetAll({required String bookName})`（仅 FRB） | bookName | `Future<List<BookmarkDto>>` | 仅按书名返回强类型列表；Rust/FRB 导出保留，旧 BookApi.getBookmarks 已删除，应用使用领域接口的双键查询。 |
 | `getBookmarksByBook(String bookName, String bookAuthor)` | bookName, bookAuthor | `Future<List<Bookmark>>` | 按书名+作者获取某本书的所有书签（对齐原版 `bookmarkDao.getByBook(name, author)`，规避同名书混入）；返回书签领域列表（FRB 传输改为 List<BookmarkDto>，不经过 JSON）；Dart 调用迁至 BookmarkRepository（历史来源：台账 §5.14-2，Task #63） |
 | `getAllBookmarks()` | 无 | `Future<List<Bookmark>>` | 获取所有书签 |
@@ -2583,12 +2608,13 @@ Mock保留旧固定50MB/3书/30章、清理空操作和压缩固定10MB的展示
 | `importHttpTts(String json)` | json: JSON 字符串 | `Future<int>` | 导入完整 HTTP TTS 配置（兼容数组 `loginUi`），返回成功数量 |
 | `exportHttpTts()` | 无 | `Future<String>` | 导出完整 HTTP TTS 配置 JSON 数组 |
 
-### 2.26 音频播放（4 个方法）
+### 2.26 音频播放（5 个方法）
 
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
 | `synthesize({required int engineId, required String text, String? engineUrl, double speed = 1.0, double pitch = 1.0, double volume = 1.0, String? voiceName, String? toneId, String? speakerName, String? emotionTag, HttpTtsCancellation? cancellation})` | 稳定 ID、正文、播放参数、音色上下文、取消状态 | `Future<HttpTtsSynthesisResult>` | `HttpTtsSynthesizer` 执行 HTTP 合成；`HttpTtsAudio` 提供路径、缓存命中及 MIME。`HttpTtsNoAudio` 区分 emptyResult/synthesisFailed/mock；真实失败保留原始错误，没有 GET 探活。`HttpTtsCancelled` 不起播、不进入失败估算。播放参数由播放器消费，源级语速从数据库读取。系统 TTS 不走此接口。 |
 | `getAudioChapterMedia(String bookUrl, int chapterIndex)` | bookUrl, chapterIndex | `Future<Map<String, dynamic>>` | **音频书章节取址**（对齐原版 `AudioPlay` → `WebBook.getContent`）。Rust FFI：`audioGetChapterMedia` → JSON。返回字段（camelCase）：`chapterIndex` / `title` / **`mediaUrl`**（可播地址，即 getContent 正文 trim）/ `url`（章节页 URL，兼容旧字段）/ `resourceUrl` / `isVolume`（卷章无媒体，调用方应跳过）/ `fromCache` / `lyric` / `sourceUrl`。流程：查章 → 卷章短路 → DB 章节内容缓存命中则直接作 `mediaUrl` → 否则按 `book.origin` 书源 `getContent`（**正文规则为空时回退章节 URL**，对齐 Kotlin）→ 写入缓存。空 `mediaUrl` 且非卷章表示取址失败。错误码：章节/书籍不存在 → Database；书源网络/解析失败向上抛。与 HTTP TTS 合成分流：仅 `BookType.audio` 走本接口流媒体 |
+| `resolveSkipWindow({ReadConfig? readConfig, required int durationMs, required int globalOpenCredits, required int globalCloseCredits})` | 配置、毫秒时长、全局秒数 | `Future<AudioSkipWindow?>` | AudioBookService薄适配Rust audioResolveSkipWindow；未启用窗口返回null，播放器保留定位与切章职责 |
 | `getAudioProgress(String bookUrl, int chapterIndex)` | bookUrl, chapterIndex | `Future<Map<String, dynamic>?>` | 获取音频播放进度 |
 | `saveAudioProgress(String bookUrl, int chapterIndex, int positionMs)` | bookUrl, chapterIndex, positionMs | `Future<void>` | 保存音频播放进度 |
 
@@ -3305,12 +3331,12 @@ Dart 窄接口 PrivacyCredentialRepository 的 hasPassword、verify、change 分
 | # | 模块 | 方法数 |
 |---|------|--------|
 | 1 | 初始化/版本 | 2 |
-| 2 | 书架操作 | 10 |
+| 2 | 书架操作 | 11 |
 | 3 | 书源操作 | 33 |
 | 4 | 搜索操作 | 19 |
 | 5 | RSS 源操作 | 11 |
 | 6 | 本地书籍操作 | 4 |
-| 7 | 书签操作 | 7 |
+| 7 | 书签操作 | 8 |
 | 8 | 替换规则操作 | 8 |
 | 9 | 阅读器操作 | 12 |
 | 10 | 配置操作 | 4 |
@@ -3328,7 +3354,7 @@ Dart 窄接口 PrivacyCredentialRepository 的 hasPassword、verify、change 分
 | 22 | 服务器管理 | 5 |
 | 23 | 书籍格式解析 | 3 |
 | 24 | HTTP TTS | 6 |
-| 25 | 音频播放 | 4 |
+| 25 | 音频播放 | 5 |
 | 26 | WebDAV 云同步 | 7 |
 | 29 | 下载管理器 | 7 |
 | 30 | 段评（ruleReview） | 3 |
@@ -3352,7 +3378,7 @@ Dart 窄接口 PrivacyCredentialRepository 的 hasPassword、verify、change 分
 | 49 | 视频弹幕数据链 | 1 |
 | 50 | 视频弹幕解析 | 1 |
 | 51 | 隐私凭据 | 3 |
-| | **合计（§2.x 附录行合计）** | **304** |
+| | **合计（§2.x 附录行合计）** | **307** |
 
 > 口径说明（2026-08-15 程序化计数校准，2026-09-13 C2 批1 增 §2.45 字典规则 7 方法、书源作用域批次增 §2.8 替换规则 1 方法 `applyReplaceRulesToSource`、替换规则预览批次再增 §2.8 1 方法 `previewReplaceRule`、2026-09-24 换源预拉缓存批次增 §2.4 2 方法、2026-09-26 项 B/B1 增 §2.3 1 方法 `submitWebviewResultWithCookies`、2026-09-28 STAGE3-C2B 增 §2.16 单章缓存失效 1 方法 `clearChapterCache`、2026-09-28 P2-28c 增 §2.43 目录实时刷新 1 方法 `listCachedChapters`、2026-09-29 P2-29 增 §2.43 目录下载中态查询 1 方法 `listDownloadingChapters`、2026-09-29 P4-2a 增 §2.46 图片磁盘缓存 2 方法 `saveImageCache`/`getImageCache`、2026-10-03 cbz 批 B 增 §2.34 本地漫画页读取 1 方法 `cbzReadPage`、2026-10-04 B1 增 §2.47 音频章节文件缓存 4 方法、2026-10-03 B2 增 §2.48 音频章节预下载写入 2 方法 `audioCacheDownload`/`audioCacheCancel`、2026-10-13 UI-HOME-OVERVIEW-A1 增 §2.12 阅读记录单书每日明细 2 方法 `getReadRecordDetails`/`getAllReadRecordDetails`，取代人工统计）：
 

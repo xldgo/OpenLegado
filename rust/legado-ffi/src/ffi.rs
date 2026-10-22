@@ -157,9 +157,9 @@ pub mod ffi {
     use crate::transfer_dto::{
         AnnotatedCandidateDto, BookDto, BookGroupDto, BookHighlightDto, BookSourceDto, BookmarkDto,
         ChangeSourceBatchDto, ChapterListDto, CheckProgressDto, CheckResultDto, HighlightRuleDto,
-        ReadRecordDailyDto, ReadRecordDetailDto, ReadRecordDto, ReadRecordSessionDto,
-        SearchBookDto, SearchSourceBatchDto, SourceCheckConfigDto, SourceSwitchResponseDto,
-        SwitchSearchOptionsDto, TextResponseDto,
+        ReadConfigDto, ReadRecordDailyDto, ReadRecordDetailDto, ReadRecordDto,
+        ReadRecordSessionDto, SearchBookDto, SearchSourceBatchDto, SourceCheckConfigDto,
+        SourceSwitchResponseDto, SwitchSearchOptionsDto, TextResponseDto,
     };
 
     // ─── 基础 ─────────────────────────────────────────────────
@@ -292,6 +292,14 @@ pub mod ffi {
     /// 更新类型化书籍快照。
     pub fn bookshelf_update(book: BookDto) -> Result<(), BridgeError> {
         Ok(crate::api::bookshelf::update_book_entity(book.into())?)
+    }
+
+    /// 以最新持久化记录修改自动更新策略，不回写页面快照。
+    pub fn bookshelf_set_can_update(
+        book_url: String,
+        can_update: bool,
+    ) -> Result<BookDto, BridgeError> {
+        Ok(crate::api::bookshelf::set_can_update(&book_url, can_update)?.into())
     }
 
     /// 按 bookUrl 删除书籍
@@ -1596,6 +1604,23 @@ pub mod ffi {
 
     // ─── 书签管理 ─────────────────────────────────────────────
 
+    /// 生成书签交换文档；路径选择和文件写入由Flutter处理。
+    pub fn bookmark_export(
+        book_name: String,
+        book_author: String,
+        bookmarks: Vec<BookmarkDto>,
+        format: BookmarkExportFormatDto,
+    ) -> Result<BookmarkExportDocumentDto, BridgeError> {
+        let bookmarks: Vec<_> = bookmarks.into_iter().map(Into::into).collect();
+        Ok(crate::api::bookmark_api::export_bookmarks(
+            &book_name,
+            &book_author,
+            &bookmarks,
+            format.into(),
+        )?
+        .into())
+    }
+
     /// 获取书籍的所有书签（强类型列表）
     pub fn bookmark_get_all(book_name: String) -> Result<Vec<BookmarkDto>, BridgeError> {
         let bookmarks = crate::api::bookmark_api::get_bookmarks(&book_name)?;
@@ -2559,6 +2584,23 @@ pub mod ffi {
     pub fn audio_get_progress(book_url: String, chapter_index: i32) -> Result<i64, BridgeError> {
         let pos = crate::api::audio_api::get_audio_progress(&book_url, chapter_index)?;
         Ok(pos)
+    }
+
+    /// 复用Rust跳过规则，不访问存储或操作播放器。
+    pub fn audio_resolve_skip_window(
+        read_config: Option<ReadConfigDto>,
+        duration_ms: i64,
+        global_open_credits: i32,
+        global_close_credits: i32,
+    ) -> Option<AudioSkipWindowDto> {
+        let config = read_config.map(Into::into);
+        legado_core::audio_skip_policy::resolve_book_audio_skip_window(
+            config.as_ref(),
+            duration_ms,
+            global_open_credits,
+            global_close_credits,
+        )
+        .map(Into::into)
     }
 
     /// 保存音频播放进度

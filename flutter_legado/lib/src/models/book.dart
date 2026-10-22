@@ -43,6 +43,9 @@ abstract class ReadConfig with _$ReadConfig {
     @Default(3) @JsonKey(name: 'dailyChapters') int dailyChapters,
     @Default(0) @JsonKey(name: 'openCredits') int openCredits,
     @Default(0) @JsonKey(name: 'closeCredits') int closeCredits,
+    @Default(false)
+    @JsonKey(name: 'useGlobalAudioSkip')
+    bool useGlobalAudioSkip,
     @Default(0) @JsonKey(name: 'playMode') int playMode,
     @Default(1.0) @JsonKey(name: 'playSpeed') double playSpeed,
 

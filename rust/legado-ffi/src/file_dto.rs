@@ -1,5 +1,36 @@
 //! 文件和服务稳定快照；原生字节不经 Base64。— Codex + Bridge
 
+/// 书签导出仅支持既有JSON与Markdown两种格式。
+#[derive(Debug, Clone, Copy)]
+pub enum BookmarkExportFormatDto {
+    Json,
+    Markdown,
+}
+impl From<BookmarkExportFormatDto> for legado_core::bookmark_export::BookmarkExportFormat {
+    fn from(value: BookmarkExportFormatDto) -> Self {
+        match value {
+            BookmarkExportFormatDto::Json => Self::Json,
+            BookmarkExportFormatDto::Markdown => Self::Markdown,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct BookmarkExportDocumentDto {
+    pub file_name: String,
+    pub mime_type: String,
+    pub content: String,
+}
+impl From<legado_core::bookmark_export::BookmarkExportDocument> for BookmarkExportDocumentDto {
+    fn from(value: legado_core::bookmark_export::BookmarkExportDocument) -> Self {
+        Self {
+            file_name: value.file_name,
+            mime_type: value.mime_type,
+            content: value.content,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct DetectFormatDto {
     pub format: String,

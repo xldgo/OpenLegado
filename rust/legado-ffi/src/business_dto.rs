@@ -1,5 +1,20 @@
 //! 稳定业务快照；规则、脚本与真正文档保留字符串边界。— Codex + Bridge
 
+/// 音频跳过窗口；单位为毫秒，未知或过短音频不生成窗口。
+#[derive(Debug, Clone)]
+pub struct AudioSkipWindowDto {
+    pub intro_end_ms: i64,
+    pub outro_start_ms: i64,
+}
+impl From<legado_core::audio_skip_policy::AudioSkipWindow> for AudioSkipWindowDto {
+    fn from(value: legado_core::audio_skip_policy::AudioSkipWindow) -> Self {
+        Self {
+            intro_end_ms: value.intro_end_ms,
+            outro_start_ms: value.outro_start_ms,
+        }
+    }
+}
+
 /// 规则执行的固定外层，结果中的文本不再另行编码。
 #[derive(Debug, Clone)]
 pub struct RuleParseResultDto {

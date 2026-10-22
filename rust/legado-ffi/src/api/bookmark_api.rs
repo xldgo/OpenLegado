@@ -8,6 +8,16 @@ use legado_db::BookmarkRepository;
 
 use crate::db_state::with_database;
 
+/// 只格式化调用方给定的快照，不读库或创建文件。
+pub fn export_bookmarks(
+    book_name: &str,
+    book_author: &str,
+    bookmarks: &[Bookmark],
+    format: legado_core::bookmark_export::BookmarkExportFormat,
+) -> LegadoResult<legado_core::bookmark_export::BookmarkExportDocument> {
+    legado_core::bookmark_export::export_bookmarks(book_name, book_author, bookmarks, format)
+}
+
 /// 获取书籍的所有书签（按 book_name 查询）
 pub fn get_bookmarks(book_name: &str) -> LegadoResult<Vec<Bookmark>> {
     with_database(|db| {

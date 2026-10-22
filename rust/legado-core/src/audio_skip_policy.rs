@@ -55,6 +55,20 @@ pub fn resolve_audio_skip_window(
     })
 }
 
+/// 按明确的书级/全局作用域计算窗口，宿主只负责应用播放动作。
+pub fn resolve_book_audio_skip_window(
+    read_config: Option<&ReadConfig>,
+    duration_ms: i64,
+    global_open_credits: i32,
+    global_close_credits: i32,
+) -> Option<AudioSkipWindow> {
+    resolve_audio_skip_window(
+        duration_ms,
+        resolve_open_credits(read_config, global_open_credits),
+        resolve_close_credits(read_config, global_close_credits),
+    )
+}
+
 /// 解析书级生效的片头跳过秒数（对齐上游 `Book.getOpenCredits()`）
 ///
 /// `use_global_audio_skip = true` 时取全局值，否则取书级自定义值。
@@ -163,6 +177,24 @@ pub fn should_skip_outro(current_position_ms: i64, window: &AudioSkipWindow) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn book_scope_does_not_infer_global_from_zero_credits() {
+        let mut config = ReadConfig::default();
+        let local = resolve_book_audio_skip_window(Some(&config), 120_000, 10, 15).unwrap();
+        assert_eq!((local.intro_end_ms, local.outro_start_ms), (0, 120_000));
+        config.use_global_audio_skip = true;
+        config.open_credits = 20;
+        let global = resolve_book_audio_skip_window(Some(&config), 120_000, 10, 15).unwrap();
+        assert_eq!(
+            (global.intro_end_ms, global.outro_start_ms),
+            (10_000, 105_000)
+        );
+        assert_eq!(
+            Some(global),
+            resolve_book_audio_skip_window(None, 120_000, 10, 15)
+        );
+    }
 
     // ─── resolve_audio_skip_window 边界测试 ─────────────────
 

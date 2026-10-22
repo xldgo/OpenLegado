@@ -233,3 +233,58 @@ fn database_error_messages_do_not_trigger_repeated_progress_writes() {
         })
         .unwrap();
 }
+
+#[test]
+fn can_update_command_changes_only_policy_on_latest_book() {
+    let engine = EngineContext::in_memory().unwrap();
+    let service = BookshelfService::new(Some(engine.storage().clone()));
+    let book = Book {
+        book_url: "update-policy".into(),
+        name: "原书名".into(),
+        book_type: 8 | 16,
+        can_update: true,
+        ..Default::default()
+    };
+    service.add_book_entity(book.clone()).unwrap();
+    service
+        .update_reading_progress(&book.book_url, 3, 87)
+        .unwrap();
+    service
+        .update_book_entity(Book {
+            name: "最新书名".into(),
+            ..book.clone()
+        })
+        .unwrap();
+    let disabled = service.set_can_update(&book.book_url, false).unwrap();
+    assert!(!disabled.can_update);
+    assert_eq!(disabled.book_type, 8);
+    assert_eq!(disabled.name, "最新书名");
+    assert_eq!(
+        (disabled.dur_chapter_index, disabled.dur_chapter_pos),
+        (3, 87)
+    );
+    assert_eq!(
+        serde_json::to_value(service.get_book(&book.book_url).unwrap().unwrap()).unwrap(),
+        serde_json::to_value(&disabled).unwrap()
+    );
+    let enabled = service.set_can_update(&book.book_url, true).unwrap();
+    assert!(enabled.can_update);
+    assert_eq!(enabled.book_type, 8);
+    // 启用不会清除原有错误位；关闭才清除。
+    service
+        .update_book_entity(Book {
+            can_update: false,
+            book_type: 8 | 16,
+            ..enabled
+        })
+        .unwrap();
+    assert_eq!(
+        service
+            .set_can_update(&book.book_url, true)
+            .unwrap()
+            .book_type,
+        8 | 16
+    );
+    assert!(service.set_can_update("missing-book", false).is_err());
+    assert!(service.get_book("missing-book").unwrap().is_none());
+}

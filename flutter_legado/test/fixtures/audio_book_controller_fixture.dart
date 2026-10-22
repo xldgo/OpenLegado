@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/domain/contracts/audio_book_service.dart';
 import 'package:flutter_legado/src/domain/contracts/audio_playback_settings_repository.dart';
 import 'package:flutter_legado/src/domain/models/audio_media.dart';
+import 'package:flutter_legado/src/domain/models/audio_skip_window.dart';
 import 'package:flutter_legado/src/domain/models/audio_playback_settings.dart';
 import 'package:flutter_legado/src/features/audio/playback/audio_book_controller.dart';
 import 'package:flutter_legado/src/features/audio/playback/audio_book_host.dart';
@@ -32,6 +33,25 @@ class ControllerAudioBookService extends Fake implements AudioBookService {
   final progress = <(String, int), int>{};
   Future<AudioChapterMedia> Function(String, int)? resolveMedia;
   Object? progressError, saveError;
+  final skipRequests =
+      <({ReadConfig? config, int duration, int open, int close})>[];
+  Future<AudioSkipWindow?> Function()? resolveSkip;
+
+  @override
+  Future<AudioSkipWindow?> resolveSkipWindow({
+    required ReadConfig? readConfig,
+    required int durationMs,
+    required int globalOpenCredits,
+    required int globalCloseCredits,
+  }) {
+    skipRequests.add((
+      config: readConfig,
+      duration: durationMs,
+      open: globalOpenCredits,
+      close: globalCloseCredits,
+    ));
+    return resolveSkip?.call() ?? Future.value();
+  }
 
   @override
   Future<AudioChapterMedia> getAudioChapterMedia(String bookUrl, int index) {

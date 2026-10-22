@@ -6,7 +6,8 @@ import '../../../domain/contracts/audio_book_service.dart';
 import '../../../domain/contracts/audio_playback_settings_repository.dart';
 import '../application/audio_state.dart';
 import '../../../services/stream_audio_player.dart';
-import '../../../utils/audio_skip_policy.dart';
+import '../../../domain/models/audio_skip_window.dart';
+import '../../../models/book.dart';
 import 'audio_book_host.dart';
 
 /// 流媒体进度写库的位置增量阈值（毫秒）
@@ -58,7 +59,8 @@ final class AudioBookController {
   bool get _disposed => _released || _host.isDisposed();
   bool _released = false;
   bool _introSkipEvaluated = false;
-  AudioSkipWindow? _skipWindow;
+  ({int duration, ReadConfig? config, int open, int close})? _skipInput;
+  Future<AudioSkipWindow?>? _skipResult;
   int _lastProgressEmitMs = 0;
   String _lastProgressSaveKey = '';
   int _lastProgressSavedPosMs = 0;
@@ -163,7 +165,8 @@ final class AudioBookController {
         );
         if (token != _playToken || _disposed) return;
         _introSkipEvaluated = false;
-        _skipWindow = null;
+        _skipInput = null;
+        _skipResult = null;
         // 恢复进度；从头播放时再套用片头跳过
         var restoredPos = 0;
         try {
@@ -255,11 +258,10 @@ final class AudioBookController {
     if (dur <= 0) return;
     final window = await _resolveSkipWindow(dur);
     if (_stale(token)) return;
-    _skipWindow = window;
+    if (_introSkipEvaluated) return;
     _introSkipEvaluated = true;
-    if (window == null) return;
-    final seekTo = introSeekPosition(currentPositionMs: 0, window: window);
-    if (seekTo == null) return;
+    if (window == null || window.introEndMs <= 0) return;
+    final seekTo = window.introEndMs;
     await _player.seek(Duration(milliseconds: seekTo));
     if (_stale(token)) return;
     _state = _state.copyWith(positionMs: seekTo, durationMs: dur);
@@ -272,16 +274,24 @@ final class AudioBookController {
       return;
     }
     final token = _playToken;
-    if (!_introSkipEvaluated && positionMs <= 0) {
-      await _applyIntroSkipIfNeeded(token);
-    }
-    if (_stale(token)) return;
-    final window = _skipWindow ?? await _resolveSkipWindow(durationMs);
-    if (_stale(token)) return;
-    _skipWindow = window;
-    if (window == null) return;
-    if (shouldSkipOutro(currentPositionMs: positionMs, window: window)) {
-      await _onStreamCompleted();
+    try {
+      if (!_introSkipEvaluated && positionMs <= 0) {
+        await _applyIntroSkipIfNeeded(token);
+      }
+      if (_stale(token)) return;
+      final window = await _resolveSkipWindow(durationMs);
+      if (_stale(token)) return;
+      if (window == null) return;
+      if (positionMs >= window.outroStartMs) {
+        await _onStreamCompleted();
+      }
+    } catch (error) {
+      if (!_stale(token)) {
+        handleError(error, (
+          bookUrl: _state.bookUrl,
+          chapterIndex: _state.currentIndex,
+        ));
+      }
     }
   }
 
@@ -294,25 +304,24 @@ final class AudioBookController {
       globalClose = settings.closeCredits;
     } catch (_) {}
     if (_disposed) return null;
-    final cfg = _host.boundBook()?.readConfig;
-    final cfgMap = cfg == null
-        ? null
-        : <String, dynamic>{
-            'openCredits': cfg.openCredits,
-            'closeCredits': cfg.closeCredits,
-            // freezed 暂无该字段：有书级非零片头/片尾则视为书级
-            'useGlobalAudioSkip': cfg.openCredits == 0 && cfg.closeCredits == 0,
-          };
-    final open = resolveOpenCredits(readConfig: cfgMap, globalOpen: globalOpen);
-    final close = resolveCloseCredits(
-      readConfig: cfgMap,
-      globalClose: globalClose,
+    final config = _host.boundBook()?.readConfig;
+    final input = (
+      duration: durationMs,
+      config: config,
+      open: globalOpen,
+      close: globalClose,
     );
-    return resolveAudioSkipWindow(
-      durationMs: durationMs,
-      introSeconds: open,
-      outroSeconds: close,
-    );
+    // 同一输入的进度回调复用在途/完成结果，None也缓存，避免高频FFI。
+    if (_skipInput != input) {
+      _skipInput = input;
+      _skipResult = _service.resolveSkipWindow(
+        readConfig: config,
+        durationMs: durationMs,
+        globalOpenCredits: globalOpen,
+        globalCloseCredits: globalClose,
+      );
+    }
+    return _skipResult;
   }
 
   /// 流媒体进度写库（A3）

@@ -1,4 +1,8 @@
 import '../fixtures/app_test_api.dart';
+import '../fixtures/bookmark_export_fixture.dart';
+
+import 'package:flutter_legado/src/features/bookmarks/bookmark_export.dart';
+
 import '../mocks/reading_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
 
@@ -234,5 +238,47 @@ void main() {
     expect(find.text('暂无书签可导出'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
+  });
+  testWidgets('目录导出按取消、成功和保存失败分别提示', (tester) async {
+    when(() => repository.getBookmarksByBook('同名书', '作者甲'))
+        .thenAnswer((_) async => [_bookmark]);
+    for (final outcome in ['取消', '成功', '失败']) {
+      final exporter = RecordingBookmarkExporter();
+      final saver = RecordingBookmarkSaver()
+        ..result = outcome == '成功' ? '/saved/bookmark.md' : null
+        ..error = outcome == '失败' ? StateError('磁盘写入失败') : null;
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: mergeTestOverrides([
+            ..._TocApi().overrides,
+            bookmarkRepositoryProvider.overrideWithValue(repository),
+            bookmarkExportProvider.overrideWithValue(
+              BookmarkExport(exporter: exporter, saver: saver),
+            ),
+          ]),
+          child: const MaterialApp(home: TocScreen(book: _book)),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(Tab, '书签'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('更多'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('导出 Markdown'));
+      await tester.pumpAndSettle();
+      expect(saver.calls, 1);
+      if (outcome == '成功') {
+        expect(find.text('导出成功: /saved/bookmark.md'), findsOneWidget);
+      } else if (outcome == '失败') {
+        expect(find.textContaining('导出失败:'), findsOneWidget);
+        expect(find.textContaining('磁盘写入失败'), findsOneWidget);
+      } else {
+        expect(find.textContaining('导出成功:'), findsNothing);
+        expect(find.textContaining('导出失败:'), findsNothing);
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    }
   });
 }

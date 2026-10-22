@@ -1,4 +1,7 @@
 import 'mock_dependencies.dart';
+import '../../domain/contracts/bookmark_export_service.dart';
+import '../../data/services/rust_bookmark_export_service.dart';
+import '../../data/services/mock_bookmark_export_service.dart';
 import '../../data/repositories/rust_config_repository.dart';
 import '../../data/bridge/rust_app_runtime.dart';
 import '../../data/services/rust_reading_content_service.dart';
@@ -417,6 +420,11 @@ final bookSourceDebugServiceProvider = Provider<BookSourceDebugService>(
   (ref) => ref.watch(mockModeProvider)
       ? ref.watch(mockBookSourceDebugServiceProvider)
       : const RustBookSourceDebugService(),
+);
+final bookmarkExportServiceProvider = Provider<BookmarkExportService>(
+  (ref) => ref.watch(mockModeProvider)
+      ? const MockBookmarkExportService()
+      : const RustBookmarkExportService(),
 );
 final bookmarkRepositoryProvider = Provider<BookmarkRepository>(
   (ref) => ref.watch(mockModeProvider)

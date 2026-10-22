@@ -51,7 +51,6 @@ import '../../../services/local_book_store.dart'; // [iOS 视角F C1] 本地书�
 import '../../../services/platform_bridge_service.dart';
 import '../../bookshelf/application/bookshelf_settings_provider.dart';
 import '../../../theme/app_theme.dart';
-import '../../../utils/book_info_utils.dart';
 import '../../../utils/book_open_utils.dart';
 import '../../../utils/meaningful_text_guard.dart'; // [U4 | 台账 0917] 详情页渲染层模板残留守卫
 // [08 元信息区对齐 | 台账 0922 修订] book_progress_utils 导入已随「目录：已读 X%」

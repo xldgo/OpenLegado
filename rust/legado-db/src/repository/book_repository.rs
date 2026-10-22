@@ -68,6 +68,22 @@ impl<'a> BookRepository<'a> {
         Self { conn }
     }
 
+    /// 只保存自动更新策略及对应错误位，其他字段不参与本次写入。
+    pub fn update_can_update(
+        &self,
+        book_url: &str,
+        can_update: bool,
+        book_type: i32,
+    ) -> LegadoResult<()> {
+        self.conn
+            .execute(
+                "UPDATE books SET canUpdate = ?1, type = ?2 WHERE bookUrl = ?3",
+                params![can_update, book_type, book_url],
+            )
+            .map_err(|e| crate::error::database_error("更新书籍自动更新策略失败", e))?;
+        Ok(())
+    }
+
     /// 根据 bookUrl 查询单本书籍
     pub fn find_by_url(&self, book_url: &str) -> LegadoResult<Option<Book>> {
         let mut stmt = self

@@ -1,5 +1,4 @@
 import '../../../app/routing/app_navigation.dart';
-import '../../bookshelf/bookshelf_repositories.dart';
 import '../../../providers/reading_provider.dart';
 import '../../../providers/config_settings_provider.dart';
 import '../../../providers/media_provider.dart';
@@ -1102,14 +1101,13 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
   }
 
   Future<void> _showSkipCreditsSheet() async {
-    final book = widget.book;
+    final book =
+        ref.read(audioNotifierProvider.notifier).currentBook ?? widget.book;
     final settings = ref.read(audioPlaybackSettingsRepositoryProvider);
     final initial = await settings.load();
     var globalOpen = initial.openCredits;
     var globalClose = initial.closeCredits;
-    var useGlobal =
-        (book?.readConfig?.openCredits ?? 0) == 0 &&
-        (book?.readConfig?.closeCredits ?? 0) == 0;
+    var useGlobal = book?.readConfig?.useGlobalAudioSkip ?? true;
     var open = useGlobal ? globalOpen : (book?.readConfig?.openCredits ?? 0);
     var close = useGlobal ? globalClose : (book?.readConfig?.closeCredits ?? 0);
 
@@ -1172,43 +1170,29 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
                   ),
                   FilledButton(
                     onPressed: () async {
-                      if (useGlobal) {
-                        await settings.update(
-                          (s) => s.copyWith(
-                            openCredits: open,
-                            closeCredits: close,
-                          ),
-                        );
-                        if (book != null) {
-                          final cfg = book.readConfig ?? const ReadConfig();
-                          await ref
-                              .read(bookshelfRepositoryProvider)
-                              .updateBook(
-                                book.copyWith(
-                                  readConfig: cfg.copyWith(
-                                    openCredits: 0,
-                                    closeCredits: 0,
-                                  ),
-                                ),
-                              );
+                      try {
+                        if (useGlobal) {
+                          await settings.update(
+                            (s) => s.copyWith(
+                              openCredits: open,
+                              closeCredits: close,
+                            ),
+                          );
                         }
-                      } else if (book != null) {
-                        final cfg = book.readConfig ?? const ReadConfig();
+                        if (!mounted) return;
                         await ref
-                            .read(bookshelfRepositoryProvider)
-                            .updateBook(
-                              book.copyWith(
-                                readConfig: cfg.copyWith(
-                                  openCredits: open,
-                                  closeCredits: close,
-                                ),
-                              ),
+                            .read(audioNotifierProvider.notifier)
+                            .saveSkipCredits(
+                              widget.effectiveBookUrl,
+                              useGlobal: useGlobal,
+                              openCredits: open,
+                              closeCredits: close,
+                              fallback: book,
                             );
-                      }
-                      if (ctx.mounted) Navigator.pop(ctx);
-                      if (mounted) {
-                        ref.read(audioNotifierProvider.notifier).bindBook(book);
-                        _snack('已保存片头片尾设置');
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        if (mounted) _snack('已保存片头片尾设置');
+                      } catch (error) {
+                        if (mounted) _snack('保存片头片尾设置失败：$error');
                       }
                     },
                     child: const Text('保存'),

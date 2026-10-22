@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/domain/models/audio_media.dart';
+import 'package:flutter_legado/src/domain/models/audio_skip_window.dart';
 import 'package:flutter_legado/src/domain/models/audio_playback_settings.dart';
 import 'package:flutter_legado/src/models/book.dart';
 import 'package:flutter_legado/src/features/audio/application/audio_state.dart';
@@ -106,6 +107,8 @@ void main() {
 
   test('近章末恢复从头套用片头跳过，未知时长保留原续听行为', () async {
     fixture.settings.value = const AudioPlaybackSettings(openCredits: 10);
+    fixture.service.resolveSkip = () async =>
+        const AudioSkipWindow(introEndMs: 10000, outroStartMs: 120000);
     fixture.service.progress[('book', 0)] = 119500;
     await fixture.controller.play();
     expect(fixture.player.lastSeekPosition, const Duration(seconds: 10));
@@ -127,7 +130,15 @@ void main() {
       bookUrl: 'book',
       readConfig: ReadConfig(openCredits: 20, closeCredits: 30),
     );
+    fixture.service.resolveSkip = () async =>
+        const AudioSkipWindow(introEndMs: 20000, outroStartMs: 90000);
     await fixture.controller.play();
+    expect(fixture.service.skipRequests.single, (
+      config: fixture.book!.readConfig,
+      duration: 120000,
+      open: 10,
+      close: 15,
+    ));
     expect(fixture.player.lastSeekPosition, const Duration(seconds: 20));
     await fixture.progress(90000);
     expect(fixture.actions, ['下一章']);
@@ -137,7 +148,7 @@ void main() {
     expect(fixture.service.saves.first.position, 90000);
   });
 
-  test('短音频保持最短可听时长，设置加载失败沿用无跳过默认值', () async {
+  test('无跳过窗口时保持播放，设置加载失败沿用零值输入', () async {
     fixture.player.loadedDuration = const Duration(seconds: 10);
     fixture.settings.value = const AudioPlaybackSettings(
       openCredits: 10,
@@ -148,6 +159,7 @@ void main() {
     fixture.settings.loadError = StateError('设置不可用');
     await fixture.controller.play();
     expect(fixture.player.seekCount, 0);
+    expect(fixture.service.skipRequests.last.open, 0);
     expect(fixture.state.state, PlayerState.playing);
   });
 
@@ -281,6 +293,56 @@ void main() {
     expect(fixture.service.saves.map((value) => value.position), [2000, 3000]);
     expect(fixture.player.stopCount, 0);
     expect(fixture.player.disposeCount, 0);
+  });
+
+  test('播放中窗口计算失败进入既有播放错误状态', () async {
+    await fixture.controller.play();
+    fixture.service.resolveSkip = () => Future.error(StateError('窗口计算失败'));
+    await fixture.progress(1000, durationMs: 125000);
+    expect(fixture.state.state, PlayerState.error);
+    expect(fixture.state.errorMessage, contains('窗口计算失败'));
+    expect(fixture.actions, ['暂停']);
+  });
+
+  test('窗口计算等待期间停播，不执行迟到的片头定位', () async {
+    final pending = Completer<AudioSkipWindow?>();
+    fixture.service.resolveSkip = () => pending.future;
+    final playing = fixture.controller.play();
+    await fixture.flush();
+    fixture.stop();
+    pending.complete(
+      const AudioSkipWindow(introEndMs: 10000, outroStartMs: 110000),
+    );
+    await playing;
+    expect(fixture.player.seekCount, 0);
+    expect(fixture.state.state, PlayerState.idle);
+  });
+
+  test('进度采样复用空窗口，时长或配置改变后重新计算', () async {
+    final pending = Completer<AudioSkipWindow?>();
+    fixture.service.resolveSkip = () => pending.future;
+    final playing = fixture.controller.play();
+    await fixture.flush();
+    await fixture.progress(1000);
+    expect(fixture.service.skipRequests, hasLength(1));
+    pending.complete(null);
+    await playing;
+    for (final position in [1000, 2000, 3000]) {
+      await fixture.progress(position);
+    }
+    expect(fixture.service.skipRequests, hasLength(1));
+    await fixture.progress(4000, durationMs: 125000);
+    expect(fixture.service.skipRequests, hasLength(2));
+    fixture.book = const Book(
+      bookUrl: 'book',
+      readConfig: ReadConfig(useGlobalAudioSkip: true),
+    );
+    await fixture.progress(5000, durationMs: 125000);
+    expect(
+      fixture.service.skipRequests.last.config!.useGlobalAudioSkip,
+      isTrue,
+    );
+    expect(fixture.service.skipRequests, hasLength(3));
   });
 
   test('独立实例的进度节流与生命周期互不干扰', () async {

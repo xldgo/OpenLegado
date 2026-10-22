@@ -23,6 +23,9 @@ final class TestBookshelfRepository implements BookshelfRepository {
   @override
   Future<Book> addBook(Book book) => _delegate.addBook(book);
   @override
+  Future<Book> setCanUpdate(String url, bool canUpdate) =>
+      _delegate.setCanUpdate(url, canUpdate);
+  @override
   Future<void> deleteBook(String url) => _delegate.deleteBook(url);
   @override
   Future<void> topBook(String url) => _delegate.topBook(url);
