@@ -46,7 +46,7 @@ impl CloudTtsProvider for VolcengineV3CloudTtsProvider {
             return Err(invalid("火山 V3 API Key 无效"));
         }
         if request.text.trim().is_empty()
-            || request.text.len() > 1024
+            || request.text.len() > VOLCENGINE_MAX_UTF8_BYTES as usize
             || request.voice_id.trim().is_empty()
             || request.voice_id.chars().any(char::is_control)
             || request.voice_id.starts_with("BV")

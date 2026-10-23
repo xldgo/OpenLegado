@@ -51,7 +51,7 @@ impl CloudTtsProvider for OpenAiCloudTtsProvider {
         if request.text.trim().is_empty() {
             return Err(invalid("朗读文本为空"));
         }
-        if request.text.chars().count() > 4096 {
+        if request.text.chars().count() > OPENAI_MAX_CHARACTERS {
             return Err(invalid(
                 "OpenAI 单次朗读文本超过 4096 字符，需由朗读会话分片",
             ));

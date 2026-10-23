@@ -1813,6 +1813,10 @@ Future<TtsSpeakDto> ttsSpeak({
 );
 
 /// 云端元数据，不返回平台凭据。
+Future<CloudTtsSpeechLimitsDto> cloudTtsSpeechLimits({
+  required CloudTtsProviderDto provider,
+}) => RustLib.instance.api.crateFfiFfiCloudTtsSpeechLimits(provider: provider);
+
 Future<List<CloudTtsMetadataDto>> cloudTtsList() =>
     RustLib.instance.api.crateFfiFfiCloudTtsList();
 

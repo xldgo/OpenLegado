@@ -218,7 +218,7 @@ fn compute(
         .count();
     period_books
         .books
-        .sort_by(|a, b| b.read_time_ms.cmp(&a.read_time_ms));
+        .sort_by_key(|book| std::cmp::Reverse(book.read_time_ms));
     let mut chart = Vec::new();
     if period == ReadRecordPeriod::Year {
         for month in 1..=12 {

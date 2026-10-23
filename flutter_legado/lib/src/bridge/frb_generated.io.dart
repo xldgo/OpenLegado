@@ -436,6 +436,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CloudTtsProviderDto dco_decode_cloud_tts_provider_dto(dynamic raw);
 
   @protected
+  CloudTtsSpeechLimitsDto dco_decode_cloud_tts_speech_limits_dto(dynamic raw);
+
+  @protected
   CloudVoiceDescriptorDto dco_decode_cloud_voice_descriptor_dto(dynamic raw);
 
   @protected
@@ -1625,6 +1628,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CloudTtsProviderDto sse_decode_cloud_tts_provider_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CloudTtsSpeechLimitsDto sse_decode_cloud_tts_speech_limits_dto(
     SseDeserializer deserializer,
   );
 
@@ -3182,6 +3190,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_cloud_tts_provider_dto(
     CloudTtsProviderDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_cloud_tts_speech_limits_dto(
+    CloudTtsSpeechLimitsDto self,
     SseSerializer serializer,
   );
 

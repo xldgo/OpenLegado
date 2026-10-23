@@ -17,6 +17,9 @@ import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 import '../helpers/native_ffi.dart';
 
 class _Repository implements CloudTtsRepository {
+  @override
+  Future<CloudTtsSpeechLimits> speechLimits(String provider) =>
+      inner.speechLimits(provider);
   final inner = const RustCloudTtsRepository();
   int lists = 0, gets = 0;
   @override

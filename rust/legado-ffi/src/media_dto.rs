@@ -48,6 +48,19 @@ impl From<CloudTtsProviderDto> for legado_core::cloud_tts::CloudTtsProviderType 
     }
 }
 #[derive(Debug, Clone)]
+pub struct CloudTtsSpeechLimitsDto {
+    pub max_utf16_units: u32,
+    pub max_utf8_bytes: Option<u32>,
+}
+impl From<legado_core::cloud_tts::CloudTtsSpeechLimits> for CloudTtsSpeechLimitsDto {
+    fn from(value: legado_core::cloud_tts::CloudTtsSpeechLimits) -> Self {
+        Self {
+            max_utf16_units: value.max_utf16_units,
+            max_utf8_bytes: value.max_utf8_bytes,
+        }
+    }
+}
+#[derive(Debug, Clone)]
 pub struct HttpTtsConfigDto {
     pub id: i64,
     pub name: String,

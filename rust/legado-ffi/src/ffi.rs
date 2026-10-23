@@ -2477,6 +2477,12 @@ pub mod ffi {
     }
 
     /// 云端元数据，不返回平台凭据。
+    pub fn cloud_tts_speech_limits(
+        provider: crate::media_dto::CloudTtsProviderDto,
+    ) -> crate::media_dto::CloudTtsSpeechLimitsDto {
+        let kind: legado_core::cloud_tts::CloudTtsProviderType = provider.into();
+        kind.speech_limits().into()
+    }
     pub fn cloud_tts_list() -> Result<Vec<CloudTtsMetadataDto>, BridgeError> {
         Ok(crate::api::cloud_tts_api::list()?
             .into_iter()

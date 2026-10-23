@@ -50,7 +50,7 @@ impl CloudTtsProvider for VolcengineCloudTtsProvider {
             return Err(invalid("火山 Access Token 无效"));
         }
         if request.text.trim().is_empty()
-            || request.text.len() > 1024
+            || request.text.len() > VOLCENGINE_MAX_UTF8_BYTES as usize
             || request.voice_id.trim().is_empty()
         {
             return Err(invalid("火山音色或文本无效，每片最多 1024 UTF-8 字节"));

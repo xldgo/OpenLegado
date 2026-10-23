@@ -1,5 +1,12 @@
 import 'dart:convert';
 
+/// 请求分片限制源于Rust；长度单位与原文UTF-16坐标保持明确。— Codex + Bridge
+final class CloudTtsSpeechLimits {
+  const CloudTtsSpeechLimits({required this.maxUtf16Units, this.maxUtf8Bytes});
+  final int maxUtf16Units;
+  final int? maxUtf8Bytes;
+}
+
 /// 云端元数据不包含明文凭据，播放参数源于 optionsJson。— Codex + Bridge
 final class CloudTtsEngine {
   const CloudTtsEngine({
@@ -84,6 +91,8 @@ String cloudTtsId(String selection) {
 }
 
 abstract interface class CloudTtsRepository {
+  Future<CloudTtsSpeechLimits> speechLimits(String provider);
+
   Future<List<CloudTtsEngine>> list();
 
   /// 缺项返回 null；查询或解码错误继续抛出。— Codex + Bridge

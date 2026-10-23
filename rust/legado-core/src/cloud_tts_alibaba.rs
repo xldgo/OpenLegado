@@ -39,7 +39,7 @@ impl CloudTtsProvider for AlibabaCloudTtsProvider {
         {
             return Err(invalid("百炼模型、音色或朗读文本为空"));
         }
-        if request.text.chars().count() > 600 {
+        if request.text.chars().count() > ALIBABA_MAX_CHARACTERS {
             return Err(invalid("百炼单次文本超过 600 字符，需由朗读会话分片"));
         }
         if !request.format.eq_ignore_ascii_case("wav") {
@@ -293,7 +293,11 @@ mod tests {
             assert!(!err.contains("secret"));
         }
         let mut r = request();
-        r.text = "甲".repeat(600);
+        r.text = "甲".repeat(
+            CloudTtsProviderType::AlibabaCloud
+                .speech_limits()
+                .max_utf16_units as usize,
+        );
         assert!(AlibabaCloudTtsProvider.prepare(&engine(), &r).is_ok());
         r.text.push('甲');
         assert!(AlibabaCloudTtsProvider.prepare(&engine(), &r).is_err());

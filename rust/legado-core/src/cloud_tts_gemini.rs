@@ -80,7 +80,7 @@ impl CloudTtsProvider for GeminiCloudTtsProvider {
             return Err(invalid("Gemini 本接口仅支持 3.8 Flash/Flash Lite TTS 模型"));
         }
         if request.text.trim().is_empty()
-            || request.text.encode_utf16().count() > 4000
+            || request.text.encode_utf16().count() > DEFAULT_SPEECH_UTF16_UNITS as usize
             || request.voice_id.trim().is_empty()
             || request.voice_id.chars().any(char::is_control)
         {

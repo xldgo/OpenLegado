@@ -3,7 +3,6 @@ import 'dart:async';
 import '../../../domain/models/read_aloud_content.dart';
 
 import '../../../domain/contracts/cloud_tts_repository.dart';
-import '../../../domain/contracts/cloud_tts_provider.dart';
 import '../../../domain/contracts/cloud_tts_synthesizer.dart';
 import '../../../domain/contracts/tts_cache_repository.dart';
 import '../../../domain/contracts/http_tts_synthesizer.dart';
@@ -152,9 +151,12 @@ final class CloudReadAloudEngine
         return ReadAloudStart.cancelled;
       }
       if (engine == null || !engine.enabled) throw StateError('云端引擎不存在或已停用');
-      final profile = cloudTtsProfile(engine.provider);
-      limit = profile.textLimit;
-      maxUtf8Bytes = profile.maxUtf8Bytes;
+      final limits = await resolveRepository().speechLimits(engine.provider);
+      if (!identical(_parent, session) || !session.isCurrent) {
+        return ReadAloudStart.cancelled;
+      }
+      limit = limits.maxUtf16Units;
+      maxUtf8Bytes = limits.maxUtf8Bytes;
     }
     _parts = splitCloudSpeechText(
       request.text,

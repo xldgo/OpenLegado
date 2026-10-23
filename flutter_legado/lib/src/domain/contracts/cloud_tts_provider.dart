@@ -17,8 +17,6 @@ final class CloudTtsProviderProfile {
     this.supportsInstructions = true,
     this.supportsStyle = true,
     this.localeHint = '留空自动识别，例如 Chinese、English',
-    this.textLimit = 4000,
-    this.maxUtf8Bytes,
     this.requiresAppId = false,
     this.supportsRole = true,
     this.modelLabel,
@@ -40,8 +38,6 @@ final class CloudTtsProviderProfile {
       staticVoiceDescriptors,
       supportsInstructions,
       supportsStyle;
-  final int textLimit;
-  final int? maxUtf8Bytes;
   final bool requiresAppId, supportsRole;
   final String? modelLabel, apiKeyLabel;
   final String styleLabel;
@@ -58,7 +54,6 @@ const cloudTtsProviderProfiles = {
     supportsSourceSpeed: true,
     supportsProsody: true,
     supportsRole: false,
-    maxUtf8Bytes: 1024,
     modelLabel: '资源 ID',
     sourceSpeedRange: (min: 0.5, max: 2.0),
     prosodyRange: (min: 0.5, max: 2.0),
@@ -81,7 +76,6 @@ const cloudTtsProviderProfiles = {
     supportsProsody: true,
     supportsRole: false,
     supportsInstructions: false,
-    maxUtf8Bytes: 1024,
     modelLabel: '业务集群',
     apiKeyLabel: 'Access Token',
     styleLabel: '情感',
@@ -100,7 +94,6 @@ const cloudTtsProviderProfiles = {
     supportsInstructions: false,
     supportsStyle: false,
     localeHint: '留空使用音色默认语言，例如 cmn-CN、en-US',
-    textLimit: 3000,
   ),
   'azure_speech': CloudTtsProviderProfile(
     name: 'Azure Speech',
@@ -129,7 +122,6 @@ const cloudTtsProviderProfiles = {
     voice: 'Cherry',
     formats: ['wav'],
     supportsLocale: true,
-    textLimit: 600,
   ),
   'mimo': CloudTtsProviderProfile(
     name: 'Xiaomi MiMo',

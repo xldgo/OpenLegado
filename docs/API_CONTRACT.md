@@ -3020,6 +3020,19 @@ Depth为0，不拼接remote_dir；账号或密码非空才携带Basic Auth。5�
 
 ### 朗读扩展：缓存、音色目录与云端（§2.42 补充）
 
+**RUST-BOUNDARY-B8A-20261023（实施前冻结）**：新增只读
+`cloudTtsSpeechLimits(provider: CloudTtsProviderDto) → Future<CloudTtsSpeechLimitsDto>`，
+返回 `maxUtf16Units: u32` 和 `maxUtf8Bytes: Option<u32>`，不访问数据库、网络或凭据。
+这是应用请求分片的保守阈值，不把服务端字符计数误称为UTF-16：通用4000 UTF-16，
+百炼600、Polly3000；火山V1/V3另限1024 UTF-8字节。保留现有分片结果。
+Rust统一保存阈值及Provider已有硬限制常量；Flutter CloudTtsRepository新增
+`speechLimits(provider)`，正式播放、队列构建与预合成消费同一查询快照，
+删除Dart配置表的长度/字节限制。Mock使用明确的无FFI夹具，不复制远端校验算法。
+请求等待期间沿用现有会话代次校验；查询失败上抛，不回退另一份限制表。
+不修改分片算法、界面参数、数据库、缓存身份、凭据或播放队列策略，FRB加法式新增1方法。
+
+编写者：Codex + Rust / UI / Bridge｜2026-10-23
+
 按 ID 元数据入口 cloudTtsGet 的可空 DTO 与错误语义见顶部 TTS-LOOKUP-20261020。
 
 Gemini 3.8 与火山 V1/V3 增量见本文顶部 TTS-GEMINI-20261020、TTS-VOLCENGINE-20261020、TTS-VOLCENGINE-V3-20261020；方法签名和元数据表不变。

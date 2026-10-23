@@ -6,6 +6,18 @@ import '../bridge/media_dto_mapping.dart';
 final class RustCloudTtsRepository implements CloudTtsRepository {
   const RustCloudTtsRepository();
   @override
+  Future<CloudTtsSpeechLimits> speechLimits(String provider) async {
+    final value = await rustFuture(
+      () => bridge.cloudTtsSpeechLimits(provider: cloudProviderToDto(provider)),
+      operation: 'cloudTtsSpeechLimits',
+    );
+    return CloudTtsSpeechLimits(
+      maxUtf16Units: value.maxUtf16Units,
+      maxUtf8Bytes: value.maxUtf8Bytes,
+    );
+  }
+
+  @override
   Future<CloudTtsEngine?> get(String id) async {
     final value = await rustFuture(
       () => bridge.cloudTtsGet(id: id),

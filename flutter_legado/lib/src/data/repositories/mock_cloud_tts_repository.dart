@@ -5,6 +5,24 @@ final class MockCloudTtsRepository implements CloudTtsRepository {
   MockCloudTtsRepository({this.onDelete});
   final void Function(String)? onDelete;
   final _engines = <String, CloudTtsEngine>{};
+
+  /// 无原生依赖的请求限制夹具，不实现Provider协议校验。— Codex + Bridge
+  @override
+  Future<CloudTtsSpeechLimits> speechLimits(String provider) async =>
+      switch (provider) {
+        'alibaba_cloud' => const CloudTtsSpeechLimits(maxUtf16Units: 600),
+        'aws_polly' => const CloudTtsSpeechLimits(maxUtf16Units: 3000),
+        'volcengine' || 'volcengine_v3' => const CloudTtsSpeechLimits(
+          maxUtf16Units: 4000,
+          maxUtf8Bytes: 1024,
+        ),
+        'openai_speech' ||
+        'mimo' ||
+        'azure_speech' ||
+        'gemini_tts' => const CloudTtsSpeechLimits(maxUtf16Units: 4000),
+        _ => throw StateError('云端 Provider 未支持'),
+      };
+
   @override
   Future<CloudTtsEngine?> get(String id) async => _engines[id];
   @override

@@ -12,7 +12,6 @@ import '../../../domain/contracts/read_aloud_voice_repository.dart';
 import '../../../domain/contracts/read_aloud_selection_repository.dart';
 import '../../../domain/contracts/read_aloud_settings_repository.dart';
 import '../../../domain/contracts/tts_cache_repository.dart';
-import '../../../domain/contracts/cloud_tts_provider.dart';
 import '../../../domain/models/read_aloud_content.dart';
 import '../../audio/application/audio_state.dart';
 import '../../audio/application/read_aloud_position.dart';
@@ -367,11 +366,14 @@ class ReadAloudController {
         );
       }
       CloudTtsEngine? cloud;
+      CloudTtsSpeechLimits? cloudLimits;
       String? cloudVersion;
       if (isCloudTts(engineUrl)) {
         cloud = await _cloudTts.get(cloudTtsId(engineUrl));
         if (isStale(token, gen)) return;
         if (cloud == null || !cloud.enabled) throw StateError('云端引擎不存在或已停用');
+        cloudLimits = await _cloudTts.speechLimits(cloud.provider);
+        if (isStale(token, gen)) return;
         final voices = await _voices.list();
         if (isStale(token, gen)) return;
         cloudVersion = jsonEncode([
@@ -422,7 +424,7 @@ class ReadAloudController {
       final result =
           playlist?.supportsPlaylist == true && _ttsCache.supportsAudioFiles
           ? await playlist!.speakPlaylist(
-              _filePlaybackCues(request, cloud),
+              _filePlaybackCues(request, cloudLimits),
               session,
               onCueStarted: (cue) {
                 // 暂停续播替换段落会话，队列自身检查新会话；此处只核对书章身份。
@@ -456,7 +458,7 @@ class ReadAloudController {
           _state = _state.copyWith(errorMessage: voice.warning);
         }
         if (cloud != null && _ttsCache.supportsAudioFiles) {
-          _startCloudPrefetch(request, cloud);
+          _startCloudPrefetch(request, cloudLimits!);
         }
         if (source != null) {
           _startHttpPrefetch(request, source.synthesisThreadCount);
@@ -485,7 +487,7 @@ class ReadAloudController {
   /// 原生队列只预先起播当前章；段间停顿不作用于同段内部的长度分片。
   List<ReadAloudPlaylistCue> _filePlaybackCues(
     ReadAloudRequest request,
-    CloudTtsEngine? cloud,
+    CloudTtsSpeechLimits? limits,
   ) {
     final end = _settings.current.paragraphIntervalMs > 0
         ? _paragraphIndex + 1
@@ -495,12 +497,12 @@ class ReadAloudController {
       final unit = _paragraphUnits[index];
       final offset = index == _paragraphIndex ? _paragraphStartOffset : 0;
       final text = unit.text.substring(offset);
-      final List<ReadAloudUnit> parts = cloud == null
+      final List<ReadAloudUnit> parts = limits == null
           ? [(text: text, start: 0)]
           : splitSpeechRequests(
               text,
-              limit: cloudTtsProfile(cloud.provider).textLimit,
-              maxUtf8Bytes: cloudTtsProfile(cloud.provider).maxUtf8Bytes,
+              limit: limits.maxUtf16Units,
+              maxUtf8Bytes: limits.maxUtf8Bytes,
             ).map((part) => (text: part.text, start: part.start)).toList();
       for (final part in parts) {
         cues.add(
@@ -583,7 +585,10 @@ class ReadAloudController {
     await play(startPlaying: playing);
   }
 
-  void _startCloudPrefetch(ReadAloudRequest request, CloudTtsEngine cloud) {
+  void _startCloudPrefetch(
+    ReadAloudRequest request,
+    CloudTtsSpeechLimits limits,
+  ) {
     final prefs = _settings.current;
     _cacheRetentionMinutes = prefs.audioCacheCleanTime;
     if (prefs.audioPreDownloadNum <= 0) {
@@ -608,8 +613,8 @@ class ReadAloudController {
     List<ReadAloudRequest> cues(String text, int chapter, int unit) => [
       for (final part in splitSpeechRequests(
         text,
-        limit: cloudTtsProfile(cloud.provider).textLimit,
-        maxUtf8Bytes: cloudTtsProfile(cloud.provider).maxUtf8Bytes,
+        limit: limits.maxUtf16Units,
+        maxUtf8Bytes: limits.maxUtf8Bytes,
       ))
         request.copyWith(
           text: part.text,
@@ -746,8 +751,10 @@ class ReadAloudController {
       if (isStale(token, gen)) return;
       final request = _cloudEngine.currentRequest;
       if (cloud != null && request != null && _ttsCache.supportsAudioFiles) {
+        final limits = await _cloudTts.speechLimits(cloud.provider);
+        if (isStale(token, gen)) return;
         _synthesisQueue.cancelBackground();
-        _startCloudPrefetch(request, cloud);
+        _startCloudPrefetch(request, limits);
       }
       return;
     }

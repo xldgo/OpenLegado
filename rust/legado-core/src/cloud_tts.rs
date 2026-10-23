@@ -25,6 +25,34 @@ pub enum CloudTtsProviderType {
     #[serde(rename = "volcengine_v3")]
     VolcengineV3,
 }
+// 远端硬限制与应用保守分片阈值分开命名，避免混淆字符数和编码长度。
+pub(crate) const OPENAI_MAX_CHARACTERS: usize = 4096;
+pub(crate) const ALIBABA_MAX_CHARACTERS: usize = 600;
+pub(crate) const POLLY_MAX_CHARACTERS: usize = 3000;
+pub(crate) const DEFAULT_SPEECH_UTF16_UNITS: u32 = 4000;
+pub(crate) const VOLCENGINE_MAX_UTF8_BYTES: u32 = 1024;
+
+/// 应用分片使用的保守上限；不替代Provider对真实请求及服务响应的校验。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CloudTtsSpeechLimits {
+    pub max_utf16_units: u32,
+    pub max_utf8_bytes: Option<u32>,
+}
+impl CloudTtsProviderType {
+    pub fn speech_limits(self) -> CloudTtsSpeechLimits {
+        CloudTtsSpeechLimits {
+            max_utf16_units: match self {
+                Self::AlibabaCloud => ALIBABA_MAX_CHARACTERS as u32,
+                Self::AwsPolly => POLLY_MAX_CHARACTERS as u32,
+                _ => DEFAULT_SPEECH_UTF16_UNITS,
+            },
+            max_utf8_bytes: match self {
+                Self::Volcengine | Self::VolcengineV3 => Some(VOLCENGINE_MAX_UTF8_BYTES),
+                _ => None,
+            },
+        }
+    }
+}
 /// 凭据只用于调用；可导出 JSON 和调试内容始终排除明文。
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -285,4 +313,34 @@ pub fn pcm16_mono_to_wav(pcm: &[u8], sample_rate: u32) -> LegadoResult<Vec<u8>> 
     result.extend_from_slice(&size.to_le_bytes());
     result.extend_from_slice(pcm);
     Ok(result)
+}
+
+#[cfg(test)]
+mod speech_limits_tests {
+    use super::*;
+
+    #[test]
+    fn advertised_byte_limit_matches_real_provider_request_validation() {
+        let kind = CloudTtsProviderType::Volcengine;
+        let limits = kind.speech_limits();
+        let engine = CloudTtsEngine {
+            id: "fixture".into(),
+            provider: kind,
+            api_key: "token-fixture".into(),
+            app_id: "app-fixture".into(),
+            ..Default::default()
+        };
+        let bytes = limits.max_utf8_bytes.unwrap() as usize;
+        // 用多字节文本填满边界，不能以UTF-16计数替代字节数。
+        let mut request = CloudTtsSynthesisRequest {
+            text: format!("{}{}", "甲".repeat(bytes / 3), "a".repeat(bytes % 3)),
+            voice_id: "BV001_streaming".into(),
+            ..Default::default()
+        };
+        assert!(request.text.encode_utf16().count() < limits.max_utf16_units as usize);
+        let provider = cloud_tts_provider(kind);
+        assert!(provider.prepare(&engine, &request).is_ok());
+        request.text.push('a');
+        assert!(provider.prepare(&engine, &request).is_err());
+    }
 }

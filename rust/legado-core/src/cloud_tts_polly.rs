@@ -224,7 +224,7 @@ impl CloudTtsProvider for AwsPollyCloudTtsProvider {
     ) -> LegadoResult<PreparedCloudSpeech> {
         let url = format!("{}/v1/speech", endpoint(engine)?);
         if request.text.trim().is_empty()
-            || request.text.chars().count() > 3000
+            || request.text.chars().count() > POLLY_MAX_CHARACTERS
             || request.voice_id.trim().is_empty()
         {
             return Err(invalid("AWS 音色或文本无效，正文每片最多 3000 字符"));

@@ -196,6 +196,27 @@ enum CloudTtsProviderDto {
   volcengineV3,
 }
 
+class CloudTtsSpeechLimitsDto {
+  final int maxUtf16Units;
+  final int? maxUtf8Bytes;
+
+  const CloudTtsSpeechLimitsDto({
+    required this.maxUtf16Units,
+    this.maxUtf8Bytes,
+  });
+
+  @override
+  int get hashCode => maxUtf16Units.hashCode ^ maxUtf8Bytes.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CloudTtsSpeechLimitsDto &&
+          runtimeType == other.runtimeType &&
+          maxUtf16Units == other.maxUtf16Units &&
+          maxUtf8Bytes == other.maxUtf8Bytes;
+}
+
 class CloudVoiceDescriptorDto {
   final String id;
   final String displayName;

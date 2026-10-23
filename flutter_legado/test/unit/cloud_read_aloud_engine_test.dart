@@ -33,6 +33,11 @@ class _Synth implements CloudTtsSynthesizer {
 }
 
 class _DelayedRepository implements CloudTtsRepository {
+  Completer<CloudTtsSpeechLimits>? limits;
+  @override
+  Future<CloudTtsSpeechLimits> speechLimits(String provider) =>
+      limits?.future ?? MockCloudTtsRepository().speechLimits(provider);
+
   @override
   Future<CloudTtsEngine?> get(String id) async =>
       (await pending.future).where((e) => e.id == id).firstOrNull;
@@ -249,8 +254,52 @@ void main() {
     expect(finished, 1);
     await engine.stop();
   });
-  test('等待服务商配置时停止，迟到结果不启动合成或播放器', () async {
-    final repo = _DelayedRepository();
+  for (final waitForLimits in [false, true]) {
+    test('等待${waitForLimits ? '分片限制' : '服务商配置'}时停止，迟到结果不启动播放', () async {
+      final repo = _DelayedRepository();
+      if (waitForLimits) repo.limits = Completer<CloudTtsSpeechLimits>();
+      final synth = _Synth();
+      final player = FakeStreamAudioPlayer();
+      final engine = CloudReadAloudEngine(
+        synthesizer: () => synth,
+        player: player,
+        cache: () => const MockTtsCacheRepository(),
+        repository: () => repo,
+      );
+      final pending = engine.speak(
+        const ReadAloudRequest(text: '原文', engineUrl: 'cloud://ali'),
+        ReadAloudSession(
+          isCurrent: () => true,
+          onCompleted: () => fail('停止后不应完成'),
+          onProgress: (_) {},
+          onError: (e) => fail('$e'),
+        ),
+      );
+      const engines = [
+        CloudTtsEngine(id: 'ali', name: '百炼', provider: 'alibaba_cloud'),
+      ];
+      if (waitForLimits) {
+        repo.pending.complete(engines);
+        await flush();
+      }
+      await engine.stop();
+      if (waitForLimits) {
+        repo.limits!.complete(const CloudTtsSpeechLimits(maxUtf16Units: 600));
+      } else {
+        repo.pending.complete(engines);
+      }
+      expect(await pending, ReadAloudStart.cancelled);
+      expect(synth.texts, isEmpty);
+      expect(player.playedLocalFiles, isEmpty);
+      expect(engine.canResume, false);
+    });
+  }
+  test('限制查询失败上抛，不回退合成', () async {
+    final repo = _DelayedRepository()
+      ..limits = Completer<CloudTtsSpeechLimits>();
+    repo.pending.complete([
+      const CloudTtsEngine(id: 'ali', name: '百炼', provider: 'alibaba_cloud'),
+    ]);
     final synth = _Synth();
     final player = FakeStreamAudioPlayer();
     final engine = CloudReadAloudEngine(
@@ -259,23 +308,20 @@ void main() {
       cache: () => const MockTtsCacheRepository(),
       repository: () => repo,
     );
-    final session = ReadAloudSession(
-      isCurrent: () => true,
-      onCompleted: () => fail('停止后不应完成'),
-      onProgress: (_) {},
-      onError: (e) => fail('$e'),
-    );
-    final pending = engine.speak(
+    final result = engine.speak(
       const ReadAloudRequest(text: '原文', engineUrl: 'cloud://ali'),
-      session,
+      ReadAloudSession(
+        isCurrent: () => true,
+        onCompleted: () {},
+        onProgress: (_) {},
+        onError: (_) {},
+      ),
     );
-    await engine.stop();
-    repo.pending.complete([
-      const CloudTtsEngine(id: 'ali', name: '百炼', provider: 'alibaba_cloud'),
-    ]);
-    expect(await pending, ReadAloudStart.cancelled);
+    final failed = expectLater(result, throwsStateError);
+    repo.limits!.completeError(StateError('查询失败'));
+    await failed;
     expect(synth.texts, isEmpty);
     expect(player.playedLocalFiles, isEmpty);
-    expect(engine.canResume, false);
+    await engine.stop();
   });
 }
