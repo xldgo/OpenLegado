@@ -4,6 +4,7 @@ import 'package:flutter_legado/src/data/repositories/rust_read_record_repository
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:flutter_rust_bridge/flutter_rust_bridge.dart' show Int64List;
 
 class _Bridge extends Mock implements RustLibApi {}
 
@@ -16,6 +17,39 @@ void main() {
     RustLib.initMock(api: bridge);
   });
   tearDown(RustLib.dispose);
+
+  test('时间线只传查询词，保留Rust原始ID和上下文，查询失败上抛', () async {
+    when(() => bridge.crateFfiFfiReadRecordTimeline(query: '作者')).thenAnswer(
+      (_) async => [
+        ReadRecordTimelineDto(
+          bookName: '书',
+          author: '作者',
+          date: '2026-10-13',
+          bookUrl: 'u',
+          startTime: 1000,
+          endTime: 7000,
+          chapterIndex: 2,
+          sessionIds: Int64List.fromList([9007199254740993, 2]),
+        ),
+      ],
+    );
+    final row = (await repository.getReadRecordTimeline('作者')).single;
+    expect(
+      (row.bookName, row.author, row.date, row.bookUrl, row.chapterIndex),
+      ('书', '作者', '2026-10-13', 'u', 2),
+    );
+    expect(row.sessionIds, [9007199254740993, 2]);
+    expect(row.durationMs, 6000);
+    final failure = StateError('查询失败');
+    when(() => bridge.crateFfiFfiReadRecordTimeline(query: '作者'))
+        .thenAnswer((_) async => throw failure);
+    await expectLater(
+      repository.getReadRecordTimeline('作者'),
+      throwsA(same(failure)),
+    );
+    verify(() => bridge.crateFfiFfiReadRecordTimeline(query: '作者')).called(2);
+    verifyNoMoreInteractions(bridge);
+  });
 
   test('类型化记录保留毫秒和原字段，不缓存查询结果', () async {
     when(() => bridge.crateFfiFfiReadRecordList()).thenAnswer(

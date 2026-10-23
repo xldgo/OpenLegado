@@ -21,19 +21,6 @@ class ReadRecordListEntry {
     this.chapterIndex = 0,
     this.sessionIds = const [],
   });
-  ReadRecordListEntry merge(ReadRecordListEntry next) => ReadRecordListEntry(
-    bookName: bookName,
-    author: author,
-    key: key,
-    date: date,
-    startTime: startTime,
-    lastRead: lastRead > next.lastRead ? lastRead : next.lastRead,
-    durationMs:
-        (lastRead > next.lastRead ? lastRead : next.lastRead) - startTime,
-    bookUrl: bookUrl,
-    chapterIndex: chapterIndex,
-    sessionIds: [...sessionIds, ...next.sessionIds],
-  );
 }
 
 class ReadRecordListCalculator {
@@ -77,7 +64,6 @@ class ReadRecordListCalculator {
     required ReadRecordDisplayMode mode,
     required List<ReadRecord> records,
     required List<ReadRecordDetail> details,
-    List<ReadRecordSession> sessions = const [],
     String query = '',
   }) {
     final needle = query.trim().toLowerCase();
@@ -85,53 +71,6 @@ class ReadRecordListCalculator {
         needle.isEmpty ||
         name.toLowerCase().contains(needle) ||
         author.toLowerCase().contains(needle);
-    if (mode == ReadRecordDisplayMode.timeline) {
-      final ordered =
-          sessions
-              .where((s) => s.durationMs > 0 && matches(s.bookName, s.author))
-              .toList()
-            ..sort((a, b) => a.startTime.compareTo(b.startTime));
-      final merged = <ReadRecordListEntry>[];
-      final seen = <Object>{};
-      for (final session in ordered) {
-        if (!seen.add((
-          session.bookName,
-          session.author,
-          session.bookUrl,
-          session.startTime,
-          session.endTime,
-          session.chapterIndex,
-        ))) {
-          continue;
-        }
-        final date = ReadRecordOverviewCalculator.dateKey(
-          DateTime.fromMillisecondsSinceEpoch(session.startTime),
-        );
-        final row = ReadRecordListEntry(
-          bookName: session.bookName,
-          author: session.author,
-          key: 'session:${session.id}',
-          date: date,
-          durationMs: session.durationMs,
-          lastRead: session.endTime,
-          startTime: session.startTime,
-          bookUrl: session.bookUrl,
-          chapterIndex: session.chapterIndex,
-          sessionIds: [session.id],
-        );
-        final last = merged.lastOrNull;
-        if (last != null &&
-            last.date == date &&
-            last.bookName == row.bookName &&
-            last.author == row.author &&
-            row.startTime - last.lastRead <= 20 * 60 * 1000) {
-          merged[merged.length - 1] = last.merge(row);
-        } else {
-          merged.add(row);
-        }
-      }
-      return merged.reversed.toList();
-    }
     final groups = <(String, String, String?), ReadRecordListEntry>{};
     for (final detail in details) {
       if (detail.readTime <= 0 ||

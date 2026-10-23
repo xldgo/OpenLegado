@@ -9,32 +9,59 @@ import 'read_record_dataset.dart';
 import 'read_record_notifier.dart';
 import 'read_record_state.dart';
 import 'read_record_list_calculator.dart';
+import 'read_record_repository_provider.dart';
+import '../../domain/contracts/read_record_changes.dart';
+import '../../domain/models/read_record_timeline_entry.dart';
+
+/// 直接查询Rust时间线，成功写入后失效；Riverpod负责查询参数与实例的异步归属。
+final readRecordTimelineProvider = FutureProvider.autoDispose
+    .family<List<ReadRecordTimelineEntry>, String>((ref, query) {
+      final repository = ref.watch(readRecordRepositoryProvider);
+      if (repository is ReadRecordChangeSource) {
+        final subscription = (repository as ReadRecordChangeSource).changes
+            .listen((_) {
+              if (ref.mounted) ref.invalidateSelf();
+            });
+        ref.onDispose(subscription.cancel);
+      }
+      return repository.getReadRecordTimeline(query);
+    });
 
 final readRecordListProvider =
     Provider.autoDispose<AsyncValue<List<ReadRecordListEntry>>>((ref) {
       final controls = ref.watch(readRecordNotifierProvider);
-      final dataset = ref.watch(readRecordDatasetProvider);
       if (controls.displayMode == ReadRecordDisplayMode.timeline) {
         return ref
-            .watch(readRecordSessionsProvider)
+            .watch(readRecordTimelineProvider(controls.searchQuery))
             .whenData(
-              (sessions) => ReadRecordListCalculator.build(
-                mode: controls.displayMode,
-                records: const [],
-                details: const [],
-                sessions: sessions,
-                query: controls.searchQuery,
-              ),
+              (rows) => rows
+                  .map(
+                    (row) => ReadRecordListEntry(
+                      bookName: row.bookName,
+                      author: row.author,
+                      key: 'session:${row.sessionIds.first}',
+                      date: row.date,
+                      durationMs: row.durationMs,
+                      lastRead: row.endTime,
+                      startTime: row.startTime,
+                      bookUrl: row.bookUrl,
+                      chapterIndex: row.chapterIndex,
+                      sessionIds: row.sessionIds,
+                    ),
+                  )
+                  .toList(),
             );
       }
-      return dataset.whenData(
-        (data) => ReadRecordListCalculator.build(
-          mode: controls.displayMode,
-          records: data.records,
-          details: data.details,
-          query: controls.searchQuery,
-        ),
-      );
+      return ref
+          .watch(readRecordDatasetProvider)
+          .whenData(
+            (data) => ReadRecordListCalculator.build(
+              mode: controls.displayMode,
+              records: data.records,
+              details: data.details,
+              query: controls.searchQuery,
+            ),
+          );
     });
 
 final _readRecordChaptersProvider = FutureProvider.autoDispose

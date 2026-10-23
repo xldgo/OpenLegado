@@ -704,6 +704,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<ReadRecordTimelineDto> dco_decode_list_read_record_timeline_dto(
+    dynamic raw,
+  );
+
+  @protected
   List<(int, int)> dco_decode_list_record_i_32_i_32(dynamic raw);
 
   @protected
@@ -919,6 +924,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ReadRecordSessionDto dco_decode_read_record_session_dto(dynamic raw);
+
+  @protected
+  ReadRecordTimelineDto dco_decode_read_record_timeline_dto(dynamic raw);
 
   @protected
   (int, int) dco_decode_record_i_32_i_32(dynamic raw);
@@ -1946,6 +1954,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<ReadRecordTimelineDto> sse_decode_list_read_record_timeline_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<(int, int)> sse_decode_list_record_i_32_i_32(
     SseDeserializer deserializer,
   );
@@ -2245,6 +2258,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ReadRecordSessionDto sse_decode_read_record_session_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReadRecordTimelineDto sse_decode_read_record_timeline_dto(
     SseDeserializer deserializer,
   );
 
@@ -3556,6 +3574,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_read_record_timeline_dto(
+    List<ReadRecordTimelineDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_record_i_32_i_32(
     List<(int, int)> self,
     SseSerializer serializer,
@@ -3918,6 +3942,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_read_record_session_dto(
     ReadRecordSessionDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_read_record_timeline_dto(
+    ReadRecordTimelineDto self,
     SseSerializer serializer,
   );
 

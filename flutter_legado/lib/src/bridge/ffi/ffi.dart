@@ -1347,6 +1347,11 @@ Future<PlatformInt64> readRecordRecordTime({
   chapterIndex: chapterIndex,
 );
 
+/// 只读查询已归并的阅读时间线，保留原始会话ID用于删除。
+Future<List<ReadRecordTimelineDto>> readRecordTimeline({
+  required String query,
+}) => RustLib.instance.api.crateFfiFfiReadRecordTimeline(query: query);
+
 /// 查询真实阅读会话（毫秒时间戳与章节序号）。
 Future<List<ReadRecordSessionDto>> readRecordSessionList() =>
     RustLib.instance.api.crateFfiFfiReadRecordSessionList();

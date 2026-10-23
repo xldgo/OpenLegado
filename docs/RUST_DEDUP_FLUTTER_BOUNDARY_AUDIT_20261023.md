@@ -191,4 +191,24 @@ Depth0 PROPFIND。成功200/207、认证401/403、其他HTTP、超时、网络�
 不修改系统代理、生产客户端或父进程环境。绑定使用固定2.13.0生成器在隔离目录产出，
 依赖锁文件保持。定向验证证据及未测边界统一回填Active计划，不另立进度源。
 
+## 9. B7a 时间线归并边界
+
+参考本地上游ReadRecordViewModel.kt的timelineMap和mergeContinuousSessions，
+及ReadRecordSession.kt的20分钟间隔常量。沿用当前产品的开始日期分组、
+书名/作者搜索、同书同作者相邻归并、首项URL/章节和最大结束时间，不改变计时数据。
+上游合并末尾直接取current.endTime，现有Flutter采用最大值，本批保留现有逻辑。
+
+Rust的[时间线查询](../rust/legado-db/src/repository/read_record_timeline.rs)从数据库
+读取原始会话，返回带date与sessionIds的投影；[页面Provider](../flutter_legado/lib/src/features/read_records/read_record_list_provider.dart)
+不再接收原始会话做归并。原始会话接口继续供小时统计等消费者使用，日期卡片、
+章节名读取、文本格式、选择和导航留Flutter。周期统计及其他列表视图本批未迁移。
+
+原Dart去重忽略deviceId且直接丢弃重复项，使展示项只携带一个副本ID；DB允许不同
+设备的相同区间并存。新查询只折叠展示，收集全部原始ID，避免删除后残留副本；
+计时扣减继续走原始会话事务，归并跨度（含中间间隔）不作为实际阅读增量。
+
+算法用例归Rust，Dart仅测试桥接、通知/仓储替换、错误和删除交互；Mock默认明确
+不支持新查询，页面测试注入类型化时间线夹具，不复制Rust归并算法。验证证据与
+完成范围见Active计划。没有DB迁移、新依赖、原生库运行或性能收益结论。
+
 编写者：Codex + Rust / UI｜2026-10-23

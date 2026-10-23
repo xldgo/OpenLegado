@@ -9,6 +9,7 @@ import '../../domain/contracts/read_record_changes.dart';
 import '../../models/misc.dart';
 import '../../models/read_record_detail.dart';
 import '../../models/read_record_session.dart';
+import '../../domain/models/read_record_timeline_entry.dart';
 import '../bridge/reading_dto_mapping.dart';
 
 /// 直接调用已有 FRB；复用应用已初始化的运行时和数据库。— Codex + Bridge
@@ -119,6 +120,30 @@ final class RustReadRecordRepository
       operation: 'readRecordSessionList',
     )).map(readRecordSessionFromDto).toList();
   }
+
+  @override
+  Future<List<ReadRecordTimelineEntry>> getReadRecordTimeline(
+    String query,
+  ) async =>
+      (await rustFuture(
+            () => bridge.readRecordTimeline(query: query),
+            operation: 'readRecordTimeline',
+          ))
+          .map(
+            (row) => ReadRecordTimelineEntry(
+              bookName: row.bookName,
+              author: row.author,
+              date: row.date,
+              bookUrl: row.bookUrl,
+              startTime: row.startTime,
+              endTime: row.endTime,
+              chapterIndex: row.chapterIndex,
+              sessionIds: List.unmodifiable(
+                row.sessionIds.map((id) => id.toInt()),
+              ),
+            ),
+          )
+          .toList();
 
   @override
   Future<void> deleteReadRecordDetail(

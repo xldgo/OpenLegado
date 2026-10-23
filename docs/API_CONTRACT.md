@@ -2387,7 +2387,27 @@ Rust导出、参数、返回和数据库格式保持。
 | `restore(String backupPath)` | backupPath | `Future<void>` | 恢复数据。BackupService从RestoreIgnoreRepository读取策略并预过滤本地书，先调用本方法恢复业务表，成功后由BackupPreferencesService按忽略规则应用appPrefs并检查写入结果；部分失败独立反馈，应用层集中刷新配置。Rust签名不变 |
 | `importOldData(String dirPath)` | dirPath：含旧版备份文件的目录 | `Future<OldDataImportResult>` | **P2-4（2026-08-13）**：对齐原版 `ImportOldData.importUri`。读取目录下 `myBookShelf.json` / `myBookSource.json` / `myBookReplaceRule.json`（缺文件不致命，计入 `messages`）；书架字段映射（`noteUrl`→`bookUrl`、`bookInfoBean.*` 等）；书源经 `toNewRule`/`toNewUrl`/`toNewUrls`/`uaToHeader` 迁到 3.x 规则结构；替换规则兼容新格式或旧字段（`regex`/`replaceSummary`/`useTo`/`enable`/`serialNumber`）。已存在 `bookUrl` 的书跳过。返回结构化统计：books / bookSources / replaceRules / messages |
 
-### 2.12 阅读记录（10 个方法）
+### 2.12 阅读记录（11 个方法）
+
+**时间线归并下沉（RUST-BOUNDARY B7a，2026-10-23，实施前冻结）**：新增只读FRB
+`read_record_timeline(query: String) -> Result<Vec<ReadRecordTimelineDto>, BridgeError>`，
+领域入口`ReadRecordRepository.getReadRecordTimeline(String query)`返回归并后的时间线。
+Rust从现有数据库读取原始会话，不从Flutter回传全量历史；不修改记录或累计统计。
+过滤无效时段，书名/作者按trim后关键词忽略大小写包含匹配，空关键词不过滤；
+按startTime/id升序处理，按系统本地时区的开始日期归组，不用固定24小时推导日期。
+同日期、同书名和作者的相邻会话，间隔不超过20分钟时合并，重叠区间取最大终点；
+保留最早项的bookUrl/chapterIndex和startTime，最终按归并项开始时间倒序输出。
+重复身份为bookName/author/bookUrl/startTime/endTime/chapterIndex（与现有Dart一致，
+不含deviceId），重复仅折叠展示，所有原始id仍保留，保证删除整项不会遗漏重复副本。
+DTO字段：bookName、author、date、本项bookUrl、startTime、endTime、chapterIndex、
+sessionIds（i64列表）；展示跨度=endTime-startTime，含间隔，不用于累计/每日时长。
+既有原始会话查询和删除接口保留；删除消费归并项全部sessionIds，仍由原事务扣减。
+Flutter保留日期分组、格式化、章节名查询、选择和导航；时间线Provider订阅已存在的
+成功写入通知并跟随仓储替换，错误上抛，异步结果归属由Riverpod管理，不另设快照锁。
+Mock不联网、不调用FFI或重写归并算法：默认明确不支持，测试通过时间线夹具覆写能力。
+本批新增1个FRB方法，生成绑定；无DB迁移、写入语义、周期统计或UI样式变更。
+
+编写者：Codex + Rust / UI / Bridge｜2026-10-23
 
 > **实施补充（2026-10-13）**：保留现有按书名累计的 `readRecord` 入口；明细严格按
 > `(deviceId, bookName, bookAuthor, date)` 保存。ReadRecord 新增真实 `author` 及仅用于写入的
@@ -2434,14 +2454,15 @@ Rust导出、参数、返回和数据库格式保持。
 > `readRecordSession`；重复累计不新增会话。原有记录不补造会话。
 > 会话字段：id、deviceId、bookName、author、bookUrl、startTime、endTime、chapterIndex；
 > 时间戳为本地展示用的UTC毫秒，章节序号从0开始，时长=endTime-startTime。
-> 查询返回原始会话，UI按开始日期分组，以20分钟间隔规则合并展示，不改变存储与统计时长。
+> 原始会话查询仍保留；B7a后时间线归并由Rust查询负责，UI消费结果，不改变存储与统计时长。
 > `deleteReadRecord` 带author时只删除该作者的累计/每日/会话，省略时保留按书名全部删除语义。
 > 删除每日明细同步裁剪对应会话的当日区间；删除指定会话同步扣减每日与累计，清空覆盖四表。
 > 修改成功后广播既有变更通知，查询/删除错误直接返回，不作静默降级。
 
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
-| `getReadRecordSessions()` | 无 | `Future<List<ReadRecordSession>>` | 查询真实会话，按startTime升序，重复身份区间去重 |
+| `getReadRecordSessions()` | 无 | `Future<List<ReadRecordSession>>` | 查询原始真实会话，按startTime/id升序，保留设备副本供统计 |
+| `getReadRecordTimeline(String query)` | 搜索词 | `Future<List<ReadRecordTimelineEntry>>` | Rust只读时间线投影，保留全部原始ID及本地日期，详见B7a冻结 |
 | `deleteReadRecordDetail(String bookName, String author, String date)` | 名称、作者、本地YYYY-MM-DD | `Future<void>` | 删除该日单书明细，联动累计/日总数/会话区间 |
 | `deleteReadRecordSessions(List<int> ids)` | 原始会话ID列表 | `Future<void>` | 原子删除选定会话，重复/不存在ID不扣减；同步每日与累计 |
 

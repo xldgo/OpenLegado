@@ -107,6 +107,18 @@ pub fn get_read_record_sessions() -> LegadoResult<Vec<legado_db::ReadRecordSessi
     with_database(|db| ReadRecordRepository::new(db.connection()).list_read_sessions())
 }
 
+pub fn get_read_record_timeline(
+    query: &str,
+) -> LegadoResult<Vec<crate::transfer_dto::ReadRecordTimelineDto>> {
+    with_database(|db| {
+        Ok(ReadRecordRepository::new(db.connection())
+            .list_read_timeline(query)?
+            .into_iter()
+            .map(Into::into)
+            .collect())
+    })
+}
+
 pub fn delete_read_record_detail(name: &str, author: &str, date: &str) -> LegadoResult<bool> {
     with_database(|db| {
         ReadRecordRepository::new(db.connection()).delete_read_detail(name, author, date)

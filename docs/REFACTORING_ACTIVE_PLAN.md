@@ -29,6 +29,10 @@
 - B6范围：用户同意继续清理；基线837fdf86a，当前分支feature/rust-boundary-audit。删除无仓库生产消费者的core/audio_preload及专属测试；旧模板式合成的响应/结果、URL替换、缓存键、URL编码和speak_text连同专属测试移除。正式SpeakCache/MIME工具归位speak_cache，不保留转发模块，更新HTTP/云TTS两处消费者；混入旧测试的自动任务ID向量移回已有auto_task测试。FRB/REST及DB契约、缓存目录/文件名/租约/清理策略均不变，应用版本保持。
 - B6结果：保留的缓存/MIME生产实现与原文件对应片段核对相同；原四项缓存/MIME及自动任务ID一项共5项通过，正式Fetcher HTTP/云TTS QuickJS两模块33项通过，覆盖真实本地请求、缓存命中、格式、原子发布、并发、取消与租约保护。移除旧预加载15项和模板管线11项测试，没有新增测试或复制业务断言。legado-ffi QuickJS cargo check及diff检查通过，证据build/boundary-b6-{core,fetcher,check}.log。
 - B6复核/边界：全仓生产引用与crate出口核对，旧类型仅限其原模块，Server同名AudioChapterInfo独立保留；本批删除Rust crate旧出口、迁移缓存模块路径，不宣称外部Rust消费者兼容。正式tts_speak FFI/API同名入口保留，生成绑定与方法数未变；未重编原生库或运行Flutter/设备/全量验证，不作运行时性能收益声明。单代理复核，代码与定向验证完成，本地提交，不推送或触发CI、不安装。
+- B7a范围：用户同意继续，基线ca0f0ea9c，当前worktree/分支保持。先迁移时间线去重和20分钟归并，周期统计后续另批；按API_CONTRACT §2.12先冻结只读查询及投影，Rust直接读取原会话、按本地日期归并，保留全部原始ID和首项开读上下文，不更改累计/每日/删除事务。Flutter保留展示与导航、原始会话仍供统计；Mock用明确能力缺省及测试夹具，不另立算法。版本不变，不推送、不安装、不使用子代理。
+- B7a实现：DB只读list_read_timeline由startTime/id排序、过滤后归并，新增read_record_timeline一项FRB及只读DTO；Dart删除时间线分支和merge方法，Provider直接查投影并订阅成功变更/跟随仓储替换，下拉刷新包含当前时间线查询。重复身份折叠展示时收集全部设备原始ID，修正旧Dart丢掉重复ID后删除不完整的问题；归并跨度保留现有含间隔语义，不写回统计。首项URL/章节、本地开始日期和最大结束时间保持，20分钟规则与本地上游核对；不声称逐行照搬上游所有边缘行为。
+- B7a验证：DB归并及既有会话事务8项通过，覆盖20分钟临界、跨日/时区、作者、搜索过滤、重复副本ID、只读查询和删除不残留。Dart四文件共28项通过（复验不重复计数），覆盖桥接查询及i64精度、失败上抛、仓储替换/通知刷新、全部ID删除与原三视图。原Dart两项归并算法用例删除，由Rust组合场景承接，不增加样式断言。初次3项失败为i64列表适配及旧界面夹具未更新，修正toInt映射和显式时间线夹具后两文件25项复验通过。
+- B7a证据/限制：build/boundary-b7a-{db,db-timeline-final,flutter,flutter-final,analyze,analyze-final,architecture,codegen,check}.log；FRB2.13隔离生成、QuickJS FFI编译、目标分析、架构门禁及diff检查通过，依赖/锁文件未变。单代理复核契约与调用链，无独立子代理审查；未重编/加载新原生库、未做设备或全量/性能验证，Mock默认明确不支持新时间线能力，不伪造归并。此处只完成B7a，累计列表、排行及日历周期统计仍待下一批；本批独立本地提交。
 - 验证：仅运行各批直接受影响的用例，证据和提交在本条逐批回填；无独立代理审查或设备验证不宣称已通过。
 
 编写者：Codex + Rust｜2026-10-23

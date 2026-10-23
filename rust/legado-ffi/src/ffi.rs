@@ -158,8 +158,8 @@ pub mod ffi {
         AnnotatedCandidateDto, BookDto, BookGroupDto, BookHighlightDto, BookSourceDto, BookmarkDto,
         ChangeSourceBatchDto, ChapterListDto, CheckProgressDto, CheckResultDto, HighlightRuleDto,
         ReadConfigDto, ReadRecordDailyDto, ReadRecordDetailDto, ReadRecordDto,
-        ReadRecordSessionDto, SearchBookDto, SearchSourceBatchDto, SourceCheckConfigDto,
-        SourceSwitchResponseDto, SwitchSearchOptionsDto, TextResponseDto,
+        ReadRecordSessionDto, ReadRecordTimelineDto, SearchBookDto, SearchSourceBatchDto,
+        SourceCheckConfigDto, SourceSwitchResponseDto, SwitchSearchOptionsDto, TextResponseDto,
     };
 
     // ─── 基础 ─────────────────────────────────────────────────
@@ -1858,6 +1858,13 @@ pub mod ffi {
             chapter_index,
         )?;
         Ok(rt)
+    }
+
+    /// 只读查询已归并的阅读时间线，保留原始会话ID用于删除。
+    pub fn read_record_timeline(query: String) -> Result<Vec<ReadRecordTimelineDto>, BridgeError> {
+        Ok(crate::api::read_record_api::get_read_record_timeline(
+            &query,
+        )?)
     }
 
     /// 查询真实阅读会话（毫秒时间戳与章节序号）。

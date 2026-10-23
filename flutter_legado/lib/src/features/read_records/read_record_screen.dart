@@ -24,7 +24,7 @@ import 'read_record_dataset.dart';
 import 'read_record_list_provider.dart';
 import 'read_record_list_calculator.dart';
 
-/// 对齐上游阅读记录三视图；统计/合并位于计算器，持久化位于Repository。— Codex + UI
+/// 对齐上游阅读记录三视图；统计计算器与Rust时间线查询分离，持久化位于Repository。— Codex + UI
 class ReadRecordScreen extends ConsumerStatefulWidget {
   const ReadRecordScreen({super.key});
   @override
@@ -58,10 +58,17 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
   };
 
   Future<void> _refresh() async {
+    final controls = ref.read(readRecordNotifierProvider);
+    final notifier = ref.read(readRecordNotifierProvider.notifier);
     ref.invalidate(readRecordDatasetProvider);
     ref.invalidate(readRecordSessionsProvider);
-    await ref.read(readRecordNotifierProvider.notifier).load();
-    await ref.read(readRecordDatasetProvider.future);
+    ref.invalidate(readRecordTimelineProvider);
+    await Future.wait<Object?>([
+      notifier.load(),
+      ref.read(readRecordDatasetProvider.future),
+      if (controls.displayMode == ReadRecordDisplayMode.timeline)
+        ref.read(readRecordTimelineProvider(controls.searchQuery).future),
+    ]);
   }
 
   void _switchMode() {

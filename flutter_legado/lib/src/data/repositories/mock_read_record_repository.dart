@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import '../../domain/contracts/read_record_repository.dart';
+import '../../domain/models/read_record_timeline_entry.dart';
 import '../../domain/contracts/read_record_changes.dart';
 import '../../models/models.dart';
 import '../../models/read_record_identity.dart';
@@ -135,6 +136,10 @@ class MockReadRecordRepository
   @override
   Future<List<ReadRecordDetail>> getAllReadRecordDetails() async =>
       _details.values.toList()..sort((a, b) => a.date.compareTo(b.date));
+  @override
+  Future<List<ReadRecordTimelineEntry>> getReadRecordTimeline(String query) =>
+      Future.error(UnsupportedError('Mock未提供阅读时间线，请注入时间线夹具'));
+
   @override
   Future<List<ReadRecordSession>> getReadRecordSessions() async =>
       List.of(_sessions)..sort((a, b) => a.startTime.compareTo(b.startTime));

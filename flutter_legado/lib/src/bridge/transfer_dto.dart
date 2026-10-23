@@ -1406,6 +1406,54 @@ class ReadRecordSessionDto {
           chapterIndex == other.chapterIndex;
 }
 
+/// 时间线投影保留原始ID集合；展示跨度不写入累计计时。
+class ReadRecordTimelineDto {
+  final String bookName;
+  final String author;
+  final String date;
+  final String bookUrl;
+  final PlatformInt64 startTime;
+  final PlatformInt64 endTime;
+  final int chapterIndex;
+  final Int64List sessionIds;
+
+  const ReadRecordTimelineDto({
+    required this.bookName,
+    required this.author,
+    required this.date,
+    required this.bookUrl,
+    required this.startTime,
+    required this.endTime,
+    required this.chapterIndex,
+    required this.sessionIds,
+  });
+
+  @override
+  int get hashCode =>
+      bookName.hashCode ^
+      author.hashCode ^
+      date.hashCode ^
+      bookUrl.hashCode ^
+      startTime.hashCode ^
+      endTime.hashCode ^
+      chapterIndex.hashCode ^
+      sessionIds.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ReadRecordTimelineDto &&
+          runtimeType == other.runtimeType &&
+          bookName == other.bookName &&
+          author == other.author &&
+          date == other.date &&
+          bookUrl == other.bookUrl &&
+          startTime == other.startTime &&
+          endTime == other.endTime &&
+          chapterIndex == other.chapterIndex &&
+          sessionIds == other.sessionIds;
+}
+
 /// RedirectInfo 的类型化事件载荷。
 class RedirectInfoDto {
   final bool redirected;
