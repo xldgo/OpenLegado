@@ -95,7 +95,15 @@ void main() {
     await tap(tester, '横屏');
     await tap(tester, '隐藏状态栏');
     await tap(tester, '隐藏导航栏');
+    expect(find.text('页眉页脚延伸至屏幕边缘'), findsNothing);
     await tap(tester, '刘海避让');
+    expect(switchValue(tester, '页眉页脚延伸至屏幕边缘'), isFalse);
+    await tap(tester, '页眉页脚延伸至屏幕边缘');
+    await tap(tester, '刘海避让');
+    expect(find.text('页眉页脚延伸至屏幕边缘'), findsNothing);
+    expect(repository.current.screen.extendPageTips, isTrue);
+    await tap(tester, '刘海避让');
+    expect(switchValue(tester, '页眉页脚延伸至屏幕边缘'), isTrue);
     expect(repository.current.screen.orientation, 2);
     expect(repository.current.screen.hideStatusBar, isTrue);
     expect(repository.current.screen.hideNavigationBar, isTrue);
@@ -107,6 +115,7 @@ void main() {
       'reader_hide_status_bar',
       'reader_hide_navigation_bar',
       'reader_avoid_display_cutouts',
+      'reader_extend_page_tips',
     });
     expect(tester.takeException(), isNull);
   });

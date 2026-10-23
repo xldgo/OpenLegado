@@ -155,6 +155,11 @@ ChapterPaginationSession，以及渲染、选区、翻页和状态发布。页�
 这不等同取消底层章节网络请求。Dart文字测量、Rust断行/分页算法与FRB传输、原文坐标、
 预载范围和翻页交互均保持；任务状态和验证证据只维护在活动计划。
 
+开启刘海避让后可单独允许页眉页脚延伸。ReaderContentViewport分别提供正文contentInsets
+和提示chromeInsets；分页与ReaderTypographicPage共用安全区/提示重叠计算，单/双页及预览
+消费相同差值。提示边距进入重排签名；滚动原无提示，补回全部差值以维持正文安全区。
+设置归ReaderScreenSettings和阅读仓储，不改Rust分页协议或原生缺口采样。
+
 编写者：Codex + UI｜2026-10-18
 
 ## 实施顺序

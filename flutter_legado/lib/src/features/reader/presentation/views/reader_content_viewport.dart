@@ -74,6 +74,20 @@ class ReaderContentViewport extends StatelessWidget {
       hideNavigationBar: screen.hideNavigationBar,
       avoidDisplayCutouts: screen.avoidDisplayCutouts,
     );
+    final pageChrome = ReaderPageChromeConfig.fromSettings(
+      pageLayout,
+      hideStatusBar: screen.hideStatusBar,
+      titleFontFamily: readingSettings.titleFontFamily,
+    );
+    final chromeInsets = readerChromeInsets(
+      contentInsets: pageInsets,
+      systemInsets: bodyInsets,
+      extendPageTips: screen.avoidDisplayCutouts && screen.extendPageTips,
+      hideStatusBar: screen.hideStatusBar,
+      hideNavigationBar: screen.hideNavigationBar,
+      centeredHeader:
+          pageChrome.showPageHeader && pageChrome.tipHeaderMiddle != 0,
+    );
     return Positioned.fill(
       child: MediaQuery.removeViewPadding(
         context: context,
@@ -99,6 +113,7 @@ class ReaderContentViewport extends StatelessWidget {
                       onTapUp: onTapUp,
                       key: pageViewKey,
                       contentInsets: pageInsets,
+                      chromeInsets: chromeInsets,
                       // [UI_SYNC_REFACTOR S6 修 | 2026-09-08] 用户反馈④：
                       // 阅读页头部补章节链接与书源名（书名在菜单顶栏）— Qoder
                       // [UI_SYNC_REFACTOR S6 修 | 2026-09-08] 书源名优先取 Book.originName
@@ -114,11 +129,7 @@ class ReaderContentViewport extends StatelessWidget {
                       marginBottom: pageLayout.bodyPadding.bottom,
                       marginLeft: pageLayout.bodyPadding.left,
                       marginRight: pageLayout.bodyPadding.right,
-                      pageChrome: ReaderPageChromeConfig.fromSettings(
-                        pageLayout,
-                        hideStatusBar: screen.hideStatusBar,
-                        titleFontFamily: readingSettings.titleFontFamily,
-                      ),
+                      pageChrome: pageChrome,
                       // [UI-fix v2.0.3 | 2026-08-08] MoreConfig 第①批：长按选择
                       // 文本开关与滚动翻页无动画接入内容区 — Qoder
                       selectText: interaction.selectText,

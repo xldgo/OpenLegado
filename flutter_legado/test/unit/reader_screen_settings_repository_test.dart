@@ -47,6 +47,7 @@ void main() {
       hideStatusBar: true,
       hideNavigationBar: true,
       avoidDisplayCutouts: true,
+      extendPageTips: true,
     );
     final fresh = AppSettingsService(
       storages: {
@@ -62,10 +63,11 @@ void main() {
         hideStatusBar: true,
         hideNavigationBar: true,
         avoidDisplayCutouts: true,
+        extendPageTips: true,
       ),
     );
     expect(restored.fontSize, 23);
-    expect((await SharedPreferences.getInstance()).getKeys(), hasLength(5));
+    expect((await SharedPreferences.getInstance()).getKeys(), hasLength(6));
   });
 
   test('逐字段保存与方向夹取，系统状态栏不改页面布局', () async {
@@ -124,6 +126,7 @@ void main() {
     await repository.updateScreen(
       hideStatusBar: true,
       avoidDisplayCutouts: true,
+      extendPageTips: true,
     );
     await repository.updatePageEdge(ReaderPageEdge.header, leftTip: 1);
     await repository.updateScreen(keepScreenOnSeconds: 60);

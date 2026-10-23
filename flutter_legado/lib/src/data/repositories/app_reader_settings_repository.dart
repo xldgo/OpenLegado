@@ -94,6 +94,10 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     storage: SettingsStorageKind.preferences,
     key: 'reader_hide_navigation_bar',
   );
+  static const _extendPageTips = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_extend_page_tips',
+  );
   static const _avoidDisplayCutouts = (
     storage: SettingsStorageKind.preferences,
     key: 'reader_avoid_display_cutouts',
@@ -132,6 +136,7 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     _hideStatusBar,
     _hideNavigationBar,
     _avoidDisplayCutouts,
+    _extendPageTips,
 
     _mode,
     _legacyIndex,
@@ -212,6 +217,9 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
           : false,
       hideNavigationBar: snapshot[_hideNavigationBar] is bool
           ? snapshot[_hideNavigationBar] as bool
+          : false,
+      extendPageTips: snapshot[_extendPageTips] is bool
+          ? snapshot[_extendPageTips] as bool
           : false,
       avoidDisplayCutouts: snapshot[_avoidDisplayCutouts] is bool
           ? snapshot[_avoidDisplayCutouts] as bool
@@ -423,6 +431,7 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     bool? hideStatusBar,
     bool? hideNavigationBar,
     bool? avoidDisplayCutouts,
+    bool? extendPageTips,
   }) => _service.update({
     _orientation: ?orientation?.clamp(0, 5),
     if (keepScreenOnSeconds != null)
@@ -430,6 +439,7 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     _hideStatusBar: ?hideStatusBar,
     _hideNavigationBar: ?hideNavigationBar,
     _avoidDisplayCutouts: ?avoidDisplayCutouts,
+    _extendPageTips: ?extendPageTips,
   });
 
   @override

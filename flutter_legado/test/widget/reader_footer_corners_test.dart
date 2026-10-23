@@ -14,6 +14,7 @@ void main() {
     int columns = 1,
     double padding = 16,
     int leftTip = 7,
+    bool header = false,
   }) => ReaderTypographicPage(
     key: key,
     pageInfo: const PageInfo(paragraphs: [], totalHeight: 0),
@@ -28,8 +29,11 @@ void main() {
     selectText: false,
     footerColumn: column,
     footerColumns: columns,
+    chromeExpansion: header ? const EdgeInsets.only(top: 60) : EdgeInsets.zero,
     pageChrome: ReaderPageChromeConfig(
-      headerMode: 2,
+      headerMode: header ? 1 : 2,
+      tipHeaderLeft: 7,
+      tipHeaderRight: 1,
       titleMode: 2,
       footerPaddingLeft: padding,
       footerPaddingRight: padding,
@@ -55,6 +59,7 @@ void main() {
     double side = 0,
     Size size = const Size(400, 800),
     int leftTip = 7,
+    bool header = false,
   }) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = size;
@@ -104,7 +109,7 @@ void main() {
                         ),
                       ],
                     )
-                  : page(padding: padding, leftTip: leftTip),
+                  : page(padding: padding, leftTip: leftTip, header: header),
             ),
           ),
         ),
@@ -112,6 +117,26 @@ void main() {
     );
     await tester.pump();
   }
+
+  testWidgets('延伸页眉的角落提示横向内收，不改变页眉高度', (tester) async {
+    addTearDown(tester.view.reset);
+    await show(tester, rounded: false, header: true);
+    Finder title() => find.descendant(
+      of: find.byType(ReaderPageTipBar).first,
+      matching: find.text('左侧信息'),
+    );
+    final originalX = tester.getTopLeft(title()).dx;
+    final originalHeight = tester
+        .getSize(find.byType(ReaderPageTipBar).first)
+        .height;
+    await show(tester, header: true);
+    expect(tester.getTopLeft(title()).dx, greaterThan(originalX));
+    expect(
+      tester.getSize(find.byType(ReaderPageTipBar).first).height,
+      originalHeight,
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('左右信息自动内收，中间页码、正文几何、分隔线和页脚高度不变', (tester) async {
     addTearDown(tester.view.reset);

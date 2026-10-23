@@ -87,6 +87,7 @@ void main() {
       'reader_hide_status_bar',
       'reader_hide_navigation_bar',
       'reader_avoid_display_cutouts',
+      'reader_extend_page_tips',
       'reader_auto_page_turn_enabled',
       'reader_auto_page_turn_interval_seconds',
       'reader_auto_page_turn_forward',

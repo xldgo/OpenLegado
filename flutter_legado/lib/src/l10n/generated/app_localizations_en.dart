@@ -3044,6 +3044,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get readerHideNavigationBar => 'Hide navigation bar';
 
   @override
+  String get readerExtendPageTips => 'Extend header and footer to screen edges';
+
+  @override
+  String get readerExtendPageTipsDescription =>
+      'Body text stays safe; visible system bars and a centered header keep their insets';
+
+  @override
   String get readerAvoidDisplayCutouts => 'Avoid display cutouts';
 
   @override

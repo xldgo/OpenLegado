@@ -694,7 +694,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       // 系统栏占位独立控制，开关只处理屏幕缺口。— Codex + UI
       SettingSwitchRow(
         title: context.l10n.readerAvoidDisplayCutouts,
-        subtitle: '页眉、正文和页脚避开刘海或挖孔区域',
+        subtitle: '正文避开刘海或挖孔区域，页眉页脚可单独设置',
         value: _screen.avoidDisplayCutouts,
         onChanged: (v) {
           _saveScreen(
@@ -704,6 +704,17 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
           );
         },
       ),
+      if (_screen.avoidDisplayCutouts)
+        SettingSwitchRow(
+          title: context.l10n.readerExtendPageTips,
+          subtitle: context.l10n.readerExtendPageTipsDescription,
+          value: _screen.extendPageTips,
+          onChanged: (v) => _saveScreen(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateScreen(extendPageTips: v),
+          ),
+        ),
     ],
   );
 

@@ -3,6 +3,31 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/features/reader/widgets/reader_page_chrome.dart';
 
 void main() {
+  test('提示延伸不放开正文或横向缺口，显示系统栏和居中页眉仍避让', () {
+    const body = EdgeInsets.fromLTRB(7, 40, 8, 34);
+    const system = EdgeInsets.only(top: 24, bottom: 34);
+    EdgeInsets chrome({
+      bool extend = true,
+      bool hide = true,
+      bool center = false,
+    }) => readerChromeInsets(
+      contentInsets: body,
+      systemInsets: system,
+      extendPageTips: extend,
+      hideStatusBar: hide,
+      hideNavigationBar: hide,
+      centeredHeader: center,
+    );
+    expect(chrome(extend: false), body);
+    expect(chrome(), const EdgeInsets.fromLTRB(7, 0, 8, 0));
+    expect(chrome(hide: false), const EdgeInsets.fromLTRB(7, 24, 8, 34));
+    expect(chrome(center: true), const EdgeInsets.fromLTRB(7, 40, 8, 0));
+    expect(
+      readerChromeExpansion(body, chrome()),
+      const EdgeInsets.only(top: 40, bottom: 34),
+    );
+  });
+
   for (final hideStatus in [false, true]) {
     for (final hideNavigation in [false, true]) {
       for (final avoid in [false, true]) {

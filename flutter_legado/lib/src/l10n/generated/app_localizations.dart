@@ -5355,6 +5355,18 @@ abstract class AppLocalizations {
   /// **'隐藏导航栏'**
   String get readerHideNavigationBar;
 
+  /// No description provided for @readerExtendPageTips.
+  ///
+  /// In zh, this message translates to:
+  /// **'页眉页脚延伸至屏幕边缘'**
+  String get readerExtendPageTips;
+
+  /// No description provided for @readerExtendPageTipsDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'正文继续避让；系统栏可见或页眉居中时保留对应占位'**
+  String get readerExtendPageTipsDescription;
+
   /// No description provided for @readerAvoidDisplayCutouts.
   ///
   /// In zh, this message translates to:

@@ -75,6 +75,9 @@ class ReaderPageView extends ConsumerStatefulWidget {
   /// 页面内部的系统栏/屏幕缺口避让；翻页画布保持完整视口。
   final EdgeInsets? contentInsets;
 
+  /// 页眉页脚可使用更靠近屏幕边缘的区域，正文仍用contentInsets。
+  final EdgeInsets? chromeInsets;
+
   // [UI-fix v2.0.3 | 2026-08-08] MoreConfig 第①批消费点 — Qoder
 
   /// 长按选择文本开关（对标原版 selectText，关闭后长按不弹选区面板）
@@ -131,6 +134,7 @@ class ReaderPageView extends ConsumerStatefulWidget {
     this.marginRight = 16,
     this.pageChrome = const ReaderPageChromeConfig(),
     this.contentInsets,
+    this.chromeInsets,
     this.selectText = true,
     this.onTapUp,
     this.noAnimScroll = false,
@@ -777,6 +781,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       textBold: textBold,
       margins: margins,
       insets: insets,
+      chromeInsets: _chromeInsets(context),
       chromeKey: widget.pageChrome.layoutKey,
       doublePage: doublePage,
       scroll: state.pageTurnMode == PageTurnMode.scroll,
@@ -794,12 +799,17 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     }
 
     final chrome = widget.pageChrome;
+    final edgeSpace = readerPageEdgeSpace(
+      expansion: _chromeExpansion(context),
+      headerHeight: ReaderPageLayoutMetrics.headerBlockHeight(context, chrome),
+      footerHeight: ReaderPageLayoutMetrics.footerBlockHeight(context, chrome),
+    );
     final bounds = ReaderPaginationPolicy.bounds(
       content: screenSize,
       margins: margins,
       doublePage: doublePage,
-      headerHeight: ReaderPageLayoutMetrics.headerBlockHeight(context, chrome),
-      footerHeight: ReaderPageLayoutMetrics.footerBlockHeight(context, chrome),
+      headerHeight: edgeSpace.headerInsideBody,
+      footerHeight: edgeSpace.footerInsideBody,
     );
     final availableWidth = bounds.width;
     final availableHeight = bounds.height;
@@ -1444,10 +1454,16 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
         ),
       );
 
+  EdgeInsets _chromeInsets(BuildContext context) =>
+      widget.chromeInsets ?? _contentInsets(context);
+
+  EdgeInsets _chromeExpansion(BuildContext context) =>
+      readerChromeExpansion(_contentInsets(context), _chromeInsets(context));
+
   /// 放在页面快照内部，使背景、阴影与卷页覆盖完整视口。
   Widget _insetContent(Widget child) => LayoutBuilder(
     builder: (context, constraints) {
-      final insets = _contentInsets(context);
+      final insets = _chromeInsets(context);
       final geometry = ReaderFooterGeometry.maybeOf(context);
       final page = Padding(padding: insets, child: child);
       if (geometry == null) return page;
@@ -1621,6 +1637,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       pageIndex: pageIndex,
       totalPages: totalPages,
       pageChrome: widget.pageChrome,
+      chromeExpansion: _chromeExpansion(context),
       tipContext: _buildTipContext(
         state,
         pageIndex,
@@ -1708,71 +1725,74 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     final textColor = _resolveTextColor(state);
 
     return _insetContent(
-      NotificationListener<ScrollNotification>(
-        onNotification: (notification) {
-          if (notification.depth != 0) return false;
-          if (notification is ScrollStartNotification &&
-              notification.dragDetails != null) {
-            _manualScrollActive = true;
-            _manualNavigationGeneration++;
-            _detachForManualScroll();
-          } else if (notification is ScrollEndNotification &&
-              _manualScrollActive) {
-            _manualScrollActive = false;
-            _manualAloudNavigation();
-          }
-          return false;
-        },
-        child: SingleChildScrollView(
-          controller: _scrollController,
-          // [UI-fix v2.0.3 | 2026-08-06] 滚动模式边距接页面边距配置 — Qoder
-          padding: EdgeInsets.only(
-            left: widget.marginLeft,
-            right: widget.marginRight,
-            top: widget.marginTop,
-            bottom: widget.marginBottom,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 滚动模式：渲染所有分页内容（使用排版引擎的分行结果）
-              if (_paginatedPages.isNotEmpty && _scrollLayout != null)
-                ReaderTextContent(
-                  key: _scrollBodyKey,
-                  pageInfo: _scrollLayout!,
-                  fontSize: state.fontSize,
-                  lineHeight: state.lineHeight,
-                  paragraphSpacing: _pagedParagraphSpacingPx,
-                  textColor: textColor,
-                  readAloudRange: _aloudRange,
-                  readAloudColor: Theme.of(context).colorScheme.primary,
-                  // [UI-fix v2.0.2 | 2026-08-06] 字距/字体/两端对齐透传到正文渲染 — Qoder
-                  // [UI-fix v2.0.4 | 2026-08-08] 字距 em→px；字重接线 — Qoder
-                  letterSpacing: widget.letterSpacing * state.fontSize,
-                  fontFamily: _fontFamily,
-                  fontWeight: _fontWeightFor(widget.textBold),
-                  fontStyle: _fontStyleFor(widget.italic),
-                  justify: widget.textFullJustify,
-                  // [UI-fix v2.0.3 | 2026-08-08] selectText 开关接入长按选择 — Qoder
-                  selectText: widget.selectText,
-                  reviewCounts: widget.reviewCounts,
-                  onReviewTap: widget.onReviewTap,
-                )
-              else if (!state.isLoading)
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(48),
-                    child: Text(
-                      AppStrings.noContent,
-                      style: TextStyle(
-                        fontSize: state.fontSize,
-                        color: textColor.withValues(alpha: 0.5),
+      Padding(
+        padding: _chromeExpansion(context),
+        child: NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            if (notification.depth != 0) return false;
+            if (notification is ScrollStartNotification &&
+                notification.dragDetails != null) {
+              _manualScrollActive = true;
+              _manualNavigationGeneration++;
+              _detachForManualScroll();
+            } else if (notification is ScrollEndNotification &&
+                _manualScrollActive) {
+              _manualScrollActive = false;
+              _manualAloudNavigation();
+            }
+            return false;
+          },
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            // [UI-fix v2.0.3 | 2026-08-06] 滚动模式边距接页面边距配置 — Qoder
+            padding: EdgeInsets.only(
+              left: widget.marginLeft,
+              right: widget.marginRight,
+              top: widget.marginTop,
+              bottom: widget.marginBottom,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 滚动模式：渲染所有分页内容（使用排版引擎的分行结果）
+                if (_paginatedPages.isNotEmpty && _scrollLayout != null)
+                  ReaderTextContent(
+                    key: _scrollBodyKey,
+                    pageInfo: _scrollLayout!,
+                    fontSize: state.fontSize,
+                    lineHeight: state.lineHeight,
+                    paragraphSpacing: _pagedParagraphSpacingPx,
+                    textColor: textColor,
+                    readAloudRange: _aloudRange,
+                    readAloudColor: Theme.of(context).colorScheme.primary,
+                    // [UI-fix v2.0.2 | 2026-08-06] 字距/字体/两端对齐透传到正文渲染 — Qoder
+                    // [UI-fix v2.0.4 | 2026-08-08] 字距 em→px；字重接线 — Qoder
+                    letterSpacing: widget.letterSpacing * state.fontSize,
+                    fontFamily: _fontFamily,
+                    fontWeight: _fontWeightFor(widget.textBold),
+                    fontStyle: _fontStyleFor(widget.italic),
+                    justify: widget.textFullJustify,
+                    // [UI-fix v2.0.3 | 2026-08-08] selectText 开关接入长按选择 — Qoder
+                    selectText: widget.selectText,
+                    reviewCounts: widget.reviewCounts,
+                    onReviewTap: widget.onReviewTap,
+                  )
+                else if (!state.isLoading)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(48),
+                      child: Text(
+                        AppStrings.noContent,
+                        style: TextStyle(
+                          fontSize: state.fontSize,
+                          color: textColor.withValues(alpha: 0.5),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              const SizedBox(height: 80),
-            ],
+                const SizedBox(height: 80),
+              ],
+            ),
           ),
         ),
       ),
@@ -1809,6 +1829,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       footerColumn: doublePageSide == 'right' ? 1 : 0,
       footerColumns: doublePageSide == null ? 1 : 2,
       pageChrome: widget.pageChrome,
+      chromeExpansion: _chromeExpansion(context),
       tipContext: _buildTipContext(
         state,
         safeIndex,

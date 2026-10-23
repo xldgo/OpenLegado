@@ -42,6 +42,9 @@ class ReaderTypographicPage extends StatelessWidget {
   // 默认边距与阅读设置、恢复入口同源，对齐参考版。— Codex + UI
   final EdgeInsets contentPadding;
 
+  /// 提示区域相对正文安全区释放的上下空间。
+  final EdgeInsets chromeExpansion;
+
   // [UI-fix v2.0.3 | 2026-08-08] 长按选择文本开关（对标原版 selectText，
   // 关闭后长按正文不再弹出选区面板）— Qoder
   final bool selectText;
@@ -83,6 +86,7 @@ class ReaderTypographicPage extends StatelessWidget {
       horizontal: 16,
       vertical: 6,
     ),
+    this.chromeExpansion = EdgeInsets.zero,
     this.pageChrome = const ReaderPageChromeConfig(),
     this.tipContext = const ReaderTipContext(pageIndex: 0, totalPages: 1),
     this.footerColumn = 0,
@@ -116,6 +120,15 @@ class ReaderTypographicPage extends StatelessWidget {
     final chrome = pageChrome;
     final showHeader = chrome.showPageHeader && chrome.hasHeaderTips;
     final showFooter = chrome.showPageFooter && chrome.hasFooterTips;
+    final edgeSpace = readerPageEdgeSpace(
+      expansion: chromeExpansion,
+      headerHeight: chromeExpansion.top > 0
+          ? ReaderPageLayoutMetrics.headerBlockHeight(context, chrome)
+          : 0,
+      footerHeight: chromeExpansion.bottom > 0
+          ? ReaderPageLayoutMetrics.footerBlockHeight(context, chrome)
+          : 0,
+    );
     return Container(
       color: backgroundColor,
       child: Column(
@@ -131,6 +144,9 @@ class ReaderTypographicPage extends StatelessWidget {
                   chrome.headerPaddingBottom,
                 ),
                 leftTip: chrome.tipHeaderLeft,
+                avoidTopCorners: chromeExpansion.top > 0,
+                footerColumn: footerColumn,
+                footerColumns: footerColumns,
                 middleTip: chrome.tipHeaderMiddle,
                 rightTip: chrome.tipHeaderRight,
                 tipContext: tipContext,
@@ -141,7 +157,7 @@ class ReaderTypographicPage extends StatelessWidget {
             ),
           Expanded(
             child: Padding(
-              padding: contentPadding,
+              padding: contentPadding + edgeSpace.bodyPadding,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

@@ -77,6 +77,7 @@ abstract interface class ReaderSettingsRepository {
     bool? hideStatusBar,
     bool? hideNavigationBar,
     bool? avoidDisplayCutouts,
+    bool? extendPageTips,
   });
   Future<void> updateAutoPageTurn({
     bool? enabled,

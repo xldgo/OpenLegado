@@ -21,18 +21,26 @@ class ReaderFooterGeometry extends InheritedWidget {
     required double lineHeight,
     int column = 0,
     int columns = 1,
+    bool header = false,
   }) {
     final region = bounds ?? Offset.zero & corners.size;
     final width = region.width / columns;
     final left = region.left + column * width;
-    return corners.extraInsets(
-      Rect.fromLTRB(
-        left + padding.left,
-        region.bottom - padding.bottom - lineHeight,
-        left + width - padding.right,
-        region.bottom - padding.bottom,
-      ),
-    );
+    final textBand = header
+        // 平台未提供上角轮廓，复用已有圆角的镜像作保守横向内收。
+        ? Rect.fromLTRB(
+            left + padding.left,
+            corners.size.height - region.top - padding.top - lineHeight,
+            left + width - padding.right,
+            corners.size.height - region.top - padding.top,
+          )
+        : Rect.fromLTRB(
+            left + padding.left,
+            region.bottom - padding.bottom - lineHeight,
+            left + width - padding.right,
+            region.bottom - padding.bottom,
+          );
+    return corners.extraInsets(textBand);
   }
 
   @override

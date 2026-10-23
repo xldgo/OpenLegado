@@ -6,6 +6,7 @@ final class ReaderScreenSettings {
     this.hideStatusBar = false,
     this.hideNavigationBar = false,
     this.avoidDisplayCutouts = false,
+    this.extendPageTips = false,
   });
 
   /// 0跟随系统、1竖屏、2横屏、3传感器、4反向竖屏、5反向横屏。
@@ -16,6 +17,7 @@ final class ReaderScreenSettings {
   final bool hideStatusBar;
   final bool hideNavigationBar;
   final bool avoidDisplayCutouts;
+  final bool extendPageTips;
 
   @override
   bool operator ==(Object other) =>
@@ -24,7 +26,8 @@ final class ReaderScreenSettings {
       keepScreenOnSeconds == other.keepScreenOnSeconds &&
       hideStatusBar == other.hideStatusBar &&
       hideNavigationBar == other.hideNavigationBar &&
-      avoidDisplayCutouts == other.avoidDisplayCutouts;
+      avoidDisplayCutouts == other.avoidDisplayCutouts &&
+      extendPageTips == other.extendPageTips;
 
   @override
   int get hashCode => Object.hash(
@@ -33,5 +36,6 @@ final class ReaderScreenSettings {
     hideStatusBar,
     hideNavigationBar,
     avoidDisplayCutouts,
+    extendPageTips,
   );
 }

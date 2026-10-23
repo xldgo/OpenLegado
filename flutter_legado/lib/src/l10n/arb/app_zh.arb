@@ -3352,6 +3352,8 @@
   "@readerHideNavigationBar": {
     "description": "阅读设置文案；对应 HapeLee pt_hide_navigation_bar"
   },
+  "readerExtendPageTips": "页眉页脚延伸至屏幕边缘",
+  "readerExtendPageTipsDescription": "正文继续避让；系统栏可见或页眉居中时保留对应占位",
   "readerAvoidDisplayCutouts": "刘海避让",
   "readerDualPageMode": "平板/横屏双页",
   "@readerDualPageMode": {

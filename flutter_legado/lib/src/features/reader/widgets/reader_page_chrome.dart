@@ -35,6 +35,51 @@ EdgeInsets readerContentInsets({
   );
 }
 
+/// 只释放提示的垂直缺口占位；横向缺口及可见系统栏继续避让。— Codex + UI
+EdgeInsets readerChromeInsets({
+  required EdgeInsets contentInsets,
+  required EdgeInsets systemInsets,
+  required bool extendPageTips,
+  required bool hideStatusBar,
+  required bool hideNavigationBar,
+  required bool centeredHeader,
+}) => !extendPageTips
+    ? contentInsets
+    : EdgeInsets.fromLTRB(
+        contentInsets.left,
+        centeredHeader
+            ? contentInsets.top
+            : (hideStatusBar ? 0 : systemInsets.top),
+        contentInsets.right,
+        hideNavigationBar ? 0 : systemInsets.bottom,
+      );
+
+/// 正文安全区相对提示区域的内缩差值，不重复添加完整安全区。
+EdgeInsets readerChromeExpansion(EdgeInsets content, EdgeInsets chrome) =>
+    EdgeInsets.only(
+      top: math.max(0, content.top - chrome.top),
+      bottom: math.max(0, content.bottom - chrome.bottom),
+    );
+
+/// 安全区和提示条重叠部分只占一次空间，测量与绘制使用同一结果。
+({double headerInsideBody, double footerInsideBody, EdgeInsets bodyPadding})
+readerPageEdgeSpace({
+  required EdgeInsets expansion,
+  required double headerHeight,
+  required double footerHeight,
+}) {
+  final headerOverlap = math.min(expansion.top, headerHeight);
+  final footerOverlap = math.min(expansion.bottom, footerHeight);
+  return (
+    headerInsideBody: headerHeight - headerOverlap,
+    footerInsideBody: footerHeight - footerOverlap,
+    bodyPadding: EdgeInsets.only(
+      top: expansion.top - headerOverlap,
+      bottom: expansion.bottom - footerOverlap,
+    ),
+  );
+}
+
 /// 独立使用阅读页时按配置处理状态栏；宿主已计算尺寸时直接使用宿主结果。
 double readerContentStatusBarInset(
   BuildContext context, {
@@ -277,6 +322,7 @@ bool readerTipShowsBatteryIcon(int tip) => tip == 3;
 
 class ReaderPageTipBar extends StatelessWidget {
   final bool avoidDisplayCorners;
+  final bool avoidTopCorners;
   final int footerColumn, footerColumns;
   final EdgeInsets padding;
   final int leftTip;
@@ -298,6 +344,7 @@ class ReaderPageTipBar extends StatelessWidget {
     this.showDivider = false,
     this.dividerOnTop = false,
     this.avoidDisplayCorners = false,
+    this.avoidTopCorners = false,
     this.footerColumn = 0,
     this.footerColumns = 1,
   });
@@ -330,12 +377,13 @@ class ReaderPageTipBar extends StatelessWidget {
       context: context,
       padding: EdgeInsets.zero,
     );
-    final extra = avoidDisplayCorners
+    final extra = avoidDisplayCorners || avoidTopCorners
         ? ReaderFooterGeometry.maybeOf(context)?.extraInsets(
                 padding: padding,
                 lineHeight: lineHeight,
                 column: footerColumn,
                 columns: footerColumns,
+                header: avoidTopCorners,
               ) ??
               EdgeInsets.zero
         : EdgeInsets.zero;
