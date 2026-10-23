@@ -1,5 +1,14 @@
 # Legado 后续重构执行计划（Active）
 
+### SEARCH-NATIVE-ASSEMBLY-20261023：真实搜索用例聚合器装配修复（P1，代码及定向真实宿主验证完成）
+
+- 用户提供native搜索会话用例single读取空列表失败。核查mergeTestOverrides默认注入录制聚合器，动态本机HTTP数据不在录制样例中，导致聚合异常；本批仅修该native用例显式使用正式Rust聚合器，并在读取列表前断言错误/结果，避免掩盖原始失败。
+- 不修改生产搜索或增加重试/延时，不把扩充录制夹具作为真实FFI验收。定向复现及运行该真实宿主用例，必要时构建当前宿主库；不全量/设备安装、不推送。保留并行Rust依赖改动和未跟踪报告，不纳入提交，版本不变。
+- 结果：先补充原始错误断言，在同一真实宿主用例复现“缺少搜索聚合夹具: 新 / [新结果] / keepOther=true”；显式覆盖正式Rust聚合器后1项通过，暂停/恢复/停止/再搜及旧HTTP迟到隔离原场景保持。定向分析无问题，格式和diff检查通过，无生产/FFI/依赖代码修改或新增测试。
+- 证据：build/search-native-assembly-build.log，flutter_legado/build/search-native-assembly-{red,green,analysis}.log。cargo build --locked -p legado-ffi --features quickjs完成当前宿主DLL构建，使用当前工作区并行依赖升级后的输入；不将该构建解释为CI/Linux或设备验收。只提交本任务测试和计划条目，其他计划改动保留工作区，不推送。
+
+编写者：Codex + Bridge｜2026-10-23
+
 ### RUST-DEPS-20261023：Rust稳定依赖与安全补丁升级（P1，实施中）
 
 - 用户授权Rust依赖整体升级；从dev / 04752b7a2开始，单代理，不新建分支，保留主目录三份未跟踪报告。只更新稳定版及必要兼容代码，不改FFI契约/应用版本，不推送、触发CI或安装应用。

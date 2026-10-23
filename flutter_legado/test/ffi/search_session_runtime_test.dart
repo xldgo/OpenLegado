@@ -22,6 +22,9 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_legado/src/features/search/search.dart';
+import 'package:flutter_legado/src/features/search/search_access_providers.dart'
+    show searchAggregationServiceProvider;
+import 'package:flutter_legado/src/data/services/rust_search_aggregation_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -81,7 +84,13 @@ void main() {
       ]),
     );
     final container = ProviderContainer(
-      overrides: mergeTestOverrides([...api.overrides]),
+      overrides: mergeTestOverrides([
+        ...api.overrides,
+        // 公共夹具默认注入录制结果；真实HTTP用例必须走正式聚合句柄。
+        searchAggregationServiceProvider.overrideWithValue(
+          const RustSearchAggregationService(),
+        ),
+      ]),
     );
     addTearDown(container.dispose);
     final notifier = container.read(searchNotifierProvider.notifier);
@@ -103,15 +112,18 @@ void main() {
     addTearDown(listener.close);
     await notifier.search('新');
     await completed.future.timeout(const Duration(seconds: 15));
-    expect(
-      container.read(searchNotifierProvider).results.single.book.name,
-      '新结果',
-    );
+    final finished = container.read(searchNotifierProvider);
+    expect(finished.error, isNull);
+    expect(finished.failedSources, isEmpty);
+    expect(finished.results.map((result) => result.book.name), ['新结果']);
     release.complete();
     await Future<void>.delayed(const Duration(milliseconds: 200));
     expect(
-      container.read(searchNotifierProvider).results.single.book.name,
-      '新结果',
+      container
+          .read(searchNotifierProvider)
+          .results
+          .map((result) => result.book.name),
+      ['新结果'],
     );
     expect(container.read(searchNotifierProvider).isManualStop, isFalse);
     expect(container.read(searchNotifierProvider).error, isNull);
