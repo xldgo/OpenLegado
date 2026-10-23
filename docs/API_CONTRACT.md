@@ -1,5 +1,15 @@
 # API 契约文档
 
+### BOOK-MEDIA-POLICY-20261023：开读媒体识别归属收敛（实施前冻结）
+
+- 新增只读FFI `book_resolve_reading_type(book_type: i32, source: Option<BookSourceDto>) → i32`，返回媒体位（4/8/32/64/128组合），不读写数据库、不抓取、不修改书源或书籍。无source时仅提取已有媒体位，不默认补文本位。
+- Rust Core唯一拥有书源类型映射和开读识别。保留当前优先级：视频误标识别优先；显式1..4声明覆盖旧媒体位；普通源沿用已有媒体位（缺省文本），仅符合既有HTML抽图条件时提升为图片；已有音视频不提升。UTF-16长度上限及图片样式TEXT排除保持。
+- 上游BookSourceExtensions.getBookType用于核对文本/音频/图片/文件映射；项目现有视频类型4、MacCMS纠偏和HTML图片转漫画属于现有适配，本批原样迁移，不声称这些扩展来自上游，也不新增启发式或改变打开方式。JS/Fetcher基础映射复用Core，不引入反向依赖。
+- Dart通过BookSourceQueryService.resolveReadingType传递已有类型和可空书源，正式适配器直连FFI；BookDetailService保留书源匹配和开读编排，导航继续归BookOpenUtils。Dart仅保留媒体掩码及详情快照合并的简单位运算，不保留书源识别算法。Mock不调用FFI或复制启发式，仅返回既有书籍媒体位，定向用例显式注入预期识别结果。
+- 现有写库流程、详情合并、路由和失败传播保持；不扩展为书籍状态写入或播放器重构。新增1方法、无新增DTO，FRB由固定生成器产出；应用版本、数据库和依赖保持。
+
+编写者：Codex + Rust / UI / Bridge｜2026-10-23
+
 ### RULE-TEXT-BOUNDARY-20261023：通用规则文本与元信息显示分离（实施前冻结）
 
 - 内部行为契约修复，不修改FRB签名/DTO/方法数或数据库。通用AnalyzeRule不得按文本内容删除NaN/null/undefined字面量、模板符号或数组中的相应字符串；真正JS null/undefined在既有Function-eval返回点按类型转空串，字符串保持，其他值沿用原字符串化/数组展开行为。脚本副作用及异常仍各执行/传播一次，不通过再次eval判断返回类型。

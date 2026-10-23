@@ -51,6 +51,11 @@ class BookDetailFixture {
   List<BookSource> availableSources = [source];
 
   BookDetailFixture() {
+    when(() => query.resolveReadingType(any(), any())).thenAnswer(
+      (call) async =>
+          (call.positionalArguments[0] as int) & (4 | 8 | 32 | 64 | 128),
+    );
+
     when(() => bookshelf.getBook(any())).thenAnswer((_) async => stored);
     when(() => bookshelf.updateBook(any())).thenAnswer((_) async {});
     when(() => reading.getChapters(any()))

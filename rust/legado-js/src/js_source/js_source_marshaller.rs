@@ -6,19 +6,8 @@ use legado_parser::AnalyzeUrl;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-/// 对齐原版BookType.allBookType，其他位（进度状态/本地/未入架）不属于媒体类型。
-pub const BOOK_MEDIA_MASK: i32 = 4 | 8 | 32 | 64 | 128;
-
-pub fn source_book_type(source_type: i32) -> i32 {
-    use legado_core::models::book_source_type as st;
-    match source_type {
-        st::FILE => 8 | 128,
-        st::IMAGE => 64,
-        st::AUDIO => 32,
-        st::VIDEO => 4,
-        _ => 8,
-    }
-}
+// 基础映射由Core拥有，JS详情与开读入口消费同一口径。
+pub use legado_core::book_media::{MEDIA_MASK as BOOK_MEDIA_MASK, source_book_type};
 
 // ─── 类型化结构体（camelCase 对齐 JS 书源返回 JSON）───────────────────────
 

@@ -29,8 +29,6 @@ use legado_engine::source_batches::{SourceBatchOutcome, drive_source_batches};
 use legado_engine::source_catalog::load_search_sources_selected_from;
 #[cfg(test)]
 use legado_engine::{SearchSession, StorageContext};
-#[cfg(test)]
-use legado_fetcher::book_type::book_type_of_source;
 use legado_fetcher::deps::FetcherDeps;
 #[cfg(test)]
 use legado_fetcher::{book_type, web_book::book_list_elements_or_default};
@@ -2463,19 +2461,6 @@ mod tests {
         assert_eq!(results.len(), 1);
         // 3 个 kind 元素 → 原版 joinToString(",") → 逗号分隔（而非 \n）
         assert_eq!(results[0].kind.as_deref(), Some("科幻,都市,玄幻"));
-    }
-
-    /// bookType 判定对齐原版 `BookSource.getBookType()`
-    #[test]
-    fn test_book_type_of_source_mapping() {
-        assert_eq!(book_type_of_source(0), book_type::TEXT);
-        assert_eq!(book_type_of_source(1), book_type::AUDIO);
-        assert_eq!(book_type_of_source(2), book_type::IMAGE);
-        assert_eq!(
-            book_type_of_source(3),
-            book_type::TEXT | book_type::WEB_FILE
-        );
-        assert_eq!(book_type_of_source(4), book_type::VIDEO);
     }
 
     /// wordCountFormat 对齐原版 StringUtils.wordCountFormat

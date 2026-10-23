@@ -1,9 +1,16 @@
 import '../../domain/contracts/book_source_query_service.dart';
 import '../../models/models.dart';
+import '../../domain/services/book_type_policy.dart';
 
 /// 沿用Mock详情和空目录，不模拟网络或落库。— Codex + Bridge
 final class MockBookSourceQueryService implements BookSourceQueryService {
   const MockBookSourceQueryService();
+
+  /// Mock仅消费既有类型，不复制正式书源识别规则。
+  @override
+  Future<int> resolveReadingType(int bookType, BookSource? source) async =>
+      bookType & BookTypePolicy.typeMask;
+
   @override
   Future<Book> getBookInfo(
     BookSource source,

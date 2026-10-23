@@ -2,8 +2,6 @@ import '../fixtures/routing_test_app.dart';
 
 import 'dart:ui' as ui;
 
-import 'package:flutter_legado/src/domain/services/book_type_policy.dart';
-
 import '../fixtures/app_test_api.dart';
 
 import 'package:material_ui/material_ui.dart';
@@ -169,6 +167,9 @@ void main() {
         ),
       ],
     );
+    when(
+      () => api.bookSourceQueryService.resolveReadingType(BookType.text, any()),
+    ).thenAnswer((_) async => BookType.video);
     // origin 带尾斜杠、书源 URL 不带：归一后应匹配（旧 home_tab 精确比较会漏配）
     const book = Book(
       bookUrl: 'https://video.example.com/play/1',
@@ -190,6 +191,15 @@ void main() {
     expect(argBook.bookType & BookType.video, BookType.video);
     expect(argBook.bookType & BookType.text, 0);
     verify(() => api.bookSourceRepository.getBookSources()).called(1);
+    final resolvedSource =
+        verify(
+              () => api.bookSourceQueryService.resolveReadingType(
+                BookType.text,
+                captureAny(),
+              ),
+            ).captured.single
+            as BookSource;
+    expect(resolvedSource.bookSourceUrl, 'https://video.example.com');
   });
 
   testWidgets('欢迎页口径：全局 navigatorKey 直开零进度文本书', (tester) async {
@@ -294,7 +304,6 @@ void main() {
     await tester.pumpAndSettle();
 
     // 本地书不做书源匹配；媒体位 image 直接路由漫画阅读器并传 bookUrl
-    expect(BookTypePolicy.typeBitsOf(book), BookType.image);
     expect(observer.lastName, AppRoutes.readerComic);
     expect(observer.lastArguments, book.bookUrl);
     // 不走文本阅读器装载（needsReaderNotifier=false）

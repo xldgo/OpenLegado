@@ -25,6 +25,12 @@ ReadConfig.useGlobalAudioSkip完整透传，不能依据片头片尾是否为零
 详情自动更新操作经BookshelfRepository.setCanUpdate提交稳定标识和目标状态，Rust事务读取最新书籍并只写策略字段；
 界面在保存成功后接收返回快照，未入架仅更新临时展示对象，不将旧页面快照回写数据库。
 
+开读媒体识别由Rust Core的book_media拥有，JS及Fetcher基础类型映射共用同一实现。
+BookSourceQueryService.resolveReadingType传递既有类型和可空书源，正式适配调用只读
+book_resolve_reading_type；BookDetailService保留书源匹配和准备编排，BookOpenUtils保留导航。
+Dart的BookTypePolicy仅保留媒体掩码和详情快照合并，不再解释书源规则；Mock只返回既有媒体位，
+不复制视频误标/HTML抽图算法。上游基础映射与项目已有的媒体适配分开描述，不因迁移改变路由。
+
 书签导出格式集中在Rust legado-core/bookmark_export，BookmarkExportService返回文件名、MIME和内容快照；
 书签DTO映射由查询、编辑与导出共用。features/bookmarks/bookmark_export只编排生成和保存，
 platform/files/bookmark_document_saver保留SAF、目录选择及文件写入；旧services/bookmark_export入口移除，
