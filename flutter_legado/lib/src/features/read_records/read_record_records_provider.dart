@@ -11,7 +11,7 @@ final readRecordRecordsProvider = FutureProvider<List<ReadRecord>>((ref) {
     final subscription = (repository as ReadRecordChangeSource).changes.listen((
       _,
     ) {
-      if (ref.mounted) ref.invalidateSelf();
+      ref.invalidateSelf();
     });
     ref.onDispose(subscription.cancel);
   }

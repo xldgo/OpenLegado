@@ -13,7 +13,7 @@ final readRecordDayDetailsProvider = FutureProvider.autoDispose
       if (repository is ReadRecordChangeSource) {
         final subscription = (repository as ReadRecordChangeSource).changes
             .listen((_) {
-              if (ref.mounted) ref.invalidateSelf();
+              ref.invalidateSelf();
             });
         ref.onDispose(subscription.cancel);
       }

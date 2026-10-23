@@ -888,8 +888,7 @@ class _TimelineRailPainter extends CustomPainter {
 
 /// 以日历日期计算天数，避免夏令时导致24小时差值偏移。
 String _friendlyDate(BuildContext context, String date) {
-  final parsed = DateTime.tryParse(date);
-  if (parsed == null) return date;
+  final parsed = DateTime.parse(date);
   final now = DateTime.now();
   final days = DateTime.utc(
     now.year,

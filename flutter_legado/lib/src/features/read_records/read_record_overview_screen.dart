@@ -54,7 +54,7 @@ class _ReadRecordOverviewScreenState
     _tabController = TabController(
       length: _periods.length,
       vsync: this,
-      initialIndex: initialIndex >= 0 ? initialIndex : 0,
+      initialIndex: initialIndex,
     );
   }
 
@@ -65,12 +65,10 @@ class _ReadRecordOverviewScreenState
   }
 
   void _onTabChanged(int index) {
-    if (index >= 0 && index < _periods.length) {
-      final targetPeriod = _periods[index].period;
-      ref
-          .read(readRecordOverviewNotifierProvider.notifier)
-          .setPeriod(targetPeriod);
-    }
+    final targetPeriod = _periods[index].period;
+    ref
+        .read(readRecordOverviewNotifierProvider.notifier)
+        .setPeriod(targetPeriod);
   }
 
   /// 书籍点击交互处理
@@ -142,7 +140,7 @@ class _ReadRecordOverviewScreenState
 
     // 同步 TabController 的 index
     final periodIndex = _periods.indexWhere((p) => p.period == state.period);
-    if (periodIndex >= 0 && _tabController.index != periodIndex) {
+    if (_tabController.index != periodIndex) {
       _tabController.animateTo(periodIndex);
     }
 

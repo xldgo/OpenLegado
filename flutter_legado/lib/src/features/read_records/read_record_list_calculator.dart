@@ -26,7 +26,7 @@ class ReadRecordListCalculator {
   group(List<ReadRecordListEntry> rows) {
     final groups = <String, List<ReadRecordListEntry>>{};
     for (final row in rows) {
-      groups.putIfAbsent(row.date ?? '', () => []).add(row);
+      groups.putIfAbsent(row.date!, () => []).add(row);
     }
     return groups.entries
         .map(
