@@ -886,42 +886,6 @@ mod quickjs_engine {
         }
     }
 
-    #[cfg(test)]
-    mod source_call_lifetime_tests {
-        use super::*;
-
-        /// 临时作用域必须可回收，不能随每次书源调用常驻。
-        #[test]
-        fn repeated_source_calls_release_temporary_scopes() {
-            let engine = QuickJsEngine::new(SandboxConfig::permissive()).unwrap();
-            engine
-                .eval("function libraryRead(){return this.book.name;}")
-                .unwrap();
-            let args = [(
-                "book",
-                JsValue::from_json(serde_json::json!({"name":"书籍"})).unwrap(),
-            )];
-            let call = super::super::SourceCall {
-                setup: "",
-                main_js: "const state={value:libraryRead()}; function read(){return state.value;}",
-                name: "read",
-                args: &args,
-                optional: false,
-            };
-            engine.call_source_scoped(&call, None).unwrap();
-            engine.runtime.run_gc();
-            let baseline = engine.runtime.memory_usage();
-            for _ in 0..32 {
-                let result = engine.call_source_scoped(&call, None).unwrap();
-                assert_eq!(result.value.as_deref(), Some("书籍"));
-            }
-            engine.runtime.run_gc();
-            let after = engine.runtime.memory_usage();
-            assert_eq!(after.obj_count, baseline.obj_count);
-            assert_eq!(after.js_func_count, baseline.js_func_count);
-        }
-    }
-
     impl JsEngine for QuickJsEngine {
         fn call_source(
             &self,
@@ -984,6 +948,42 @@ mod quickjs_engine {
             bindings: &[(&str, JsValue)],
         ) -> LegadoResult<String> {
             self.execute_compiled_internal(script, bindings, None)
+        }
+    }
+
+    #[cfg(test)]
+    mod source_call_lifetime_tests {
+        use super::*;
+
+        /// 临时作用域必须可回收，不能随每次书源调用常驻。
+        #[test]
+        fn repeated_source_calls_release_temporary_scopes() {
+            let engine = QuickJsEngine::new(SandboxConfig::permissive()).unwrap();
+            engine
+                .eval("function libraryRead(){return this.book.name;}")
+                .unwrap();
+            let args = [(
+                "book",
+                JsValue::from_json(serde_json::json!({"name":"书籍"})).unwrap(),
+            )];
+            let call = super::super::SourceCall {
+                setup: "",
+                main_js: "const state={value:libraryRead()}; function read(){return state.value;}",
+                name: "read",
+                args: &args,
+                optional: false,
+            };
+            engine.call_source_scoped(&call, None).unwrap();
+            engine.runtime.run_gc();
+            let baseline = engine.runtime.memory_usage();
+            for _ in 0..32 {
+                let result = engine.call_source_scoped(&call, None).unwrap();
+                assert_eq!(result.value.as_deref(), Some("书籍"));
+            }
+            engine.runtime.run_gc();
+            let after = engine.runtime.memory_usage();
+            assert_eq!(after.obj_count, baseline.obj_count);
+            assert_eq!(after.js_func_count, baseline.js_func_count);
         }
     }
 }

@@ -1,5 +1,13 @@
 # Legado 后续重构执行计划（Active）
 
+### JS-TEST-ORDER-20261023：QuickJS测试模块顺序修复（P1，代码及定向验证完成）
+
+- 用户提供CI错误：engine.rs的source_call_lifetime_tests后还有JsEngine实现，触发items_after_test_module；仅将该测试模块原样移至quickjs_engine模块末尾，不改运行行为、不增加lint豁免或测试。无契约、依赖、版本及用户可见变化。
+- 验收：定向运行legado-js的QuickJS全目标Clippy与既有作用域回收用例；不跑全仓或平台构建，不推送。
+- 结果：cargo clippy --locked -p legado-js --features quickjs --all-targets -- -D warnings退出0；cargo test --locked -p legado-js --features quickjs --lib source_call_lifetime_tests的1项既有回归通过；rustfmt --edition 2024 --check legado-js/src/engine.rs与git diff --check通过。单代理diff复核确认测试内容原样、仅位置变化；本地提交，不推送，无用户可见变化故不改应用更新日志。
+
+编写者：Codex + Rust｜2026-10-23
+
 ### RULE-TEXT-BOUNDARY-20261023：规则文本误删与元信息判断去重（P1/P2，代码及定向验证完成）
 
 - 授权/基线：用户同意开始元信息职责核查，dev / 934e20965；单代理复核，定向验证后本地提交，默认不添加skip ci；不创建分支、不推送CI或安装，版本不变，保护未跟踪审计文档。
