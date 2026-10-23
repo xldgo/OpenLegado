@@ -166,7 +166,7 @@ impl StreamRequest {
     }
 }
 impl StreamRequest {
-    async fn wait_cancelled(&self) {
+    pub(crate) async fn wait_cancelled(&self) {
         loop {
             let changed = self.changed.notified();
             tokio::pin!(changed);

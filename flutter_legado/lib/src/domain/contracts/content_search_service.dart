@@ -12,12 +12,35 @@ final class ContentSearchHit {
   final int highlightStart, highlightEnd;
 }
 
-abstract interface class ContentSearchService {
-  /// 无效正则/空查询返回null；传输和执行错误仍上抛。
-  Future<ContentSearchMatcher?> open(String query, {required bool useRegex});
+enum ContentSearchScope { current, cached, network }
+
+/// 每次事件只携带一章的新增结果，不重复返回历史命中。— Codex + Bridge
+final class ContentSearchBatch {
+  const ContentSearchBatch({
+    this.chapterIndex,
+    this.chapterTitle = '',
+    this.hits = const [],
+    required this.scanned,
+    required this.total,
+    this.error,
+    this.limitReached = false,
+  });
+  final int? chapterIndex;
+  final String chapterTitle;
+  final List<ContentSearchHit> hits;
+  final int scanned, total;
+  final String? error;
+  final bool limitReached;
 }
 
-abstract interface class ContentSearchMatcher {
-  Future<List<ContentSearchHit>> search(String content);
-  void close();
+abstract interface class ContentSearchService {
+  /// 订阅取消必须结束本次原生任务，不影响其他执行实例。
+  Stream<ContentSearchBatch> search({
+    required String bookUrl,
+    required String query,
+    required bool useRegex,
+    required bool useReplace,
+    required ContentSearchScope scope,
+    required int currentChapterIndex,
+  });
 }

@@ -46,6 +46,15 @@
 
 ### RUST-BOUNDARY-IMPLEMENT-20261023：重复功能收敛与业务边界下沉（P2，分批实施）
 
+- B10b（代码及定向验证完成）：用户授权正文搜索执行下沉，从df524374a开始，单代理；先冻结CONTENT-SEARCH-EXECUTION-20261023，复用B10a匹配器与既有StreamRequest/TaskHandle。Rust拥有章节范围、正式内容读取、净化、流式增量批次与取消；Flutter保留历史/选项/展示/导航，不再逐章请求。修正在线need_fetch JSON被当正文路径，缓存范围非当前章不因清理/空缓存而联网。定向测试后本地提交，版本不变，不推送/安装。
+
+- B10b实现：ReadingService/content_search复用B10a匹配器，按目录顺序选择当前/缓存/全部，执行真实本地或缓存/网络读取并复用净化。修正原在线getChapterContent/raw返回need_fetch JSON而搜索未继续抓取的问题。非当前缓存章在缓存清理/空内容后跳过，不联网；50/200上限只在Rust维护，批次仅新增命中及scanned/total/error/limitReached。单章失败继续，目录/宿主错误为流错误，非法正则不读正文。B10a临时匹配句柄FFI移除，改为一个类型化流入口，Core算法保持。
+- B10b取消/Flutter：复用独立StreamRequest和managedRustStream，FFI捕获ReadingService并登记TaskHandle；spawn_blocking保留工作凭据，入口guard在结束/丢弃时通知取消。ChapterContent HTTP等待select取消，注入JS取消与执行租约；沿用with_active控制正文缓存/副内容提交。Flutter删除逐章读取和缓存筛选，只保留历史、选项、展示和导航；新搜索/停止/清空/销毁各取消自己订阅，已有generation隔离已排队事件，旧取消等待不阻塞新查询。界面search完成不冒充原生CPU/文件IO瞬间终止。
+- B10b验证：Engine新增三项组合场景最终通过：范围/真实净化/目录进度/200项截断/非法模式/本地TXT；真实HTTP提取/失败章继续；服务端响应尚未放行时取消结束且无正文缓存/新事件，兄弟任务保持。FFI共享正文三项既有回归最终通过：缓存不初始化网络、真实下载实例隔离、实际HTTP取消后无正文/字数/媒体回写；共6项Rust唯一用例。Flutter四文件8项通过（Controller4、桥接1、结果交互1、共享订阅取消2），旧逐章调度测试职责移到Rust组合场景，不在Dart复制算法。
+- B10b修正/证据：首轮Engine两项通过，本地TXT夹具缺少书籍行触发外键约束，补合法书籍记录后范围组合单项通过。共享回归两项通过，取消旧断言要求HTTP继续等待，与新取消能力冲突；改为响应放行前任务可结束，保持全部不回写断言。其夹具又因已断开的客户端写响应报ConnectionAborted，限定只在取消门控场景接受连接关闭错误后单项通过。分析首次发现Widget删除读库替身后的无用导入，清理后单文件复验；八文件定向分析、Controller清理复验、架构、Engine/FFI QuickJS lib/tests Clippy、格式/diff检查通过。证据build/boundary-b10b/{engine,scope-final,shared-content,cancel-regression-final,cancel-regression-verified,flutter,analyze,analyze-final,controller-analysis-final,architecture,clippy,clippy-final,codegen}.log；Clippy新增测试夹具改动后仅复验FFI。
+- B10b边界：FRB2.13隔离生成，双端hash=-1181693585，依赖/锁文件/DB结构及应用版本2.0.439+440不变。双更新日志记录在线搜索及取消的用户可见修复，历史/范围选项/标题匹配/导航不扩展。单代理源码与契约复核，无独立审查；有真实本地HTTP和数据库/文件验证，但没有Dart加载新库、真实书源/设备、全量、性能或CI验证。同步文件读取/净化不强杀线程，任务检查与提交门控防止取消后继续扫描/发布；不宣称所有JS外部副作用可回滚。独立本地提交，不推送、合并主目录或安装。
+
+
 - B10a（代码及定向验证完成）：用户同意正文搜索下沉，允许Rust正则按上游行为核验；从f82d62ce2开始，单代理，先冻结CONTENT-SEARCH-MATCH-20261023。先迁移匹配/摘要/UTF-16坐标并删除Dart重复匹配，章节读取与真实取消留B10b。复用既有regex/fancy-regex，不新增依赖，不扩大到历史/范围/标题策略。普通搜索保留现有忽略大小写；正则用本地上游场景及JVM Pattern探针交叉验证，不宣称完整Java方言等价。定向验证后本地提交，版本不变，不推送/构建安装。
 
 - B10a实现：Core/content_search复用regex_safe，普通忽略大小写匹配保留并将变长小写映射回原文；正则按整个正文执行，结果携带UTF-16原文范围及摘要高亮。每章最多50项、总200项、两侧30单位/换行替空格/省略号保持，摘要向外避开代理对。无命中不建立整章坐标表。FFI新增只读工厂与不可变句柄search，查询结束通过FRB dispose释放，无状态注册表或额外串行锁。

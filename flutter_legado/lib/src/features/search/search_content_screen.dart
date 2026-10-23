@@ -1,7 +1,5 @@
 import 'application/content_search_controller.dart';
-import '../../providers/reading_provider.dart';
 import 'search_access_providers.dart';
-import '../../providers/chapter_cache_provider.dart';
 import '../../widgets/app_menu.dart';
 
 import 'dart:async';
@@ -102,8 +100,6 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
     _searchController = ContentSearchController(
       bookUrl: widget.effectiveBookUrl,
       bookName: widget.effectiveBookName,
-      reading: ref.read(readingRepositoryProvider),
-      cache: ref.read(chapterCacheRepositoryProvider),
       history: ref.read(searchHistoryRepositoryProvider),
       matching: ref.read(contentSearchServiceProvider),
       log: (operation, error, stack) => debugPrint('$operation：$error\n$stack'),
@@ -398,7 +394,7 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
                 context.l10n.contentMatchCount(_results.length),
                 style: Theme.of(context).textTheme.labelMedium,
               ),
-              if (_results.length >= ContentSearchController.maxResults)
+              if (_searchController.state.limitReached)
                 Text(
                   context.l10n.searchResultsTruncated,
                   style: Theme.of(context).textTheme.labelSmall,

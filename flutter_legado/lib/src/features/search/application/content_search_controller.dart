@@ -2,12 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-import '../../../domain/contracts/reading_repository.dart';
-import '../../../domain/contracts/chapter_cache_repository.dart';
 import '../../../domain/contracts/search_history_repository.dart';
 import '../../../domain/contracts/content_search_service.dart';
 
-enum ContentSearchScope { current, cached, network }
+export '../../../domain/contracts/content_search_service.dart'
+    show ContentSearchScope;
 
 class ContentMatch {
   const ContentMatch({
@@ -18,10 +17,9 @@ class ContentMatch {
   final int chapterIndex;
   final String chapterTitle;
   final ContentSearchHit hit;
-  String get snippet => hit.snippet;
 }
 
-/// 不可变结果快照；取消只停止后续调度与发布，不伪称底层请求已取消。— Codex + UI
+/// 不可变界面快照；章节调度、匹配与取消由原生服务拥有。— Codex + UI
 class ContentSearchState {
   ContentSearchState({
     List<ContentMatch> results = const [],
@@ -30,6 +28,7 @@ class ContentSearchState {
     this.query = '',
     this.scanned = 0,
     this.total = 0,
+    this.limitReached = false,
   }) : results = List.unmodifiable(results),
        history = List.unmodifiable(history);
   final List<ContentMatch> results;
@@ -37,6 +36,7 @@ class ContentSearchState {
   final bool searching;
   final String query;
   final int scanned, total;
+  final bool limitReached;
   ContentSearchState copyWith({
     List<ContentMatch>? results,
     List<String>? history,
@@ -44,6 +44,7 @@ class ContentSearchState {
     String? query,
     int? scanned,
     int? total,
+    bool? limitReached,
   }) => ContentSearchState(
     results: results ?? this.results,
     history: history ?? this.history,
@@ -51,6 +52,7 @@ class ContentSearchState {
     query: query ?? this.query,
     scanned: scanned ?? this.scanned,
     total: total ?? this.total,
+    limitReached: limitReached ?? this.limitReached,
   );
 }
 
@@ -58,16 +60,11 @@ class ContentSearchController extends ChangeNotifier {
   ContentSearchController({
     required this.bookUrl,
     required this.bookName,
-    required this.reading,
-    required this.cache,
     required this.history,
     required this.matching,
     required this.log,
   });
-  static const maxResults = 200;
   final String bookUrl, bookName;
-  final ReadingRepository reading;
-  final ChapterCacheRepository cache;
   final SearchHistoryRepository history;
   final ContentSearchService matching;
   final void Function(String, Object, StackTrace) log;
@@ -75,6 +72,24 @@ class ContentSearchController extends ChangeNotifier {
   ContentSearchState get state => _state;
   int _generation = 0, _historyGeneration = 0;
   bool _closed = false;
+  StreamSubscription<ContentSearchBatch>? _subscription;
+  Completer<void>? _searchDone;
+
+  void _cancelActive() {
+    final sub = _subscription;
+    final done = _searchDone;
+    _subscription = null;
+    _searchDone = null;
+    if (done != null && !done.isCompleted) done.complete();
+    if (sub != null) {
+      unawaited(
+        sub.cancel().catchError((Object e, StackTrace s) {
+          if (!_closed) log('取消正文搜索', e, s);
+        }),
+      );
+    }
+  }
+
   void _publish(ContentSearchState value) {
     if (_closed) return;
     _state = value;
@@ -115,6 +130,7 @@ class ContentSearchController extends ChangeNotifier {
     final query = raw.trim();
     if (query.isEmpty || _closed) return;
     final generation = ++_generation;
+    _cancelActive();
     bool current() => !_closed && generation == _generation;
     _publish(
       _state.copyWith(
@@ -123,6 +139,7 @@ class ContentSearchController extends ChangeNotifier {
         results: [],
         scanned: 0,
         total: 0,
+        limitReached: false,
       ),
     );
     unawaited(
@@ -133,68 +150,74 @@ class ContentSearchController extends ChangeNotifier {
         if (current()) log('保存正文搜索历史', e, s);
       }),
     );
-    ContentSearchMatcher? matcher;
+    final done = Completer<void>();
+    _searchDone = done;
+    void finish() {
+      if (!done.isCompleted) done.complete();
+      if (current()) {
+        _subscription = null;
+        _searchDone = null;
+        _publish(_state.copyWith(searching: false));
+      }
+    }
+
     try {
-      matcher = await matching.open(query, useRegex: useRegex);
-      if (!current() || matcher == null) return;
-      final chapters = await reading.getChapters(bookUrl);
-      if (!current()) return;
-      _publish(_state.copyWith(total: chapters.length));
-      Set<String> cached = {};
-      if (scope == ContentSearchScope.cached) {
-        try {
-          cached = (await cache.listCachedChapterUrls(bookUrl)).toSet();
-        } catch (e, s) {
-          if (current()) log('读取已缓存章节范围', e, s);
-        }
-      }
-      if (!current()) return;
-      final results = <ContentMatch>[];
-      for (var i = 0; i < chapters.length; i++) {
-        if (!current()) return;
-        final chapter = chapters[i];
-        if (scope == ContentSearchScope.current && i != currentChapterIndex) {
-          continue;
-        }
-        if (scope == ContentSearchScope.cached &&
-            i != currentChapterIndex &&
-            !cached.contains(chapter.url)) {
-          continue;
-        }
-        try {
-          final content = useReplace
-              ? await reading.getChapterContent(bookUrl, chapter.index)
-              : await reading.getChapterContentRaw(bookUrl, chapter.index);
-          if (!current()) return;
-          final hits = await matcher.search(content);
-          if (!current()) return;
-          for (final hit in hits) {
-            results.add(
-              ContentMatch(
-                chapterIndex: chapter.index,
-                chapterTitle: chapter.title,
-                hit: hit,
-              ),
-            );
-            if (results.length >= maxResults) break;
-          }
-        } catch (e, s) {
-          if (current()) log('搜索章节${chapter.index}', e, s);
-        }
-        if (!current()) return;
-        _publish(_state.copyWith(results: results, scanned: i + 1));
-        if (results.length >= maxResults) break;
-      }
+      _subscription = matching
+          .search(
+            bookUrl: bookUrl,
+            query: query,
+            useRegex: useRegex,
+            useReplace: useReplace,
+            scope: scope,
+            currentChapterIndex: currentChapterIndex,
+          )
+          .listen(
+            (batch) {
+              if (!current()) return;
+              final error = batch.error;
+              if (error != null) {
+                log(
+                  '搜索章节${batch.chapterIndex}',
+                  StateError(error),
+                  StackTrace.current,
+                );
+              }
+              final chapterIndex = batch.chapterIndex;
+              _publish(
+                _state.copyWith(
+                  results: [
+                    ..._state.results,
+                    if (chapterIndex != null)
+                      for (final hit in batch.hits)
+                        ContentMatch(
+                          chapterIndex: chapterIndex,
+                          chapterTitle: batch.chapterTitle,
+                          hit: hit,
+                        ),
+                  ],
+                  scanned: batch.scanned,
+                  total: batch.total,
+                  limitReached: batch.limitReached,
+                ),
+              );
+            },
+            onError: (Object e, StackTrace s) {
+              if (current()) log('正文搜索', e, s);
+              finish();
+            },
+            onDone: finish,
+            cancelOnError: true,
+          );
     } catch (e, s) {
       if (current()) log('正文搜索', e, s);
-    } finally {
-      matcher?.close();
-      if (current()) _publish(_state.copyWith(searching: false));
+      finish();
     }
+    await done.future;
   }
 
   void clear() {
     _generation++;
+    _cancelActive();
     _publish(
       _state.copyWith(
         query: '',
@@ -202,12 +225,14 @@ class ContentSearchController extends ChangeNotifier {
         searching: false,
         scanned: 0,
         total: 0,
+        limitReached: false,
       ),
     );
   }
 
   void cancel() {
     _generation++;
+    _cancelActive();
     _publish(_state.copyWith(searching: false));
   }
 
@@ -216,6 +241,7 @@ class ContentSearchController extends ChangeNotifier {
     if (_closed) return;
     _closed = true;
     _generation++;
+    _cancelActive();
     _historyGeneration++;
     super.dispose();
   }

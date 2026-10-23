@@ -101,7 +101,25 @@ mod tests {
                     "<html><div class='content'>https://cdn.example/{identity}.mp4</div><div class='sub'>{identity}{}</div></html>",
                     "x".repeat(11000)
                 );
-                write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len()).unwrap();
+                let response = write!(
+                    stream,
+                    "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                );
+                if let Err(error) = response {
+                    // 取消场景客户端可已断开；非取消或其他写入错误仍须失败。
+                    assert!(
+                        gate.is_some()
+                            && matches!(
+                                error.kind(),
+                                std::io::ErrorKind::BrokenPipe
+                                    | std::io::ErrorKind::ConnectionAborted
+                                    | std::io::ErrorKind::ConnectionReset
+                                    | std::io::ErrorKind::NotConnected
+                            ),
+                        "HTTP夹具响应失败: {error}"
+                    );
+                }
             }
         });
         (base, job)
@@ -177,7 +195,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn cancelling_a_real_request_rejects_late_body_word_count_and_media_until_worker_exits() {
+    async fn cancelling_a_real_request_finishes_before_response_and_rejects_late_writes() {
         let (started, ready) = std::sync::mpsc::channel();
         let (release, gate) = std::sync::mpsc::channel();
         let (base, server) = server(1, Some(started), Some(gate));
@@ -190,11 +208,11 @@ mod tests {
         let id = service.start(&book, 0, 0).unwrap();
         ready.recv_timeout(Duration::from_secs(5)).unwrap();
         assert!(service.cancel(id).unwrap());
-        assert!(!tasks.shutdown(Duration::from_millis(20)).await);
+        // 取消能结束在途HTTP；不能要求工作线程等到服务端放行才退出。
+        assert!(tasks.shutdown(Duration::from_secs(5)).await);
         drop(engine);
         assert!(weak.upgrade().is_none());
         release.send(()).unwrap();
-        assert!(tasks.shutdown(Duration::from_secs(5)).await);
         server.join().unwrap();
         storage
             .with_database(|db| {

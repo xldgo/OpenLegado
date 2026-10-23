@@ -3020,7 +3020,18 @@ Depth为0，不拼接remote_dir；账号或密码非空才携带Basic Auth。5�
 
 ### 朗读扩展：缓存、音色目录与云端（§2.42 补充）
 
-**CONTENT-SEARCH-MATCH-20261023（B10a，实施前冻结）**：正文匹配和摘要坐标归Core，章节调度本批保留Flutter；不改DB/历史、搜索范围与开读导航。
+**CONTENT-SEARCH-EXECUTION-20261023（B10b，实施前冻结）**：正文搜索执行迁入ReadingService，B10a Core匹配/UTF-16/摘要规则复用，Flutter不再逐章请求正文。
+- 新增`contentSearch(options: ContentSearchOptionsDto, request: StreamRequest) → Stream<ContentSearchBatchDto>`，复用既有独立StreamRequest及managedRustStream；取消本订阅只取消捕获的TaskHandle，不查宿主新槽或取消其他任务。
+- options含bookUrl/query/useRegex/useReplace/scope/currentChapterIndex；scope为current/cached/network：当前章；当前章加缓存URL匹配章；全部目录。当前章可正常取内容，其余缓存范围仅使用实际有效缓存，缓存清理或空缓存不触发联网补抓。目录顺序保持，每章最多50项、总200项。每个批次仅本章新增结果，含chapterIndex（初始进度为null）/chapterTitle/hits/scanned/total/error/limitReached；流自然结束表示完成，不重复传累计结果。
+- 目录及原文/净化/本地路径复用ReadingService正式能力；在线实际读取ChapterContent，不再将readerGetContent的need_fetch描述JSON当作小说正文。净化开关只控制替换规则，保持既有繁简/去同标题等流程。历史、设置、标题搜索策略和命中跳转不扩展。
+- 单章失败发error批次并继续；目录/宿主错误作为流错误；非法正则不读取正文并正常结束。进度沿用目录总量和已扫描目录位置，不以已选章节计数重定义。Rust统一返回limitReached，UI不维护另一份截断阈值。
+- 执行登记在捕获引擎TaskGroup；阻塞章节IO不能强杀线程，网络等待select取消并向JS注入本任务凭据/执行租约，停止后拒绝正文缓存/副内容和结果提交；文件读取/同步净化等已运行步骤结束后退出，不声称瞬间中断所有CPU工作。进程/引擎关闭也能取消任务。
+- B10a临时匹配句柄工厂/search从FFI移除（无外部兼容承诺），保留Core匹配器及结果DTO；Dart ContentSearchService改为流接口，取消/新查询/清空/销毁取消各自订阅，原generation仍隔离迟到事件。正式Mock不复制算法，测试使用固定批次验证编排。
+- 不改数据库结构、依赖、应用版本、Web/MCP、播放或阅读器取内容既有入口；只定向测试，独立本地提交，不推送/安装。
+
+编写者：Codex + Rust / UI / Bridge｜2026-10-23
+
+**CONTENT-SEARCH-MATCH-20261023（B10a，FFI形态已由B10b取代，下述保留迁移依据）**：正文匹配和摘要坐标归Core，章节调度本批保留Flutter；不改DB/历史、搜索范围与开读导航。
 - 新增`contentSearchBegin(query: String, useRegex: bool) → Future<ContentSearchMatcher?>`；空关键词、非法或被既有安全编译器拒绝的正则返回null，不请求正文。查询对象只持编译模式，无全局会话表、数据库或网络副作用。
 - 句柄`search(content: String) → Future<List<ContentSearchHitDto>>`，每章最多50项，返回原文sourceStart/sourceEnd、snippet与snippet中的highlightStart/highlightEnd；所有位置为UTF-16半开区间。摘要保留本项目两侧30单位、换行为空格和省略号，边界向外对齐Unicode标量，避免切开代理对。
 - 正则默认区分大小写、按整个正文查找，复用Core安全编译的regex/fancy-regex，核验前后查找、反向引用、原子组、零宽与UTF-16样例；不宣称Rust引擎覆盖全部Java Pattern。编译无效按上游返回空能力；执行错误上抛，不当作正常无命中。

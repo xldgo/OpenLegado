@@ -453,3 +453,34 @@ UTF-16位置一次建表，摘要对齐Unicode标量边界，保留换行替空�
 验证数量、失败修正、提交及边界仅维护于Active计划。
 
 编写者：Codex + Rust / UI / Bridge｜2026-10-23
+
+## 21. B10b 正文搜索执行与取消
+
+B10a仍由Flutter逐章调用getChapterContent/getChapterContentRaw，而正式
+RustReadingRepository直连reader_get_content/raw，ReadingService对在线书返回
+need_fetch描述JSON。正文搜索没有像正式阅读链进一步获取正文，因此迁移必须使用
+ChapterContent真实缓存/抓取能力，不能在Rust照搬搜索该JSON的行为。
+
+ReadingService拥有目录范围和真实读取；当前章、当前加缓存、全部章节保持三档。
+缓存范围按既有URL集合选择，非当前章在真正读取时只接受有效缓存，缓存被清理或空值
+只跳过，不借此联网；当前章仍可正常抓取。净化复用ContentProcessing，替换开关
+不改变去同标题及繁简设置。本地文件复用LocalBook及宿主路径解析，不返回整章至Dart。
+
+B10a临时公开的匹配句柄退出FFI，Core匹配器保留供执行器复用。流只返回本章新增
+命中、目录扫描位置/总量、错误和截断状态，不重复传累计结果；单章失败继续，整体
+目录错误上抛。50/200限制只在Rust维护，Flutter使用limitReached显示已有提示。
+历史和开读导航继续由原界面负责，本批没有增加标题匹配或修改历史策略。
+
+复用StreamRequest及managedRustStream绑定独立订阅。FFI捕获ReadingService后
+登记TaskHandle，阻塞线程持执行凭据，入口TaskGuard在退出/丢弃时通知取消；请求
+取消只通知本任务并等待执行器返回，不使用进程全局cancel。ChapterContent网络等待
+select任务取消，并将同一取消能力与执行租约注入JS；短提交继续使用with_active。
+阻塞文件读取和同步净化不能强行终止，返回后检查任务并拒绝结果，不声称立即终止
+全部CPU或文件IO。共享正文读取的下载取消用例必须作为必要调用方回归。
+
+Flutter只订阅增量事件、保存展示快照，重搜/停止/清空/销毁取消各自订阅；原generation
+隔离已排队事件。等待旧取消结束不阻塞新查询，界面search返回不等于所有原生线程
+已经停止；真实在途凭据仍由Engine登记到结束。算法语义继续由B10a Rust用例覆盖，
+Dart测试只验证选项传递、事件/错误、取消和高亮，不另写章节选择算法。
+
+编写者：Codex + Rust / UI / Bridge｜2026-10-23

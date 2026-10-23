@@ -3,7 +3,7 @@ use crate::search_service::{SearchDepsFactory, SearchResources};
 use crate::{EngineContext, SearchTasks};
 use legado_core::web_book::{WebBookInfo, WebSearchResult};
 
-fn service(engine: &EngineContext, runtime: &tokio::runtime::Runtime) -> ReadingService {
+pub(super) fn service(engine: &EngineContext, runtime: &tokio::runtime::Runtime) -> ReadingService {
     let js = engine.js_resources().clone();
     let web = engine.web_book_state().clone();
     let rate = engine.rate_limiter();

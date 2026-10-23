@@ -144,6 +144,11 @@ impl ChapterContent {
             return Err(cancelled());
         }
         let mut deps = (self.deps)()?.for_book(source_url, book_url);
+        if let Some(task) = task {
+            deps = deps
+                .with_cancellation(Arc::new(task.clone()))
+                .with_execution_lease(Arc::new(task.clone()));
+        }
         if let Some(task) = task
             && let Some(sink) = deps.media_sub_content.take()
         {
@@ -153,9 +158,17 @@ impl ChapterContent {
             }));
         }
         let engine = legado_fetcher::web_book::build_engine(deps);
-        let content = self
-            .runtime
-            .block_on(async { engine.get_content(&source, &web_chapter).await })?;
+        let content = self.runtime.block_on(async {
+            let fetch = engine.get_content(&source, &web_chapter);
+            if let Some(task) = task {
+                tokio::select! { biased;
+                    _ = task.cancelled() => Err(cancelled()),
+                    content = fetch => content,
+                }
+            } else {
+                fetch.await
+            }
+        })?;
 
         // 3. 抓取成功后写入 DB 缓存（对齐原版 BookContent.analyzeContent
         //    L207-209 `needSave → BookHelp.saveContent` 的「获取成功即写」时机）。

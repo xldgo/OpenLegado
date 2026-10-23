@@ -8,17 +8,55 @@ import 'frb_generated.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-Future<ContentSearchMatcher?> contentSearchBegin({
-  required String query,
-  required bool useRegex,
-}) => RustLib.instance.api.crateContentSearchBridgeContentSearchBegin(
-  query: query,
-  useRegex: useRegex,
+Stream<ContentSearchBatchDto> contentSearch({
+  required ContentSearchOptionsDto options,
+  required StreamRequest request,
+}) => RustLib.instance.api.crateContentSearchBridgeContentSearch(
+  options: options,
+  request: request,
 );
 
-// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ContentSearchMatcher>>
-abstract class ContentSearchMatcher implements RustOpaqueInterface {
-  Future<List<ContentSearchHitDto>> search({required String content});
+class ContentSearchBatchDto {
+  final int? chapterIndex;
+  final String chapterTitle;
+  final List<ContentSearchHitDto> hits;
+  final BigInt scanned;
+  final BigInt total;
+  final String? error;
+  final bool limitReached;
+
+  const ContentSearchBatchDto({
+    this.chapterIndex,
+    required this.chapterTitle,
+    required this.hits,
+    required this.scanned,
+    required this.total,
+    this.error,
+    required this.limitReached,
+  });
+
+  @override
+  int get hashCode =>
+      chapterIndex.hashCode ^
+      chapterTitle.hashCode ^
+      hits.hashCode ^
+      scanned.hashCode ^
+      total.hashCode ^
+      error.hashCode ^
+      limitReached.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ContentSearchBatchDto &&
+          runtimeType == other.runtimeType &&
+          chapterIndex == other.chapterIndex &&
+          chapterTitle == other.chapterTitle &&
+          hits == other.hits &&
+          scanned == other.scanned &&
+          total == other.total &&
+          error == other.error &&
+          limitReached == other.limitReached;
 }
 
 class ContentSearchHitDto {
@@ -55,3 +93,44 @@ class ContentSearchHitDto {
           highlightStart == other.highlightStart &&
           highlightEnd == other.highlightEnd;
 }
+
+class ContentSearchOptionsDto {
+  final String bookUrl;
+  final String query;
+  final bool useRegex;
+  final bool useReplace;
+  final ContentSearchScopeDto scope;
+  final int currentChapterIndex;
+
+  const ContentSearchOptionsDto({
+    required this.bookUrl,
+    required this.query,
+    required this.useRegex,
+    required this.useReplace,
+    required this.scope,
+    required this.currentChapterIndex,
+  });
+
+  @override
+  int get hashCode =>
+      bookUrl.hashCode ^
+      query.hashCode ^
+      useRegex.hashCode ^
+      useReplace.hashCode ^
+      scope.hashCode ^
+      currentChapterIndex.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ContentSearchOptionsDto &&
+          runtimeType == other.runtimeType &&
+          bookUrl == other.bookUrl &&
+          query == other.query &&
+          useRegex == other.useRegex &&
+          useReplace == other.useReplace &&
+          scope == other.scope &&
+          currentChapterIndex == other.currentChapterIndex;
+}
+
+enum ContentSearchScopeDto { current, cached, network }

@@ -1,11 +1,15 @@
 import '../../domain/contracts/content_search_service.dart';
 
-/// Mock装配显式注入命中夹具，不复制Rust正则算法。— Codex + Bridge
+/// Mock只注入明确搜索批次，不复制章节选择或正文匹配。— Codex + Bridge
 final class MockContentSearchService implements ContentSearchService {
   const MockContentSearchService();
   @override
-  Future<ContentSearchMatcher?> open(
-    String query, {
+  Stream<ContentSearchBatch> search({
+    required String bookUrl,
+    required String query,
     required bool useRegex,
-  }) async => throw UnsupportedError('离线模式未提供正文搜索夹具');
+    required bool useReplace,
+    required ContentSearchScope scope,
+    required int currentChapterIndex,
+  }) => Stream.error(UnsupportedError('离线模式未提供正文搜索夹具'));
 }
