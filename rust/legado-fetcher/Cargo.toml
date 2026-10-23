@@ -12,13 +12,13 @@ legado-parser = { path = "../legado-parser" }
 legado-net = { path = "../legado-net" }
 legado-js = { path = "../legado-js" }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync", "time"] }
-serde = { workspace = true }
+serde = { workspace = true, features = ["derive", "rc"] }
 serde_json = { workspace = true }
 regex = { workspace = true }
-futures = "0.3"
-encoding_rs = "0.8"
+futures = { workspace = true }
+encoding_rs = { workspace = true }
 # 云端合成缓存摘要沿用已锁定 sha2。
-sha2 = "0.11"
+sha2 = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["io-util", "net"] }

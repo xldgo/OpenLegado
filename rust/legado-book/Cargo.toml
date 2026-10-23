@@ -5,12 +5,12 @@ edition.workspace = true
 
 [dependencies]
 legado-core = { path = "../legado-core" }
-serde = { workspace = true }
+serde = { workspace = true, features = ["derive", "rc"] }
 serde_json = { workspace = true }
-zip = "9.0.1"
-quick-xml = "0.42"
-encoding_rs = "0.8"
-regex = "1"
+zip = { workspace = true }
+quick-xml = { workspace = true }
+encoding_rs = { workspace = true }
+regex = { workspace = true }
 lopdf = "0.46"
 # 仅启用PDF文本/图片写入，不引入默认HTML/CSS与Azul排版链。
 printpdf = { version = "0.12.8", default-features = false, features = ["png", "jpeg"] }

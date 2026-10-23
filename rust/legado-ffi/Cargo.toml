@@ -19,21 +19,21 @@ legado-db = { path = "../legado-db" }
 legado-engine = { path = "../legado-engine" }
 legado-server = { path = "../legado-server" }
 tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
-serde = { workspace = true }
+serde = { workspace = true, features = ["derive", "rc"] }
 serde_json = { workspace = true }
 base64 = { workspace = true }
 regex = { workspace = true }
-log = "0.4"
-rusqlite = { version = "0.40.2", features = ["bundled"] }
-chrono = "0.4"
+log = { workspace = true }
+rusqlite = { workspace = true, features = ["bundled"] }
+chrono = { workspace = true, default-features = true }
 flutter_rust_bridge = "=2.13.0"
 
 [dev-dependencies]
 # 仅测试启用可控时钟，候选超时不依赖机器负载；生产构建不启用。
 tokio = { workspace = true, features = ["test-util"] }
-encoding_rs = "0.8"
+encoding_rs = { workspace = true }
 # [cbz 批 B | 2026-10-03] 测试造 CBZ 夹具（与 legado-book 同版本 zip，仅测试用）
-zip = "9.0.1"
+zip = { workspace = true }
 
 # Unix 平台线程降权（nice 19）：修复多源搜索 CPU 风暴饿死 Flutter UI 线程
 [target.'cfg(any(target_os = "android", target_os = "linux"))'.dependencies]

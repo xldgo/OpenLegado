@@ -1,5 +1,17 @@
 # Legado 后续重构执行计划（Active）
 
+### RUST-WORKSPACE-DEPS-20261024：统一共享依赖版本声明（P2，已关闭：配置与解析一致性验证完成）
+
+- 用户授权从 dev / 97b49dd0e 创建 feature/rust-workspace-deps，工作目录 build/worktrees/rust-workspace-deps；主目录未提交的 Flutter 测试及计划改动不带入、不覆盖。单代理，本地提交，不推送、构建设备或提升应用版本。
+- 共用兼容版本集中到 rust/Cargo.toml，各 crate 继承并保留自身功能、可选及平台条件；单独依赖与 RSA 所需的旧版 MD5/SHA/HMAC 留在所属 crate。serde 的原继承功能移至使用方，避免 JS 独立构建多启用 rc；chrono 在根关闭默认功能，各使用方显式保持原选择。
+- urlencoding 统一采用既有多数声明的 2.1 下限（Parser 原为 2），不升级已锁版本。验收比较 Cargo 实际解析的依赖、功能及各 crate 声明，锁文件须逐字节不变；不新增文本守卫测试或默认运行全量业务测试。
+
+- 结果：根清单新增20项共享声明，共31项；11个成员清单改为继承，对不兼容加密版本不合并。Cargo 展开的189条成员依赖声明（含依赖类型、平台条件、可选性、默认功能及功能集合）除已记录的 urlencoding 下限收敛外一致；重复 derive 按集合去重，不改变启用功能。Windows 默认与全功能解析图分别390/426项完全一致，Cargo.lock 逐字节不变；git diff --check 通过。
+- 限制：Linux 完整 metadata 首次离线检查缺缓存，联网恢复下载又遇到本机 Schannel SEC_E_NO_CREDENTIALS，未完成非 Windows 解析图检查；平台条件已包含在全部成员声明对照中，不据此声称跨平台编译通过。此次只改清单，没有运行全量业务测试、原生构建或新增机械测试，单代理复核，无独立审查。
+- 证据：本 worktree 的 build/workspace-deps/verification.json、metadata-{before,after}-windows-{default,all}.json 与下载失败日志；原清单和锁文件快照在同目录，仅作本次核对、不入库。主目录修改不变，应用版本不变，本地提交，不推送。
+
+编写者：Codex + Rust｜2026-10-24
+
 ### FRB-STALE-OUTPUTS-20261023：清理旧绑定与导出（P2，清理及定向验证完成）
 
 - 用户同意删除已确认无消费者的五个FRB2.11.1残留：bridge/lib.dart及api下book_import/reader/rss/search.dart。删除四条旧export，保留18个正式适配器使用的手写rust_lib.dart，仅纠正其自动生成误注释及规范中的全目录生成物口径。
