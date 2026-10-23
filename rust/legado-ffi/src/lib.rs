@@ -15,6 +15,7 @@ pub mod api;
 pub mod automation_dto;
 pub mod business_dto;
 pub mod content_dto;
+pub mod content_search_bridge;
 pub mod db_state;
 mod engine_holder;
 pub mod error;

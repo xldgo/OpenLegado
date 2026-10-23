@@ -3020,6 +3020,16 @@ Depth为0，不拼接remote_dir；账号或密码非空才携带Basic Auth。5�
 
 ### 朗读扩展：缓存、音色目录与云端（§2.42 补充）
 
+**CONTENT-SEARCH-MATCH-20261023（B10a，实施前冻结）**：正文匹配和摘要坐标归Core，章节调度本批保留Flutter；不改DB/历史、搜索范围与开读导航。
+- 新增`contentSearchBegin(query: String, useRegex: bool) → Future<ContentSearchMatcher?>`；空关键词、非法或被既有安全编译器拒绝的正则返回null，不请求正文。查询对象只持编译模式，无全局会话表、数据库或网络副作用。
+- 句柄`search(content: String) → Future<List<ContentSearchHitDto>>`，每章最多50项，返回原文sourceStart/sourceEnd、snippet与snippet中的highlightStart/highlightEnd；所有位置为UTF-16半开区间。摘要保留本项目两侧30单位、换行为空格和省略号，边界向外对齐Unicode标量，避免切开代理对。
+- 正则默认区分大小写、按整个正文查找，复用Core安全编译的regex/fancy-regex，核验前后查找、反向引用、原子组、零宽与UTF-16样例；不宣称Rust引擎覆盖全部Java Pattern。编译无效按上游返回空能力；执行错误上抛，不当作正常无命中。
+- 普通搜索保留项目现有忽略大小写与非重叠语义，大小写转换后映射回原文坐标；这是与上游字面量区分大小写的已有差异，本批不更改产品选项。三档范围、每次200项上限不变。
+- Flutter经ContentSearchService/Matcher窄接口取得结果；不预编译Dart RegExp、不二次匹配摘要。每个结果仅高亮自身命中，即使原正则包含摘要外上下文，也消费已计算位置。句柄由一次search的try/finally在任务结束后dispose；停止/新搜索沿用原generation拒绝迟到结果，章节IO的实际取消留B10b。
+- Mock明确不支持未配置能力；测试注入固定类型化结果，Rust承担算法语义，Dart验证桥接、等待期间取消/替换与结果绘制，不复制算法。无新依赖/应用版本变更。
+
+编写者：Codex + Rust / UI / Bridge｜2026-10-23
+
 **SEARCH-INCREMENTAL-AGGREGATION-20261023（B9，实施前冻结）**：跨源聚合改由每次查询独立的原生句柄持有。新增`searchAggregationBegin(keyword: String) → Future<SearchAggregation>`，句柄异步add/snapshot/close，无全局字符串注册表或数据库副作用。
 - 句柄方法：`add(books: List<SearchAggregateInputDto>) → Future<List<SearchAggregateRetainedDto>>`、`snapshot(keepOther: bool) → Future<List<SearchAggregateResultDto>>`、`close() → Future<void>`；一项工厂加三项句柄方法，类型化传输、不经JSON字符串。
 - add只传每条原始name/author/origin/kind/origins/hasReadRecord；预去重仍是原始三元组，清洗、四桶、来源顺序/计数、阅读OR、首到平局沿用Core现有实现，不更改清洗规则。返回新建组的批内inputIndex与会话representativeId；后续归并不重复返回首条元数据。

@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../../../domain/contracts/reading_repository.dart';
 import '../../../domain/contracts/chapter_cache_repository.dart';
 import '../../../domain/contracts/search_history_repository.dart';
-import '../../../domain/services/content_search_matcher.dart';
+import '../../../domain/contracts/content_search_service.dart';
 
 enum ContentSearchScope { current, cached, network }
 
@@ -13,10 +13,12 @@ class ContentMatch {
   const ContentMatch({
     required this.chapterIndex,
     required this.chapterTitle,
-    required this.snippet,
+    required this.hit,
   });
   final int chapterIndex;
-  final String chapterTitle, snippet;
+  final String chapterTitle;
+  final ContentSearchHit hit;
+  String get snippet => hit.snippet;
 }
 
 /// 不可变结果快照；取消只停止后续调度与发布，不伪称底层请求已取消。— Codex + UI
@@ -59,6 +61,7 @@ class ContentSearchController extends ChangeNotifier {
     required this.reading,
     required this.cache,
     required this.history,
+    required this.matching,
     required this.log,
   });
   static const maxResults = 200;
@@ -66,6 +69,7 @@ class ContentSearchController extends ChangeNotifier {
   final ReadingRepository reading;
   final ChapterCacheRepository cache;
   final SearchHistoryRepository history;
+  final ContentSearchService matching;
   final void Function(String, Object, StackTrace) log;
   ContentSearchState _state = ContentSearchState();
   ContentSearchState get state => _state;
@@ -129,17 +133,13 @@ class ContentSearchController extends ChangeNotifier {
         if (current()) log('保存正文搜索历史', e, s);
       }),
     );
+    ContentSearchMatcher? matcher;
     try {
+      matcher = await matching.open(query, useRegex: useRegex);
+      if (!current() || matcher == null) return;
       final chapters = await reading.getChapters(bookUrl);
       if (!current()) return;
       _publish(_state.copyWith(total: chapters.length));
-      if (useRegex) {
-        try {
-          RegExp(query);
-        } on FormatException {
-          return;
-        }
-      }
       Set<String> cached = {};
       if (scope == ContentSearchScope.cached) {
         try {
@@ -166,23 +166,14 @@ class ContentSearchController extends ChangeNotifier {
               ? await reading.getChapterContent(bookUrl, chapter.index)
               : await reading.getChapterContentRaw(bookUrl, chapter.index);
           if (!current()) return;
-          final hits = findContentHits(
-            content,
-            query,
-            useRegex: useRegex,
-            maxHits: 50,
-          );
+          final hits = await matcher.search(content);
+          if (!current()) return;
           for (final hit in hits) {
-            final start = (hit.start - 30).clamp(0, content.length);
-            final end = (hit.end + 30).clamp(0, content.length);
-            var snippet = content.substring(start, end).replaceAll('\n', ' ');
-            if (start > 0) snippet = '…$snippet';
-            if (end < content.length) snippet = '$snippet…';
             results.add(
               ContentMatch(
                 chapterIndex: chapter.index,
                 chapterTitle: chapter.title,
-                snippet: snippet,
+                hit: hit,
               ),
             );
             if (results.length >= maxResults) break;
@@ -195,8 +186,9 @@ class ContentSearchController extends ChangeNotifier {
         if (results.length >= maxResults) break;
       }
     } catch (e, s) {
-      if (current()) log('读取正文搜索目录', e, s);
+      if (current()) log('正文搜索', e, s);
     } finally {
+      matcher?.close();
       if (current()) _publish(_state.copyWith(searching: false));
     }
   }

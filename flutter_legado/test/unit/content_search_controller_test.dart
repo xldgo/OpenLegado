@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/domain/contracts/content_search_service.dart';
+
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -14,16 +16,68 @@ class _Cache extends Mock implements ChapterCacheRepository {}
 
 class _History extends Mock implements SearchHistoryRepository {}
 
+class _Matching extends Mock implements ContentSearchService {}
+
+class _Matcher extends Mock implements ContentSearchMatcher {}
+
 void main() {
   late _Reading reading;
   late _Cache cache;
   late _History history;
+  late _Matching matching;
+  final handles = <_Matcher>[];
   late ContentSearchController controller;
   late List<String> errors;
   setUp(() {
     reading = _Reading();
     cache = _Cache();
     history = _History();
+    matching = _Matching();
+    handles.clear();
+    when(() => matching.open(any(), useRegex: any(named: 'useRegex')))
+        .thenAnswer((call) async {
+          final query = call.positionalArguments[0] as String;
+          if (query == '[') return null;
+          final matcher = _Matcher();
+          handles.add(matcher);
+          when(matcher.close).thenReturn(null);
+          when(() => matcher.search(any())).thenAnswer((call) async {
+            final content = call.positionalArguments[0] as String;
+            final fixture = <(String, String), ContentSearchHit>{
+              ('关键词', '新关键词'): const ContentSearchHit(
+                sourceStart: 1,
+                sourceEnd: 4,
+                snippet: '新关键词',
+                highlightStart: 1,
+                highlightEnd: 4,
+              ),
+              ('关键词', '替换关键词'): const ContentSearchHit(
+                sourceStart: 2,
+                sourceEnd: 5,
+                snippet: '替换关键词',
+                highlightStart: 2,
+                highlightEnd: 5,
+              ),
+              ('新', '新关键词'): const ContentSearchHit(
+                sourceStart: 0,
+                sourceEnd: 1,
+                snippet: '新关键词',
+                highlightStart: 0,
+                highlightEnd: 1,
+              ),
+              ('旧', '旧'): const ContentSearchHit(
+                sourceStart: 0,
+                sourceEnd: 1,
+                snippet: '旧',
+                highlightStart: 0,
+                highlightEnd: 1,
+              ),
+            }[(query, content)];
+            if (fixture == null) throw StateError('缺少正文搜索夹具');
+            return [fixture];
+          });
+          return matcher;
+        });
     errors = [];
     when(() => history.addSearchKeyword(any(), any())).thenAnswer((_) async {});
     when(() => reading.getChapters('book')).thenAnswer(
@@ -42,6 +96,7 @@ void main() {
       reading: reading,
       cache: cache,
       history: history,
+      matching: matching,
       log: (op, e, s) => errors.add(op),
     );
     addTearDown(controller.dispose);
@@ -108,5 +163,41 @@ void main() {
     expect(controller.state.results, isEmpty);
     expect(controller.state.searching, isFalse);
     verifyNever(() => reading.getChapterContentRaw(any(), any()));
+  });
+  test('编译及匹配等待期间停止，迟到结果不发布且最终释放各自句柄', () async {
+    final compiled = Completer<ContentSearchMatcher?>();
+    final handle = _Matcher();
+    when(handle.close).thenReturn(null);
+    when(() => matching.open('编译中', useRegex: false))
+        .thenAnswer((_) => compiled.future);
+    final pendingOpen = search('编译中');
+    controller.cancel();
+    compiled.complete(handle);
+    await pendingOpen;
+    verifyNever(() => handle.search(any()));
+    verify(handle.close).called(1);
+
+    final result = Completer<List<ContentSearchHit>>();
+    final matchedHandle = _Matcher();
+    when(matchedHandle.close).thenReturn(null);
+    when(() => matching.open('匹配中', useRegex: false))
+        .thenAnswer((_) async => matchedHandle);
+    when(() => matchedHandle.search(any())).thenAnswer((_) => result.future);
+    final pendingMatch = search('匹配中');
+    await Future<void>.delayed(Duration.zero);
+    controller.cancel();
+    result.complete([
+      const ContentSearchHit(
+        sourceStart: 1,
+        sourceEnd: 2,
+        snippet: '迟到',
+        highlightStart: 1,
+        highlightEnd: 2,
+      ),
+    ]);
+    await pendingMatch;
+    expect(controller.state.results, isEmpty);
+    expect(controller.state.searching, isFalse);
+    verify(matchedHandle.close).called(1);
   });
 }

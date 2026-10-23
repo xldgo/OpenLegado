@@ -41,6 +41,7 @@ pub mod cloud_tts_volcengine;
 pub mod cloud_tts_volcengine_v3;
 pub mod content_help;
 pub mod content_processor;
+pub mod content_search;
 pub mod cron;
 pub mod crypto;
 pub mod debug_session;

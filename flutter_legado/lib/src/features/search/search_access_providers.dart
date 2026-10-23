@@ -2,5 +2,6 @@
 export '../../app/bootstrap/application_dependencies.dart'
     show
         searchServiceProvider,
+        contentSearchServiceProvider,
         searchHistoryRepositoryProvider,
         searchAggregationServiceProvider;

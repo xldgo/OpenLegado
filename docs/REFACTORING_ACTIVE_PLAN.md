@@ -46,6 +46,15 @@
 
 ### RUST-BOUNDARY-IMPLEMENT-20261023：重复功能收敛与业务边界下沉（P2，分批实施）
 
+- B10a（代码及定向验证完成）：用户同意正文搜索下沉，允许Rust正则按上游行为核验；从f82d62ce2开始，单代理，先冻结CONTENT-SEARCH-MATCH-20261023。先迁移匹配/摘要/UTF-16坐标并删除Dart重复匹配，章节读取与真实取消留B10b。复用既有regex/fancy-regex，不新增依赖，不扩大到历史/范围/标题策略。普通搜索保留现有忽略大小写；正则用本地上游场景及JVM Pattern探针交叉验证，不宣称完整Java方言等价。定向验证后本地提交，版本不变，不推送/构建安装。
+
+- B10a实现：Core/content_search复用regex_safe，普通忽略大小写匹配保留并将变长小写映射回原文；正则按整个正文执行，结果携带UTF-16原文范围及摘要高亮。每章最多50项、总200项、两侧30单位/换行替空格/省略号保持，摘要向外避开代理对。无命中不建立整章坐标表。FFI新增只读工厂与不可变句柄search，查询结束通过FRB dispose释放，无状态注册表或额外串行锁。
+- B10a接线：ContentSearchService正式/Mock与Provider装配；Controller不再用Dart RegExp校验或匹配，页面不重跑摘要正则、每行只高亮自身命中。原generation用于原生编译/匹配await后检查，新搜索/停止/清空的迟到结果不发布；一次查询try/finally释放本次句柄。章节读取、缓存筛选、历史与导航保持Flutter，尚未实现B10b网络IO取消，不能把停止发布称为底层取消。
+- B10a验证：迁移前Dart原匹配7项与Controller5项共12项通过。新Rust两项组合场景通过，其中14组JDK Pattern录制结果核对前后查找、反向引用、原子组、零宽、emoji/组合字符、非法模式和上限；普通搜索核对大小写、非重叠及变长小写后的原文定位。旧Dart算法7项删除，不永久保留另一份算法。Flutter Controller6项、桥接1项、真实结果高亮交互1项及原路由定向1项共9项唯一用例通过；取消用例更正为每次查询独立句柄后单项复验，不累计。高亮用例提交长上下文正则，展示摘要不含完整lookbehind上下文但仍正确标记返回区间，不锁死颜色/间距。
+- B10a证据/修正：build/boundary-b10a/{jvm,core,core-final,core-complete,flutter-baseline,flutter-unit,flutter-widget,flutter-cancel-final,flutter-route,analyze-final,architecture,clippy-final,codegen}.log；首次Rust组合断言未考虑既有摘要换行替空格导致失败，修正测试预期后通过，生产匹配范围无对应故障。11文件定向分析、架构、Core/FFI QuickJS lib/tests Clippy及格式/diff检查通过。FRB2.13隔离生成，双端hash=-1225715600，无依赖/锁文件/DB/版本变更。
+- B10a边界：本地MD3 SearchContentRepository.searchPosition/getResultAndQueryIndex为语义参照；上游普通搜索区分大小写、摘要12单位，本项目已有普通忽略大小写/摘要30/数量上限和三档范围按本批契约保留。JVM探针只验证已录制模式，不代表完整Java/Android Pattern语法等价，也不等于上游测试工程或真机通过。单代理复核，无独立审查、Dart加载新库、真实站点/设备、全量、性能或CI验证；版本2.0.439+440保持，仅本地提交，不推送/安装。章节调度及真正取消仍待B10b。
+
+
 - B9（代码及定向验证完成）：用户授权搜索增量聚合下沉；worktree先普通merge同步dev文案提交，基线abc5230b9。先冻结SEARCH-INCREMENTAL-AGGREGATION-20261023；Core拥有独立增量桶/seen与排序，FFI仅投影与首条ID，Flutter保留首条完整元数据、展示和网络编排，异步快照继续150ms节流。固定既有清洗规则及跨端夹具，重点验证末批、续页、停止/重搜/清空和迟到结果，不重做正文搜索或清洗。单代理、只定向验证、版本不变，每批本地提交，不推送/安装或合并主目录。
 
 - B9实现：Core/SearchAggregation持有四桶、原始seen及首条代表ID；既有一次性函数复用状态机，空关键词一次性原样返回。FFI新增一个工厂与add/snapshot/close三项异步句柄方法，无全局注册表；只传聚合字段，add返回新建组的批内索引/ID，snapshot返回归一化投影。Flutter串行追加和快照，仅保存新建组首条完整SearchResult，保留DTO未覆盖字段；不保存全部输入历史或按批重传全部结果。网络SearchSession、暂停与续页接口保持，other保留供不同精准快照使用。

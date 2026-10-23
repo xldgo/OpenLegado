@@ -1,5 +1,4 @@
 import 'application/content_search_controller.dart';
-import '../../domain/services/content_search_matcher.dart';
 import '../../providers/reading_provider.dart';
 import 'search_access_providers.dart';
 import '../../providers/chapter_cache_provider.dart';
@@ -106,6 +105,7 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
       reading: ref.read(readingRepositoryProvider),
       cache: ref.read(chapterCacheRepositoryProvider),
       history: ref.read(searchHistoryRepositoryProvider),
+      matching: ref.read(contentSearchServiceProvider),
       log: (operation, error, stack) => debugPrint('$operation：$error\n$stack'),
     );
     _searchController.addListener(_onSearchChanged);
@@ -154,41 +154,26 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
     Navigator.of(context).pop();
   }
 
-  /// 构造带高亮的富文本
-  ///
-  /// [C4 对齐 | Qoder UI] 正则模式下按同一 RegExp 高亮（对齐原版结果项
-  /// isRegex 判定）；非法正则或未命中时退化为纯文本。
-  InlineSpan _highlight(String text, String query) {
-    if (query.isEmpty) return TextSpan(text: text);
+  /// 直接消费原文匹配生成的摘要区间，保留摘要之外的正则上下文语义。
+  InlineSpan _highlight(ContentMatch match) {
+    final hit = match.hit;
+    final text = hit.snippet;
     final highlightStyle = TextStyle(
       color: Theme.of(context).colorScheme.primary,
       fontWeight: FontWeight.bold,
       backgroundColor: Theme.of(context).colorScheme.primaryContainer
           .withValues(alpha: 0.6),
     );
-    final spans = <TextSpan>[];
-
-    // 命中区间（与搜索同口径，共用 findContentHits；单段内不设上限以免高亮缺失）
-    final ranges = findContentHits(
-      text,
-      query,
-      useRegex: _SearchContentOptions.useRegex,
-      maxHits: text.length,
+    return TextSpan(
+      children: [
+        TextSpan(text: text.substring(0, hit.highlightStart)),
+        TextSpan(
+          text: text.substring(hit.highlightStart, hit.highlightEnd),
+          style: highlightStyle,
+        ),
+        TextSpan(text: text.substring(hit.highlightEnd)),
+      ],
     );
-
-    var cursor = 0;
-    for (final r in ranges) {
-      if (r.start < cursor) continue; // 防御：重叠区间跳过
-      if (r.start > cursor) {
-        spans.add(TextSpan(text: text.substring(cursor, r.start)));
-      }
-      spans.add(
-        TextSpan(text: text.substring(r.start, r.end), style: highlightStyle),
-      );
-      cursor = r.end;
-    }
-    if (cursor < text.length) spans.add(TextSpan(text: text.substring(cursor)));
-    return TextSpan(children: spans);
   }
 
   @override
@@ -452,7 +437,7 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
         ),
       ),
       subtitle: Text.rich(
-        _highlight(match.snippet, _query),
+        _highlight(match),
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
         style: theme.textTheme.bodySmall?.copyWith(

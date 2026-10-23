@@ -1,3 +1,6 @@
+import '../../domain/contracts/content_search_service.dart';
+import '../../data/services/rust_content_search_service.dart';
+import '../../data/services/mock_content_search_service.dart';
 import '../../domain/contracts/search_aggregation_service.dart';
 import '../../data/services/rust_search_aggregation_service.dart';
 import '../../data/services/mock_search_aggregation_service.dart';
@@ -498,6 +501,11 @@ final readRecordRepositoryProvider = Provider<ReadRecordRepository>(
   (ref) => ref.watch(mockModeProvider)
       ? ref.watch(mockReadRecordRepositoryProvider)
       : RustReadRecordRepository(),
+);
+final contentSearchServiceProvider = Provider<ContentSearchService>(
+  (ref) => ref.watch(mockModeProvider)
+      ? const MockContentSearchService()
+      : const RustContentSearchService(),
 );
 final searchAggregationServiceProvider = Provider<SearchAggregationService>(
   (ref) => ref.watch(mockModeProvider)

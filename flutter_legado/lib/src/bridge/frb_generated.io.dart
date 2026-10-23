@@ -6,6 +6,7 @@
 import 'automation_dto.dart';
 import 'business_dto.dart';
 import 'content_dto.dart';
+import 'content_search_bridge.dart';
 
 import 'dart:async';
 import 'dart:convert';
@@ -37,6 +38,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   });
 
   CrossPlatformFinalizerArg
+  get rust_arc_decrement_strong_count_ContentSearchMatcherPtr => wire
+      ._rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerContentSearchMatcherPtr;
+
+  CrossPlatformFinalizerArg
   get rust_arc_decrement_strong_count_LayoutSessionPtr => wire
       ._rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSessionPtr;
 
@@ -54,6 +59,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   AnyhowException dco_decode_AnyhowException(dynamic raw);
+
+  @protected
+  ContentSearchMatcher
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerContentSearchMatcher(
+    dynamic raw,
+  );
 
   @protected
   LayoutSession
@@ -76,6 +87,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   TtsRequest
   dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTtsRequest(
+    dynamic raw,
+  );
+
+  @protected
+  ContentSearchMatcher
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerContentSearchMatcher(
     dynamic raw,
   );
 
@@ -120,6 +137,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Map<int, int> dco_decode_Map_i_32_i_32_None(dynamic raw);
+
+  @protected
+  ContentSearchMatcher
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerContentSearchMatcher(
+    dynamic raw,
+  );
 
   @protected
   LayoutSession
@@ -247,6 +270,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   bool dco_decode_bool(dynamic raw);
+
+  @protected
+  ContentSearchMatcher
+  dco_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerContentSearchMatcher(
+    dynamic raw,
+  );
 
   @protected
   AudioSkipWindowDto dco_decode_box_autoadd_audio_skip_window_dto(dynamic raw);
@@ -478,6 +507,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ContentRuleDto dco_decode_content_rule_dto(dynamic raw);
 
   @protected
+  ContentSearchHitDto dco_decode_content_search_hit_dto(dynamic raw);
+
+  @protected
   CoverCandidateDto dco_decode_cover_candidate_dto(dynamic raw);
 
   @protected
@@ -666,6 +698,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<CloudVoiceDescriptorDto> dco_decode_list_cloud_voice_descriptor_dto(
     dynamic raw,
   );
+
+  @protected
+  List<ContentSearchHitDto> dco_decode_list_content_search_hit_dto(dynamic raw);
 
   @protected
   List<CoverCandidateDto> dco_decode_list_cover_candidate_dto(dynamic raw);
@@ -875,6 +910,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   String? dco_decode_opt_String(dynamic raw);
+
+  @protected
+  ContentSearchMatcher?
+  dco_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerContentSearchMatcher(
+    dynamic raw,
+  );
 
   @protected
   AudioSkipWindowDto? dco_decode_opt_box_autoadd_audio_skip_window_dto(
@@ -1232,6 +1273,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
 
   @protected
+  ContentSearchMatcher
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerContentSearchMatcher(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   LayoutSession
   sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
     SseDeserializer deserializer,
@@ -1252,6 +1299,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   TtsRequest
   sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTtsRequest(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ContentSearchMatcher
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerContentSearchMatcher(
     SseDeserializer deserializer,
   );
 
@@ -1302,6 +1355,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Map<int, int> sse_decode_Map_i_32_i_32_None(SseDeserializer deserializer);
+
+  @protected
+  ContentSearchMatcher
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerContentSearchMatcher(
+    SseDeserializer deserializer,
+  );
 
   @protected
   LayoutSession
@@ -1447,6 +1506,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   bool sse_decode_bool(SseDeserializer deserializer);
+
+  @protected
+  ContentSearchMatcher
+  sse_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerContentSearchMatcher(
+    SseDeserializer deserializer,
+  );
 
   @protected
   AudioSkipWindowDto sse_decode_box_autoadd_audio_skip_window_dto(
@@ -1762,6 +1827,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ContentRuleDto sse_decode_content_rule_dto(SseDeserializer deserializer);
 
   @protected
+  ContentSearchHitDto sse_decode_content_search_hit_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   CoverCandidateDto sse_decode_cover_candidate_dto(
     SseDeserializer deserializer,
   );
@@ -2004,6 +2074,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<CloudVoiceDescriptorDto> sse_decode_list_cloud_voice_descriptor_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<ContentSearchHitDto> sse_decode_list_content_search_hit_dto(
     SseDeserializer deserializer,
   );
 
@@ -2305,6 +2380,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
+
+  @protected
+  ContentSearchMatcher?
+  sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerContentSearchMatcher(
+    SseDeserializer deserializer,
+  );
 
   @protected
   AudioSkipWindowDto? sse_decode_opt_box_autoadd_audio_skip_window_dto(
@@ -2780,6 +2861,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerContentSearchMatcher(
+    ContentSearchMatcher self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
   sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
     LayoutSession self,
     SseSerializer serializer,
@@ -2803,6 +2891,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void
   sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTtsRequest(
     TtsRequest self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerContentSearchMatcher(
+    ContentSearchMatcher self,
     SseSerializer serializer,
   );
 
@@ -2861,6 +2956,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_Map_i_32_i_32_None(
     Map<int, int> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerContentSearchMatcher(
+    ContentSearchMatcher self,
     SseSerializer serializer,
   );
 
@@ -3038,6 +3140,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
+
+  @protected
+  void
+  sse_encode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerContentSearchMatcher(
+    ContentSearchMatcher self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_audio_skip_window_dto(
@@ -3433,6 +3542,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_content_search_hit_dto(
+    ContentSearchHitDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_cover_candidate_dto(
     CoverCandidateDto self,
     SseSerializer serializer,
@@ -3756,6 +3871,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_cloud_voice_descriptor_dto(
     List<CloudVoiceDescriptorDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_content_search_hit_dto(
+    List<ContentSearchHitDto> self,
     SseSerializer serializer,
   );
 
@@ -4130,6 +4251,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer);
+
+  @protected
+  void
+  sse_encode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerContentSearchMatcher(
+    ContentSearchMatcher? self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_opt_box_autoadd_audio_skip_window_dto(
@@ -4736,6 +4864,40 @@ class RustLibWire implements BaseWire {
   /// The symbols are looked up in [dynamicLibrary].
   RustLibWire(ffi.DynamicLibrary dynamicLibrary)
     : _lookup = dynamicLibrary.lookup;
+
+  void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerContentSearchMatcher(
+    ffi.Pointer<ffi.Void> ptr,
+  ) {
+    return _rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerContentSearchMatcher(
+      ptr,
+    );
+  }
+
+  late final _rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerContentSearchMatcherPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>(
+        'frbgen_flutter_legado_rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerContentSearchMatcher',
+      );
+  late final _rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerContentSearchMatcher =
+      _rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerContentSearchMatcherPtr
+          .asFunction<void Function(ffi.Pointer<ffi.Void>)>();
+
+  void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerContentSearchMatcher(
+    ffi.Pointer<ffi.Void> ptr,
+  ) {
+    return _rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerContentSearchMatcher(
+      ptr,
+    );
+  }
+
+  late final _rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerContentSearchMatcherPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>(
+        'frbgen_flutter_legado_rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerContentSearchMatcher',
+      );
+  late final _rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerContentSearchMatcher =
+      _rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerContentSearchMatcherPtr
+          .asFunction<void Function(ffi.Pointer<ffi.Void>)>();
 
   void
   rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
