@@ -1,5 +1,15 @@
 # Legado 后续重构执行计划（Active）
 
+### SQLITE-BUNDLED-SIZE-20261024：SQLite 链接方式体积对照（P2，已关闭：Windows 实验完成）
+
+- 用户要求实测移除 bundled 的体积收益；在 feature/rust-workspace-deps / 960b3492d 的忽略目录 build/sqlite-size-20261024/project/rust 复制源码，两组沿用相同锁定包版本及 release/thin LTO/quickjs 构建。正式依赖配置不变，不推送、不安装、不提升版本。
+- 对照为内置 SQLite 与 Windows 系统 winsqlite3.dll；系统组显式保留 modern_sqlite 绑定，SDK 导入库仅在实验目录以 sqlite3.lib 名称提供，检查实际 PE 导入而不声称只删功能就能自动链接系统库。记录真实 legado_ffi.dll 及其 ZIP 压缩体积，并执行独立加载与临时数据库迁移/事务读写探针。仅此定向实验，不运行全量测试；结果不能直接当作 Android/iOS 或整包收益。
+
+- 结果：完整 DLL 46.31→44.76 MiB，减少 1.55 MiB / 3.35%；ZIP 减少 0.86 MiB / 5.10%。两组完整 DLL 独立加载及正式 Database::open 迁移/事务探针通过；PE 确认系统组导入 winsqlite3.dll。系统组因移除 C 编译仅删除锁文件的一条 cc 构建依赖边，所有包版本、来源及校验和相同；正式清单和锁文件逐字节不变。
+- 方法及原始字节数据见 [SQLite体积实验](SQLITE_BUNDLED_SIZE_EXPERIMENT_20261024.md)，本地原始产物/脚本/日志在 build/sqlite-size-20261024/。冷/热缓存不同，不比较构建速度；未做移动平台、整包、性能或全量业务验收，正式策略保持 bundled。单代理复核、diff 检查通过，仅提交文档，不推送或合并。
+
+编写者：Codex + Rust｜2026-10-24
+
 ### RUST-WORKSPACE-DEPS-20261024：统一共享依赖版本声明（P2，已关闭：配置与解析一致性验证完成）
 
 - 用户授权从 dev / 97b49dd0e 创建 feature/rust-workspace-deps，工作目录 build/worktrees/rust-workspace-deps；主目录未提交的 Flutter 测试及计划改动不带入、不覆盖。单代理，本地提交，不推送、构建设备或提升应用版本。
