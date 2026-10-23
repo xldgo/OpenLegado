@@ -9,12 +9,16 @@
 
 编写者：Codex + Bridge｜2026-10-23
 
-### RUST-DEPS-20261023：Rust稳定依赖与安全补丁升级（P1，实施中）
+### RUST-DEPS-20261023：Rust稳定依赖与安全补丁升级（P1，代码及定向验证完成）
 
-- 用户授权Rust依赖整体升级；从dev / 04752b7a2开始，单代理，不新建分支，保留主目录三份未跟踪报告。只更新稳定版及必要兼容代码，不改FFI契约/应用版本，不推送、触发CI或安装应用。
-- 已查询全部65项直接外部依赖的crates.io稳定版本，原始结果保存在build/rust-dependency-upgrade/registry.json。本批升级兼容范围内的锁文件和可迁移的HTML/PDF/LRU跨版本；三项RustSec漏洞一并修复。
-- 保留JSONPath0.7书源方言，以及RSA0.9要求的digest0.10/signature2/rand_core0.6组合，不使用预发布RSA或用不兼容新接口替代。FRB2.13及unicode-segmentation1.13.3已经是稳定版。libc0.2.191的已发布源码恢复iOS的dyld符号，解除旧锁定前定向复验原失败编译路径。
-- 验证只选受影响的加密/TLS/HTML/PDF/缓存/运行时场景，并做变更后的工作区编译与格式检查；不默认运行全量测试或设备构建。审计、依赖图差异和未测平台边界在收尾记录，不宣称独立审查。
+- 用户授权Rust依赖整体升级；从dev / 04752b7a2开始，单代理，不新建分支，保留并行Flutter任务和三份未跟踪报告。只更新稳定版及必要兼容代码，不改FFI契约/应用版本，不推送、触发CI或安装应用。
+- 查询全部67项直接外部依赖的crates.io稳定版本后，升级62个包版本，锁文件仍为495项。包括Tokio1.53.2→1.54.1、UUID1.28→1.29、ZIP9.0.2→9.0.5、ego-tree0.11.0→0.11.1；跨兼容系列的scraper0.27→0.29、lopdf0.45→0.46、lru0.18.5→0.19，同步必要传递依赖。声明中的兼容版本范围保留，只有跨系列和根证书安全最低版本需要改Cargo.toml。
+- 安全：ctutils0.4.3→0.4.5、rustls-webpki0.103.15→0.103.16、webpki-root-certs1.0.9→1.0.11；cargo audit --json退出0，漏洞0、警告0，没有新增忽略规则。定向复用现有加密、密码和TLS用例，不自行实现或声称证明底层恒定时间算法。
+- iOS旧锁定：libc0.2.189→0.2.191，backtrace维持当前稳定0.3.76。[libc发布说明](https://github.com/rust-lang/libc/releases/tag/0.2.191)及已发布源码恢复非macOS苹果目标的dyld/Mach接口。忽略目录内最小probe使用同版本libc/backtrace，cargo check的aarch64-apple-ios及aarch64-apple-ios-sim均通过；只验证原失败Rust编译路径，不是完整IPA链接或真机验证。
+- 保留约束：JSONPath0.7的书源方言不替换为缺少既有语法的1.x；RSA稳定版0.9仍要求digest0.10/signature2/rand_core0.6组合，JS相应摘要依赖不强行拆开。DB的rand_core0.6用于现有OsRng取系统随机盐；新版rand_core已不提供该实现，本批不为版本号另换随机源API。FRB2.13和unicode-segmentation1.13.3已是稳定版。printpdf依赖的旧lopdf及其他上层约束保留，不用patch伪造跨版本兼容。
+- 兼容修改仅xpath.rs：scraper传递的string_cache新版同时实现AsRef<str>与AsRef<[u8]>，原xmlns比较发生E0283；改为明确借用&str，不改变命名空间过滤规则。首次全目标检查定位该处后修正，复验cargo check --locked --workspace --all-targets --features quickjs通过；Parser Clippy全目标-D warnings和cargo fmt --all -- --check均通过，无新增测试或豁免。
+- 定向回归261项唯一用例全部通过：Core加密33/正则缓存13、DB密码3、Parser HTML50/XPath11、Net TLS5/错误6/gzip1、Book PDF23/EPUB19/CBZ10、JS加密16/RSA15/压缩20/作用域缓存15/HTML18、Engine正文搜索与取消3。没有默认运行全量Rust或Flutter测试，没有机械样式/源码守卫或重复算法测试。
+- 证据在build/rust-dependency-upgrade/：registry.json、Cargo.before.lock、update.log、audit.json、check-final.log、fmt.log、clippy-parser.log、apple-{device,simulator}.log、test-results.json及各组日志。最初归档下载因cwd错误未写入，改绝对根目录后成功；部分Cargo检查等待并行任务构建锁，不中止对方进程。单代理diff及来源复核，不宣称独立审查、完整Android/iOS构建、设备或性能验证。双更新日志补安全更新，应用版本2.0.439+440保持；本批本地提交，回退范围仅本批依赖与适配，无业务数据迁移。
 
 编写者：Codex + Rust｜2026-10-23
 

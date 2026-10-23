@@ -28,7 +28,7 @@ regex = "1"
 # 复用锁文件已有版本，朗读请求按完整字形簇切分。
 unicode-segmentation = "=1.13.3"
 # 安全正则编译缓存的 LRU 淘汰（任务 #60 ④，与 legado-js 同版本）
-lru = "0.18.5"
+lru = "0.19"
 # Java 正则方言支持（lookbehind / backreference / 原子组等 regex crate 不支持的语法）
 fancy-regex = "0.19.0"
 

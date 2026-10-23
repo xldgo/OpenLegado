@@ -326,7 +326,8 @@ impl XPathParser {
                     // 进入该命名空间，无前缀 XPath（//dd、//a 等）全部失配
                     //（仅 //* 与谓词字符串比较可命中）——实测思兔 sto66 等
                     // 声明 xmlns 的页面目录/正文/详情规则整体失效 — Reasonix
-                    if qname.local.as_ref() == "xmlns"
+                    let local_name: &str = &qname.local;
+                    if local_name == "xmlns"
                         || qname.prefix.as_ref().map(|p| p.as_ref()) == Some("xmlns")
                     {
                         continue;

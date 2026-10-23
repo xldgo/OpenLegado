@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [2.0.439] - 2026-10-22
 
 ### Fixed
+- 更新Rust网络证书校验与加密依赖，修复三项已知安全漏洞；贡献者：Codex + Rust。
 - 修复在线正文搜索误读抓取描述的问题，搜索停止时取消本次在途请求与后续扫描；贡献者：Codex + Rust / UI。
 - 修复通用书源规则误删包含NaN、null或模板符号的合法文本，保留真正空值处理；贡献者：Codex + Rust / UI。
 - 修复书源全部导入失败仍提示完成的问题，部分成功显示真实数量与原因；列表刷新失败保留导入结果并可只读重载；贡献者：Codex + UI。
