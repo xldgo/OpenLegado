@@ -2943,13 +2943,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get advancedDefaultHomePageDialog => '默认首页';
 
   @override
-  String get advancedLocalPassword => '设置本地密码';
-
-  @override
-  String get advancedLocalPasswordDescription =>
-      '本地密码用来对备份的敏感信息加密和解密,如需在不同设备之间同步,本地密码需一致.';
-
-  @override
   String get advancedUserAgent => '用户代理';
 
   @override

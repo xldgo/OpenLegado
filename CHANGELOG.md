@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [2.0.439] - 2026-10-22
 
 ### Fixed
+- 移除高级设置中未接通的本地密码入口，隐私密码继续在隐私设置中管理；贡献者：Codex + UI。
 - 更新Rust网络证书校验与加密依赖，修复三项已知安全漏洞；贡献者：Codex + Rust。
 - 修复在线正文搜索误读抓取描述的问题，搜索停止时取消本次在途请求与后续扫描；贡献者：Codex + Rust / UI。
 - 修复通用书源规则误删包含NaN、null或模板符号的合法文本，保留真正空值处理；贡献者：Codex + Rust / UI。

@@ -167,9 +167,6 @@ class PrefKeys {
   /// 默认首页（bookshelf/explore/rss/my）
   static const defaultHomePage = 'defaultHomePage';
 
-  /// 本地密码（用于 Web 服务鉴权）
-  static const localPassword = 'localPassword';
-
   /// 浏览器标识 UserAgent
   static const userAgent = 'userAgent';
 

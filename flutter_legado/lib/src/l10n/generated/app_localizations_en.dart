@@ -3128,13 +3128,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get advancedDefaultHomePageDialog => 'Default start page';
 
   @override
-  String get advancedLocalPassword => 'Set local password';
-
-  @override
-  String get advancedLocalPasswordDescription =>
-      'The local password encrypts and decrypts sensitive backup data. Use the same password on devices that sync with each other.';
-
-  @override
   String get advancedUserAgent => 'User agent';
 
   @override

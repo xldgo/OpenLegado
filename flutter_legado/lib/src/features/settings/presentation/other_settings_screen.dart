@@ -58,7 +58,6 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
       ref.read(generalSettingsRepositoryProvider).current.defaultToRead;
 
   // ===== 其他分组 =====
-  String _localPassword = '';
   bool _webServiceWakeLock = false;
   bool _webAutoStart = false;
   bool _webAutoStartLoaded = false;
@@ -123,7 +122,6 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
       PrefKeys.onlyUpdateRead,
       defaultValue: false,
     );
-    _localPassword = await s.getStringPref(PrefKeys.localPassword);
     _webServiceWakeLock = await s.getBoolPref(
       PrefKeys.webServiceWakeLock,
       defaultValue: false,
@@ -312,15 +310,6 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
             SettingsGroup(
               title: '其他设置',
               children: [
-                SettingTile(
-                  title: context.l10n.advancedLocalPassword,
-                  subtitle: _pendingDescription(
-                    context.l10n.advancedLocalPasswordDescription,
-                  ),
-                  value: _localPassword.isEmpty ? '未设置' : '已设置',
-                  onTap: null,
-                  enabled: false,
-                ),
                 SettingTile(
                   title: '自定义Hosts',
                   subtitle: _customHostsSummary.isEmpty

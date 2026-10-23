@@ -913,8 +913,6 @@
   "advancedShowRss": "Show RSS feeds",
   "advancedDefaultHomePage": "Default start page",
   "advancedDefaultHomePageDialog": "Default start page",
-  "advancedLocalPassword": "Set local password",
-  "advancedLocalPasswordDescription": "The local password encrypts and decrypts sensitive backup data. Use the same password on devices that sync with each other.",
   "advancedUserAgent": "User agent",
   "advancedBookSaveLocation": "Book save location",
   "advancedBookSaveLocationDescription": "Where books opened from other apps are saved",
