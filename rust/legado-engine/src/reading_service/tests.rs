@@ -179,6 +179,61 @@ fn processing_configuration_and_raw_cache_are_owned_by_each_reading_service() {
     assert!(b.resources.tasks.begin().is_ok());
 }
 
+#[test]
+fn resegment_uses_book_configuration_without_mutating_raw_cache() {
+    let runtime = tokio::runtime::Runtime::new().unwrap();
+    let engine = EngineContext::in_memory().unwrap();
+    let source = BookSource {
+        book_source_url: "https://same.test".into(),
+        enabled: true,
+        ..Default::default()
+    };
+    seed(&engine, &source);
+    let reading = service(&engine, &runtime);
+    let book = "https://same.test/book";
+    let raw = "前半\n后半。\n下一段。";
+    assert!(save_chapter_cache(
+        engine.storage(),
+        book,
+        0,
+        "第一章",
+        "https://same.test/old",
+        raw
+    ));
+    assert_eq!(reading.get_chapter_content_full(book, 0).unwrap(), raw);
+    engine
+        .storage()
+        .with_database(|db| {
+            let repository = BookRepository::new(db.connection());
+            let mut entity = repository.find_by_url(book)?.unwrap();
+            entity.read_config = Some(legado_core::models::ReadConfig {
+                re_segment: true,
+                use_replace_rule: Some(false),
+                ..Default::default()
+            });
+            repository.update(&entity)?;
+            CacheRepository::new(db.connection()).put("config:replaceEnableDefault", "false", 0)
+        })
+        .unwrap();
+    assert_eq!(
+        reading.get_chapter_content_full(book, 0).unwrap(),
+        "前半后半。\n下一段。"
+    );
+    assert_eq!(
+        reading.apply_content_processing_raw(book, raw, "第一章", Some(0)),
+        raw
+    );
+    let cached = engine
+        .storage()
+        .with_database(|db| {
+            legado_db::CacheBookRepository::new(db.connection())
+                .get_by_book_and_chapter_url(book, "https://same.test/old")
+        })
+        .unwrap()
+        .unwrap();
+    assert_eq!(cached.content, raw);
+}
+
 struct TocFetcher {
     storage: StorageContext,
     title: Option<&'static str>,

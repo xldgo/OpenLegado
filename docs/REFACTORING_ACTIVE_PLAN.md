@@ -18,6 +18,11 @@
 
 ## 二、后续实现与待核验
 
+### READER-RENDER-OPTIMIZATION-20261024：阅读器绘制优化（P2，待推进）
+
+- 用户要求先登记，不立即实现。原版通过 Picture/RenderNode 录制复用及有条件整行绘制优化；HapeLee新阅读器已使用Compose图层缓存，该开关主要保留旧Android文字参数，不能把两者视为同一实现。
+- 后续先 profile 当前Flutter重绘边界、翻页快照及失效范围，找出实际重复绘制，再选Flutter原生方案；不直接复制Android开关，不在缺少测量时宣称收益。参考本地原版363540972与HapeLee c4182eb9b的CanvasRecorderFactory、TextPage/TextLine及ReaderCanvasSurface。
+
 以下保留原任务编号，合并其重复登记；接续前先核对代码和用户当前优先级。
 
 ### AUTO-TASK-EXECUTION-GAPS-20261016：自动任务实际执行（P1，已确认，后续单独实施）
@@ -60,12 +65,15 @@
 | 合并范围及原编号 | 现有证据 | 剩余验收与完成条件 |
 |---|---|---|
 | 备份恢复：BACKUP-RESTORE-20261024 B1～B5 | 五批实现均已提交；24集合/ID保留、统一ZIP/资源、本地密码与敏感区、保留策略及前台自动化；Rust/57项Dart定向回归、真实宿主FFI、分析/架构及Windows库配对通过，见`build/backup-{b3,b4,b5,final}-*.log`和[支持边界](BACKUP_RESTORE_ALIGNMENT_PLAN_20261024.md#实现后的支持边界) | 移动设备检查ZIP选择/资源字体与背景/密码安全存储、跨设备恢复及真实WebDAV传输清理；自动备份只承诺启动/前台到期执行，不承诺系统后台定时唤醒。真实原版/参考版ZIP按已列映射验收，不声称未知字段及全部Android设置无损兼容 |
+| 混合Sheet边距：SHEET-CONTENT-INSETS-20261024 | HTTP/云TTS引擎及源编辑行数已按内容分块留白，交互行铺满正文；定向分析及5项既有编辑行为回归通过，规则见[设计系统](design_system.md) | 移动设备检查展开行和开关点击反馈、长表单及键盘体验；纯表单与卡片外边距保留，未安装验收 |
+| 离线缓存导出：OFFLINE-EXPORT-SHEET-20261024 | 单本导出已改为公用Sheet，保留格式/编码/模板/范围与目录、WebDAV参数；修复忙碌状态和上传失败误报成功，导出及离线缓存页15项定向回归通过 | 移动设备目录选择、文件写入与WebDAV真实连接；表单滚动及输入法体验。未安装或做设备验收，不重复新增控件样式测试 |
 | 源编辑框行数：SOURCE-EDITOR-LINES-20261024 | 已接通共享仓储、设置Sheet及书源/RSS多行字段；52项定向回归、改动分析与架构检查通过，`build/source-editor-lines-*.log`；语义见[设置架构](SETTINGS_ARCHITECTURE.md#源编辑框行数2026-10-24) | 主应用检查“不限”及至少10行的显示/内滚动、保存重开后生效、单行字段与完整文本保持；未安装或进行设备验收，不为通用控件新增页面测试 |
 | 音频焦点/中断/媒体会话：AUDIO-FOCUS-POLICY-20261024、TTS-INTERRUPTION-20261021、TTS-AUDIO-SESSION / AUDIO-SERVICE-20261020 | `1843f5141`及`build/audio-focus-{core-final,wiring-final,analysis-final,architecture}.log`；既有媒体服务和焦点定向验证 | Android混播、拒绝焦点、耳机拔出；iOS混音、来电/Siri后手动恢复、后台/蓝牙及锁屏媒体操作。不开启忽略时原行为保持，用户暂停不自动续播 |
 | 云TTS、HTTP音色和导入导出：TTS-*20261019/20、TTS-TRANSFER-20261019 | [朗读对齐说明](TTS_ALIGNMENT.md)，各Provider已有固定HTTP/native与表单回归 | 真实账号下的鉴权、音色/情感、输出解码及连续后台听感；火山V1/V3保持独立入口，无授权不互相替代。HTTP源登录/POST/JS及实际系统语音按可用素材复验 |
 | Rust下沉后的主链路：RUST-BOUNDARY-IMPLEMENT-20261023、BOOK-MEDIA-POLICY-20261023 | `610a9d47b`，`build/boundary-integration/{build,native}.log`；统计/分片/聚合/正文搜索的既有定向用例 | 新应用产物中的搜索/停止再搜、正文命中导航、朗读分片和三类书籍分流；本机3项FFI通过不替代移动端运行结论 |
 | 书源解析/主脚本：SOURCE-PARSE-*、SOURCE-JS-CALL / SCOPE / DETAIL-20261022 | [API契约](API_CONTRACT.md)及JS审计后续修复证据，统一Rust解析和实际QuickJS用例 | 主应用粘贴/扫码/预览/严格导入、详情保名和变量传给目录正文；用真实书源确认，不因旧模型测试通过宣称全兼容 |
 | 阅读几何与选区：READER-EDGE-TIPS-20261023；FONT-METRICS / SELECTION-BOUNDS / TITLE / SPACING / PAGE-HEIGHT / TIP-UNIFY / FOOTER-CORNERS-20261021 | [设计系统](design_system.md)、[排版契约](READER_LAYOUT_CONTRACT_20261012.md)，既有布局/选区/分页定向回归 | 实际设备中正文安全区、页眉页脚延伸、字形高度与选区颜色、标题/段距及单双页连续翻页；只处理可读性和操作缺陷，不对照上游像素 |
+| 重新分段：READER-RESEGMENT-20261024 | 已对齐Core上游分段流程并接通书级开关；23组上游输出对照及阅读/导出/Web/菜单定向回归通过，样例位于 `rust/legado-core/tests/fixtures/content_resegment.json`，语义见[API契约](API_CONTRACT.md) | 主应用开关后的正文与相邻预览、暂停中的朗读及移动设备阅读位置；不重启现有音频，不重复实现已接通功能 |
 | 默认替换净化：REPLACE-DEFAULT-20261024 | `1cf0b9787`，全局 Rust 配置、Core 唯一判定及书级覆盖；定向处理/菜单/锚点回归和真实宿主 FFI 调用通过，见 [API契约](API_CONTRACT.md) | 主应用切换全局及书级开关后的正文、目录菜单与阅读位置；未进行移动设备验证，不重新开发已接通功能 |
 | 阅读器系统与菜单：READER-KEEP-AWAKE / KEYBOARD-VIEWPORT / ICON-LABELS / BOTTOM-PLACEMENT / DOWNLOAD-STYLE / QUICK-THEME / BATTERY-20261021 | 对应设置与布局行为回归；[设计系统](design_system.md)记录现有约定 | 亮屏到期解除防休眠、输入法不触发正文重排、菜单显示/下载表单、真实电量与系统栏；iOS刘海和底部手势区效果由实际设备确认 |
 | 开书动画：READER-OPEN-MOTION-20261022及各旧COVER/TRANSITION批次 | 已使用A轨迹及速度设置；现有转场/归位回归 | 封面进入与返回、中途返回、无可用封面时默认转场的实际连贯性。旧A/B试验或高度缓动独立条目被现实现覆盖，不再分别重做 |

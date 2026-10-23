@@ -764,6 +764,28 @@ async fn test_get_book_content_replace_rule_gated_by_use_replace_rule() {
     let json = get_content("epub-book-forced").await;
     assert_eq!(json["isSuccess"], true, "json={json}");
     assert_eq!(json["data"], "正文内容");
+
+    // Web 同样消费书级重新分段开关。
+    let raw = "前半\n后半。\n下一段。";
+    {
+        let db = state.database().unwrap();
+        let repository = BookRepository::new(db.connection());
+        let mut book = repository.find_by_url("text-book").unwrap().unwrap();
+        book.read_config = Some(legado_core::models::ReadConfig {
+            re_segment: true,
+            ..Default::default()
+        });
+        repository.update(&book).unwrap();
+        let cache = CacheBookRepository::new(db.connection());
+        let mut chapter = cache
+            .get_by_book_and_chapter_url("text-book", "text-book/ch0")
+            .unwrap()
+            .unwrap();
+        chapter.content = raw.into();
+        cache.update(&chapter).unwrap();
+    }
+    let json = get_content("text-book").await;
+    assert_eq!(json["data"], "前半后半。\n下一段。");
 }
 
 #[tokio::test]

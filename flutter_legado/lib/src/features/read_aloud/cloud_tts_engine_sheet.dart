@@ -115,7 +115,6 @@ class _CloudTtsEngineSheetState extends State<CloudTtsEngineSheet> {
       'region': '区域',
     };
     return AppSettingsSheet(
-      contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       title: widget.engine == null ? l.cloudTtsAdd : l.cloudTtsEdit,
       onSave: () {
         if (!_form.currentState!.validate()) return;
@@ -145,53 +144,75 @@ class _CloudTtsEngineSheetState extends State<CloudTtsEngineSheet> {
       },
       child: Form(
         key: _form,
-        child: AppSettingsForm(
-          children: [
-            DropdownButtonFormField<String>(
-              key: const ValueKey('cloud-provider'),
-              initialValue: _provider,
-              decoration: InputDecoration(labelText: l.cloudTtsProvider),
-              items: [
-                for (final e in cloudTtsProviderLabels.entries)
-                  DropdownMenuItem(value: e.key, child: Text(e.value.name)),
-              ],
-              onChanged: widget.engine == null ? _changeProvider : null,
-            ),
-            for (final e in _inputs.entries.where(
-              (e) =>
-                  (e.key != 'secretKey' || profile.usesSecretKey) &&
-                  (e.key != 'appId' || profile.requiresAppId) &&
-                  (e.key != 'region' || profile.requiresRegion) &&
-                  (e.key != 'model' || profile.usesModel),
-            ))
-              TextFormField(
-                key: ValueKey('cloud-${e.key}'),
-                controller: e.value,
-                decoration: InputDecoration(labelText: labels[e.key]),
-                obscureText: {'apiKey', 'secretKey'}.contains(e.key),
-                enableSuggestions: !{'apiKey', 'secretKey'}.contains(e.key),
-                autocorrect: !{'apiKey', 'secretKey'}.contains(e.key),
-                enableIMEPersonalizedLearning: !{
-                  'apiKey',
-                  'secretKey',
-                }.contains(e.key),
-                validator: (v) =>
-                    ({'name', 'model', 'appId'}.contains(e.key) ||
-                            e.key == 'region' &&
-                                (profile.usesSecretKey ||
-                                    _inputs['baseUrl']!.text.trim().isEmpty) ||
-                            {'apiKey', 'secretKey'}.contains(e.key) &&
-                                widget.engine == null) &&
-                        (v ?? '').trim().isEmpty
-                    ? labels[e.key]
-                    : null,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: AppSettingsForm(
+                  children: [
+                    DropdownButtonFormField<String>(
+                      key: const ValueKey('cloud-provider'),
+                      initialValue: _provider,
+                      decoration: InputDecoration(
+                        labelText: l.cloudTtsProvider,
+                      ),
+                      items: [
+                        for (final e in cloudTtsProviderLabels.entries)
+                          DropdownMenuItem(
+                            value: e.key,
+                            child: Text(e.value.name),
+                          ),
+                      ],
+                      onChanged: widget.engine == null ? _changeProvider : null,
+                    ),
+                    for (final e in _inputs.entries.where(
+                      (e) =>
+                          (e.key != 'secretKey' || profile.usesSecretKey) &&
+                          (e.key != 'appId' || profile.requiresAppId) &&
+                          (e.key != 'region' || profile.requiresRegion) &&
+                          (e.key != 'model' || profile.usesModel),
+                    ))
+                      TextFormField(
+                        key: ValueKey('cloud-${e.key}'),
+                        controller: e.value,
+                        decoration: InputDecoration(labelText: labels[e.key]),
+                        obscureText: {'apiKey', 'secretKey'}.contains(e.key),
+                        enableSuggestions: !{
+                          'apiKey',
+                          'secretKey',
+                        }.contains(e.key),
+                        autocorrect: !{'apiKey', 'secretKey'}.contains(e.key),
+                        enableIMEPersonalizedLearning: !{
+                          'apiKey',
+                          'secretKey',
+                        }.contains(e.key),
+                        validator: (v) =>
+                            ({'name', 'model', 'appId'}.contains(e.key) ||
+                                    e.key == 'region' &&
+                                        (profile.usesSecretKey ||
+                                            _inputs['baseUrl']!.text
+                                                .trim()
+                                                .isEmpty) ||
+                                    {'apiKey', 'secretKey'}.contains(e.key) &&
+                                        widget.engine == null) &&
+                                (v ?? '').trim().isEmpty
+                            ? labels[e.key]
+                            : null,
+                      ),
+                  ],
+                ),
               ),
-            SwitchListTile(
-              title: Text(l.cloudTtsEnabled),
-              value: _enabled,
-              onChanged: (v) => setState(() => _enabled = v),
-            ),
-          ],
+              SwitchListTile(
+                title: Text(l.cloudTtsEnabled),
+                value: _enabled,
+                onChanged: (v) => setState(() => _enabled = v),
+              ),
+            ],
+          ),
         ),
       ),
     );

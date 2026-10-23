@@ -92,98 +92,112 @@ class _HttpTtsEngineSheetState extends State<HttpTtsEngineSheet> {
   @override
   Widget build(BuildContext context) {
     return AppSettingsSheet(
-      contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       title: widget.engine != null ? '编辑 HTTP TTS 引擎' : '添加 HTTP TTS 引擎',
       onSave: _submit,
       child: Form(
         key: _formKey,
-        child: AppSettingsForm(
-          children: [
-            TextFormField(
-              controller: _nameCtrl,
-              decoration: const InputDecoration(
-                labelText: '名称 *',
-                hintText: '例如：Edge TTS',
-                isDense: true,
-              ),
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? '请输入名称' : null,
-            ),
-            TextFormField(
-              controller: _urlCtrl,
-              decoration: const InputDecoration(
-                labelText: 'URL *',
-                hintText: 'http://localhost:1234/tts?text={{text}}',
-                isDense: true,
-              ),
-              keyboardType: TextInputType.url,
-              validator: (v) {
-                if (v == null || v.trim().isEmpty) return '请输入 URL';
-                if (!isCompatibleHttpTtsEngineUrl(v)) {
-                  return '请输入 HTTP URL 或 JS 请求规则';
-                }
-                return null;
-              },
-            ),
-            TextFormField(
-              controller: _contentTypeCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Content-Type',
-                hintText: '可选，例如 audio/mpeg',
-                isDense: true,
-              ),
-            ),
-            TextFormField(
-              controller: _headerCtrl,
-              decoration: const InputDecoration(
-                labelText: '请求头 (JSON)',
-                hintText: '可选，例如 {"Authorization":"Bearer xxx"}',
-                isDense: true,
-              ),
-              maxLines: 2,
-            ),
-            ExpansionTile(
-              title: const Text('高级配置'),
-              children: [
-                AppSettingsForm(
+        child: Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: AppSettingsForm(
                   children: [
-                    for (final entry in _advanced.entries)
-                      TextFormField(
-                        controller: entry.value,
-                        decoration: InputDecoration(labelText: entry.key),
-                        maxLines:
-                            entry.key == '源级语速' ||
-                                entry.key == '合成线程数' ||
-                                entry.key == '并发率'
-                            ? 1
-                            : 3,
-                        validator: (value) {
-                          if (entry.key == '合成线程数') {
-                            final count = int.tryParse(value?.trim() ?? '');
-                            if (count == null || count < 1 || count > 8) {
-                              return '请输入 1 到 8';
-                            }
-                          }
-                          if (entry.key == '源级语速' &&
-                              (value ?? '').trim().isNotEmpty) {
-                            final speed = int.tryParse(value!.trim());
-                            if (speed == null || speed < 0 || speed > 80) {
-                              return '请输入 0 到 80，留空使用默认';
-                            }
-                          }
-                          return null;
-                        },
+                    TextFormField(
+                      controller: _nameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: '名称 *',
+                        hintText: '例如：Edge TTS',
+                        isDense: true,
                       ),
-                    SwitchListTile(
-                      title: const Text('保存响应 Cookie'),
-                      value: _cookieJar,
-                      onChanged: (value) => setState(() => _cookieJar = value),
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? '请输入名称' : null,
+                    ),
+                    TextFormField(
+                      controller: _urlCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'URL *',
+                        hintText: 'http://localhost:1234/tts?text={{text}}',
+                        isDense: true,
+                      ),
+                      keyboardType: TextInputType.url,
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return '请输入 URL';
+                        if (!isCompatibleHttpTtsEngineUrl(v)) {
+                          return '请输入 HTTP URL 或 JS 请求规则';
+                        }
+                        return null;
+                      },
+                    ),
+                    TextFormField(
+                      controller: _contentTypeCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Content-Type',
+                        hintText: '可选，例如 audio/mpeg',
+                        isDense: true,
+                      ),
+                    ),
+                    TextFormField(
+                      controller: _headerCtrl,
+                      decoration: const InputDecoration(
+                        labelText: '请求头 (JSON)',
+                        hintText: '可选，例如 {"Authorization":"Bearer xxx"}',
+                        isDense: true,
+                      ),
+                      maxLines: 2,
                     ),
                   ],
                 ),
-              ],
-            ),
-          ],
+              ),
+              ExpansionTile(
+                title: const Text('高级配置'),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                    child: AppSettingsForm(
+                      children: [
+                        for (final entry in _advanced.entries)
+                          TextFormField(
+                            controller: entry.value,
+                            decoration: InputDecoration(labelText: entry.key),
+                            maxLines:
+                                entry.key == '源级语速' ||
+                                    entry.key == '合成线程数' ||
+                                    entry.key == '并发率'
+                                ? 1
+                                : 3,
+                            validator: (value) {
+                              if (entry.key == '合成线程数') {
+                                final count = int.tryParse(value?.trim() ?? '');
+                                if (count == null || count < 1 || count > 8) {
+                                  return '请输入 1 到 8';
+                                }
+                              }
+                              if (entry.key == '源级语速' &&
+                                  (value ?? '').trim().isNotEmpty) {
+                                final speed = int.tryParse(value!.trim());
+                                if (speed == null || speed < 0 || speed > 80) {
+                                  return '请输入 0 到 80，留空使用默认';
+                                }
+                              }
+                              return null;
+                            },
+                          ),
+                      ],
+                    ),
+                  ),
+                  SwitchListTile(
+                    title: const Text('保存响应 Cookie'),
+                    value: _cookieJar,
+                    onChanged: (value) => setState(() => _cookieJar = value),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

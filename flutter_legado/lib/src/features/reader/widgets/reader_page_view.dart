@@ -1194,8 +1194,10 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     final notifier = ref.read(readerNotifierProvider.notifier);
     ref.listen(readerNotifierProvider, (previous, next) {
       if (previous != null &&
-          previous.currentBook?.readConfig?.useReplaceRule !=
-              next.currentBook?.readConfig?.useReplaceRule) {
+          (previous.currentBook?.readConfig?.useReplaceRule !=
+                  next.currentBook?.readConfig?.useReplaceRule ||
+              previous.currentBook?.readConfig?.reSegment !=
+                  next.currentBook?.readConfig?.reSegment)) {
         _layoutCache.clear();
         _paginationSignature = null;
       }

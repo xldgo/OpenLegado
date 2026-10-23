@@ -2,7 +2,6 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../domain/models/general_settings.dart';
 import '../../../l10n/app_localization.dart';
-import '../../../widgets/app_settings_form.dart';
 import '../../../widgets/app_settings_sheet.dart';
 
 /// 行数草稿只限制输入框高度，确认后由设置页持久化。— Codex + UI
@@ -42,33 +41,48 @@ class _SourceEditorLinesSheetState extends State<SourceEditorLinesSheet> {
   Widget build(BuildContext context) => AppSettingsSheet(
     title: context.l10n.advancedSourceEditorMaxLines,
     onSave: _save,
-    contentPadding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-    child: AppSettingsForm(
-      description: context.l10n.sourceEditorLinesDescription,
-      children: [
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(context.l10n.sourceEditorLinesUnlimited),
-          value: _unlimited,
-          onChanged: (value) => setState(() {
-            _unlimited = value;
-            _error = null;
-          }),
-        ),
-        if (!_unlimited)
-          TextField(
-            controller: _text,
-            keyboardType: TextInputType.number,
-            onChanged: (_) {
-              if (_error != null) setState(() => _error = null);
-            },
-            onSubmitted: (_) => _save(),
-            decoration: InputDecoration(
-              labelText: context.l10n.advancedSourceEditorMaxLines,
-              errorText: _error,
+    child: Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: 12,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              context.l10n.sourceEditorLinesDescription,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
-      ],
+          SwitchListTile(
+            title: Text(context.l10n.sourceEditorLinesUnlimited),
+            value: _unlimited,
+            onChanged: (value) => setState(() {
+              _unlimited = value;
+              _error = null;
+            }),
+          ),
+          if (!_unlimited)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: TextField(
+                controller: _text,
+                keyboardType: TextInputType.number,
+                onChanged: (_) {
+                  if (_error != null) setState(() => _error = null);
+                },
+                onSubmitted: (_) => _save(),
+                decoration: InputDecoration(
+                  labelText: context.l10n.advancedSourceEditorMaxLines,
+                  errorText: _error,
+                ),
+              ),
+            ),
+        ],
+      ),
     ),
   );
 }

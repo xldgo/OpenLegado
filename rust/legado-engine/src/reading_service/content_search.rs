@@ -142,6 +142,7 @@ impl ReadingService {
                 &chapter.title,
                 options.use_replace,
                 Some(chapter.index),
+                false,
             )));
         }
         let cached_only = options.scope == ContentSearchScope::Cached
@@ -188,6 +189,7 @@ impl ReadingService {
             &raw.title,
             options.use_replace,
             Some(chapter.index),
+            false,
         )))
     }
 }
