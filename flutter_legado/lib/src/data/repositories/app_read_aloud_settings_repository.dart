@@ -1,3 +1,4 @@
+import '../../constants/pref_keys.dart';
 import '../../domain/models/read_aloud_content.dart';
 
 import 'dart:convert';
@@ -46,6 +47,10 @@ final class AppReadAloudSettingsRepository
     storage: SettingsStorageKind.rustConfig,
     key: 'mediaButtonPerNext',
   );
+  static const _ignoreFocus = (
+    storage: SettingsStorageKind.preferences,
+    key: PrefKeys.ignoreAudioFocus,
+  );
   static const _preDownload = (
     storage: SettingsStorageKind.rustConfig,
     key: 'audioPreDownloadNum',
@@ -71,6 +76,7 @@ final class AppReadAloudSettingsRepository
     _interval,
     _detach,
     _mediaButtons,
+    _ignoreFocus,
     _preDownload,
     _concurrency,
     _cleanTime,
@@ -100,6 +106,7 @@ final class AppReadAloudSettingsRepository
       detachReminder: snapshot[_detach] != 'false' && snapshot[_detach] != '0',
       mediaButtonPerNext:
           snapshot[_mediaButtons] != 'false' && snapshot[_mediaButtons] != '0',
+      ignoreAudioFocus: snapshot[_ignoreFocus] == true,
       manualSpeed: ((rate + 5) / 10).clamp(0.5, 3),
       paragraphIntervalMs:
           (int.tryParse(snapshot[_interval] as String? ?? '') ?? 0).clamp(
@@ -136,6 +143,7 @@ final class AppReadAloudSettingsRepository
     _interval: settings.paragraphIntervalMs.toString(),
     _detach: settings.detachReminder ? 'true' : 'false',
     _mediaButtons: settings.mediaButtonPerNext ? 'true' : 'false',
+    _ignoreFocus: settings.ignoreAudioFocus,
     _preDownload: settings.audioPreDownloadNum.toString(),
     _concurrency: settings.ttsPreSynthesisConcurrency.toString(),
     _cleanTime: settings.audioCacheCleanTime.toString(),

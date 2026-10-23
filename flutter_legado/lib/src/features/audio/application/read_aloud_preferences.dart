@@ -23,6 +23,7 @@ final class ReadAloudPreferences {
   bool get followSystem => settings.followSystem;
   bool get detachReminder => settings.detachReminder;
   bool get mediaButtonPerNext => settings.mediaButtonPerNext;
+  bool get ignoreAudioFocus => settings.ignoreAudioFocus;
   double get manualSpeed => settings.manualSpeed;
   int get paragraphIntervalMs => settings.paragraphIntervalMs;
   int get audioPreDownloadNum => settings.audioPreDownloadNum;

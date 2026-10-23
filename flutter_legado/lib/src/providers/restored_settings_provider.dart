@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/bootstrap/restored_settings_refresher.dart';
+import '../app/bootstrap/audio_session_settings.dart';
 import '../features/bookshelf/bookshelf.dart';
 import 'backup_settings_provider.dart';
 import '../features/bookshelf/application/bookshelf_settings_provider.dart';
@@ -15,7 +16,6 @@ import 'theme/theme_notifier.dart';
 import 'ui_settings/ui_settings_notifier.dart';
 import 'config_settings_provider.dart';
 import '../features/search/search_settings_provider.dart';
-import '../features/read_aloud/read_aloud_settings_provider.dart';
 
 /// 由应用Provider持有，页面关闭不截断已经开始的刷新。— Codex + UI
 final restoredSettingsRefresherProvider = Provider<RestoredSettingsRefresher>(
@@ -38,7 +38,7 @@ final restoredSettingsRefresherProvider = Provider<RestoredSettingsRefresher>(
     ('播放设置', () => ref.read(audioPlaybackSettingsRepositoryProvider).reload()),
     ('服务设置', () => ref.read(serviceSettingsRepositoryProvider).reload()),
     ('搜索设置', () => ref.read(searchSettingsRepositoryProvider).reload()),
-    ('朗读设置', () => ref.read(readAloudSettingsRepositoryProvider).reload()),
+    ('朗读设置', () => ref.read(audioSessionSettingsProvider).reload()),
     (
       '书架数据',
       () async {

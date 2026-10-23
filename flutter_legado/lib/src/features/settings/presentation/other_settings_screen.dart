@@ -1,4 +1,6 @@
 import '../../../utils/error_message.dart';
+import '../../../app/bootstrap/audio_session_settings.dart';
+import '../../audio/application/read_aloud_preferences.dart';
 import '../../../providers/domain_config_provider.dart';
 import '../../../providers/config_settings_provider.dart'
     show serviceSettingsRepositoryProvider;
@@ -68,7 +70,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
   bool _replaceEnableDefault = true;
   bool _mediaButtonOnExit = true;
   bool _readAloudByMediaButton = false;
-  bool _ignoreAudioFocus = false;
+  bool _savingAudioFocus = false;
   bool _autoClearExpired = true;
   bool get _showAddToShelfAlert =>
       ref.read(generalSettingsRepositoryProvider).current.showAddToShelfAlert;
@@ -109,6 +111,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
     final s = _settingsService;
     try {
       await ref.read(generalSettingsRepositoryProvider).load();
+      await ref.read(readAloudPreferencesProvider.notifier).load();
     } catch (error) {
       _toast('应用设置读取失败，请重试');
     }
@@ -140,10 +143,6 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
     );
     _readAloudByMediaButton = await s.getBoolPref(
       PrefKeys.readAloudByMediaButton,
-      defaultValue: false,
-    );
-    _ignoreAudioFocus = await s.getBoolPref(
-      PrefKeys.ignoreAudioFocus,
       defaultValue: false,
     );
     _autoClearExpired = await s.getBoolPref(
@@ -213,12 +212,27 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
+  Future<void> _setIgnoreAudioFocus(bool value) async {
+    setState(() => _savingAudioFocus = true);
+    try {
+      await ref.read(audioSessionSettingsProvider).setIgnoreAudioFocus(value);
+    } on AudioSessionPolicyException catch (error) {
+      if (mounted) _toast(error.toString());
+    } catch (error) {
+      debugPrint('音频焦点设置保存失败：$error');
+      if (mounted) _toast('音频设置保存失败，请重试');
+    } finally {
+      if (mounted) setState(() => _savingAudioFocus = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.watch(appLocaleProvider);
     ref.watch(generalSettingsProvider);
     final mainPrefs = ref.watch(mainPrefsProvider);
     final mainPrefsNotifier = ref.read(mainPrefsProvider.notifier);
+    final audioPreferences = ref.watch(readAloudPreferencesProvider);
 
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
@@ -381,11 +395,11 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                 ),
                 SettingSwitchRow(
                   title: context.l10n.advancedIgnoreAudioFocus,
-                  subtitle: _pendingDescription(
-                    context.l10n.advancedIgnoreAudioFocusDescription,
-                  ),
-                  value: _ignoreAudioFocus,
-                  onChanged: null,
+                  subtitle: context.l10n.advancedIgnoreAudioFocusDescription,
+                  value: audioPreferences.ignoreAudioFocus,
+                  onChanged: audioPreferences.loaded && !_savingAudioFocus
+                      ? _setIgnoreAudioFocus
+                      : null,
                 ),
                 SettingSwitchRow(
                   title: context.l10n.advancedClearExpiredSearch,

@@ -1,5 +1,14 @@
 # API 契约文档
 
+### AUDIO-FOCUS-POLICY-20261024：共享音频焦点策略（实施前冻结）
+
+- 仅Dart内部设置与平台会话行为变化，无Rust/FRB/DTO/方法数变化。ReadAloudSettings.ignoreAudioFocus对应既有preferences键ignoreAudioFocus，bool缺省false；同一设置快照供界面与平台策略使用，不增加旧键处理或双写。
+- Android开启后不请求音频焦点，过滤焦点中断/恢复事件；耳机拔出及事件源错误仍终止相关播放。iOS开启仅增加AVAudioSession的mixWithOthers，保留playback/spokenAudio及系统中断处理，不承诺电话等系统中断期间继续播放。
+- 所有语音/音频书/试听共用AppAudioSession的使用凭据和串行队列。关闭忽略后若焦点申请被拒绝，暂停并报告原因；设置/恢复策略不触发play/seek或重新创建播放列表，不自动恢复用户已暂停的声音。Android忽略模式仍保留凭据，Web静音保活不因本开关获得更高优先级。
+- 设置保存失败不应用运行时策略；保存成功但平台应用失败，保留已保存选择并明确报告“设置已保存，音频策略应用失败”，下一次播放可重试。启动加载、开关变更及备份恢复复用同一策略应用入口；不加入自动重试或另一套播放状态机。
+
+编写者：Codex + UI｜2026-10-24
+
 ### READER-EDGE-TIPS-20261023：正文与页眉页脚独立避让（实施前冻结）
 
 - 用户授权新增屏幕偏好extendPageTips，键reader_extend_page_tips，bool缺省false；仅开启刘海避让时显示“扩展至屏幕边缘”。关闭刘海避让仅隐藏入口、不清除选择；关闭本开关时保持原布局。使用既有阅读仓储及备份分类，不增加旧键迁移。

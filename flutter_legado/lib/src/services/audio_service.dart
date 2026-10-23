@@ -194,7 +194,10 @@ class AudioService {
   /// 返回 true 表示成功获取焦点。
   Future<bool> requestAudioFocus({bool userInitiated = false}) async {
     final generation = ++_focusGeneration;
-    final lease = await _session.acquire(userInitiated: userInitiated);
+    final lease = await _session.acquire(
+      userInitiated: userInitiated,
+      isPlaying: () => _playing,
+    );
     if (generation != _focusGeneration) {
       await lease?.release();
       return false;

@@ -10,6 +10,7 @@ import 'src/app/routing/route_names.dart';
 import 'src/app/bootstrap/application_dependencies.dart';
 import 'src/app/bootstrap/application_scope.dart';
 import 'src/app/bootstrap/application_bootstrap.dart';
+import 'src/app/bootstrap/audio_session_settings.dart';
 import 'src/app/bootstrap/rust_bootstrap.dart';
 import 'src/data/bridge/rust_runtime.dart';
 import 'src/platform/app_environment.dart';
@@ -85,6 +86,8 @@ void main() {
           apiInitialization,
           glassInitialization,
         ]);
+        // 首次播放/试听前准备已保存的策略；没有播放持有者时不激活平台音频。
+        await container.read(audioSessionSettingsProvider).initialize();
       } catch (e, stack) {
         CrashLogService.instance.logError(e, stack);
         container.dispose();

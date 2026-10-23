@@ -8,6 +8,7 @@ final class ReadAloudSettings {
     this.followSystem = true,
     this.detachReminder = true,
     this.mediaButtonPerNext = true,
+    this.ignoreAudioFocus = false,
     this.manualSpeed = 1,
     this.paragraphIntervalMs = 0,
     this.audioPreDownloadNum = 3,
@@ -21,6 +22,7 @@ final class ReadAloudSettings {
   final bool followSystem;
   final bool detachReminder;
   final bool mediaButtonPerNext;
+  final bool ignoreAudioFocus;
   final double manualSpeed;
   final int paragraphIntervalMs;
   final int audioPreDownloadNum;
@@ -37,6 +39,7 @@ final class ReadAloudSettings {
     bool? followSystem,
     bool? detachReminder,
     bool? mediaButtonPerNext,
+    bool? ignoreAudioFocus,
     double? manualSpeed,
     int? paragraphIntervalMs,
     int? audioPreDownloadNum,
@@ -49,6 +52,7 @@ final class ReadAloudSettings {
     followSystem: followSystem ?? this.followSystem,
     detachReminder: detachReminder ?? this.detachReminder,
     mediaButtonPerNext: mediaButtonPerNext ?? this.mediaButtonPerNext,
+    ignoreAudioFocus: ignoreAudioFocus ?? this.ignoreAudioFocus,
     manualSpeed: manualSpeed ?? this.manualSpeed,
     paragraphIntervalMs: paragraphIntervalMs ?? this.paragraphIntervalMs,
     audioPreDownloadNum: audioPreDownloadNum ?? this.audioPreDownloadNum,
@@ -66,6 +70,7 @@ final class ReadAloudSettings {
       followSystem == other.followSystem &&
       detachReminder == other.detachReminder &&
       mediaButtonPerNext == other.mediaButtonPerNext &&
+      ignoreAudioFocus == other.ignoreAudioFocus &&
       manualSpeed == other.manualSpeed &&
       paragraphIntervalMs == other.paragraphIntervalMs &&
       audioPreDownloadNum == other.audioPreDownloadNum &&
@@ -80,6 +85,7 @@ final class ReadAloudSettings {
     followSystem,
     detachReminder,
     mediaButtonPerNext,
+    ignoreAudioFocus,
     manualSpeed,
     paragraphIntervalMs,
     audioPreDownloadNum,

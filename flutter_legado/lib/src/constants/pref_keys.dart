@@ -206,7 +206,7 @@ class PrefKeys {
   /// 媒体按钮触发朗读（仅 Android 生效，默认 false）
   static const readAloudByMediaButton = 'readAloudByMediaButton';
 
-  /// 朗读时忽略音频焦点（仅 Android 生效，默认 false）
+  /// 允许混音：Android忽略音频焦点，iOS使用混音会话，默认false
   static const ignoreAudioFocus = 'ignoreAudioFocus';
 
   /// 自动清除过期搜索数据（默认 true）

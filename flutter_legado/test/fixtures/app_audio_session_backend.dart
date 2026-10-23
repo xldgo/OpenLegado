@@ -7,6 +7,7 @@ final class TestAudioSessionBackend implements AppAudioSessionBackend {
   final source = StreamController<AppAudioEvent>.broadcast(sync: true);
   final activations = <bool>[];
   int configurations = 0;
+  final policies = <bool>[];
   bool granted = true;
   Object? configurationError;
   Object? activationError;
@@ -15,8 +16,9 @@ final class TestAudioSessionBackend implements AppAudioSessionBackend {
   @override
   Stream<AppAudioEvent> get events => source.stream;
   @override
-  Future<void> configure() async {
+  Future<void> configure({bool ignoreAudioFocus = false}) async {
     configurations++;
+    policies.add(ignoreAudioFocus);
     if (configurationError case final error?) throw error;
   }
 

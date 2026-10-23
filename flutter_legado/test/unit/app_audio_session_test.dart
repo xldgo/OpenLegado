@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -34,6 +36,92 @@ void main() {
       ),
       AppAudioEvent.interruptionEnded,
     );
+  });
+
+  test('Android忽略模式不申请焦点，关闭后恢复申请，耳机事件仍停止', () async {
+    final plugin = _PluginSession();
+    final session = AppAudioSession(
+      PluginAudioSessionBackend(
+        session: () async => plugin,
+        platform: TargetPlatform.android,
+      ),
+    );
+    final events = <AppAudioEvent>[];
+    final sub = session.events.listen(events.add);
+    final lease = (await session.acquire())!;
+    await session.setIgnoreAudioFocus(true);
+    expect(plugin.activations, [true, false]);
+    expect(session.blocksKeepAlive, isTrue);
+    plugin.interruptions.add(
+      AudioInterruptionEvent(true, AudioInterruptionType.pause),
+    );
+    plugin.interruptions.add(
+      AudioInterruptionEvent(false, AudioInterruptionType.pause),
+    );
+    await pumpEventQueue();
+    expect(events, isEmpty);
+    await session.setIgnoreAudioFocus(false);
+    expect(plugin.activations, [true, false, true]);
+    plugin.noisy.add(null);
+    await pumpEventQueue();
+    expect(events, [AppAudioEvent.stop]);
+    await lease.release();
+    await sub.cancel();
+    await plugin.close();
+  });
+
+  test('iOS混音保留语音类别，系统中断仍暂停且不自动重新激活', () async {
+    final plugin = _PluginSession();
+    final session = AppAudioSession(
+      PluginAudioSessionBackend(
+        session: () async => plugin,
+        platform: TargetPlatform.iOS,
+      ),
+    );
+    await session.setIgnoreAudioFocus(true);
+    expect(plugin.activations, isEmpty);
+    final events = <AppAudioEvent>[];
+    final sub = session.events.listen(events.add);
+    final lease = (await session.acquire())!;
+    expect(
+      plugin.configuration!.avAudioSessionCategory,
+      AVAudioSessionCategory.playback,
+    );
+    expect(
+      plugin.configuration!.avAudioSessionMode,
+      AVAudioSessionMode.spokenAudio,
+    );
+    expect(
+      plugin.configuration!.avAudioSessionCategoryOptions,
+      AVAudioSessionCategoryOptions.mixWithOthers,
+    );
+    plugin.interruptions.add(
+      AudioInterruptionEvent(true, AudioInterruptionType.unknown),
+    );
+    await pumpEventQueue();
+    await session.setIgnoreAudioFocus(false);
+    expect(events, [AppAudioEvent.pause]);
+    expect(plugin.activations, [true]);
+    expect(
+      plugin.configuration!.avAudioSessionCategoryOptions,
+      AVAudioSessionCategoryOptions.none,
+    );
+    await lease.release();
+    await sub.cancel();
+    await plugin.close();
+  });
+
+  test('暂停持有者切换策略只配置，不重新激活；恢复使用仍正常申请', () async {
+    var playing = false;
+    final lease = (await session.acquire(isPlaying: () => playing))!;
+    await session.setIgnoreAudioFocus(true);
+    await session.setIgnoreAudioFocus(false);
+    expect(backend.policies, [false, true, false]);
+    expect(backend.activations, [true]);
+    playing = true;
+    await session.setIgnoreAudioFocus(true);
+    expect(backend.activations, [true, true]);
+    await lease.release();
   });
 
   test('正文与试听独立持有；释放旧使用凭据不使另一方失活', () async {
@@ -196,6 +284,7 @@ void main() {
   });
 
   test('保活与真实播放交接不释放仍被使用的共享会话', () async {
+    await session.setIgnoreAudioFocus(true);
     final web = (await session.acquire(audible: false))!;
     final main = (await session.acquire())!;
     await web.release();
@@ -205,6 +294,7 @@ void main() {
     final webAgain = (await session.acquire(audible: false))!;
     await webAgain.release();
     expect(backend.activations, [true, true, false, true, false]);
+    expect(backend.policies, [false, true, false]);
   });
 
   test('停止期间迟到的主播放申请被释放，不保留伪激活', () async {
@@ -229,4 +319,41 @@ void main() {
     await preview.release();
     expect(backend.activations.last, isFalse);
   });
+}
+
+/// 插件端口替身记录真实配置和申请，不创建原生音频会话。— Codex + UI
+class _PluginSession extends Fake implements AudioSession {
+  final interruptions = StreamController<AudioInterruptionEvent>.broadcast(
+    sync: true,
+  );
+  final noisy = StreamController<void>.broadcast(sync: true);
+  final activations = <bool>[];
+  @override
+  AudioSessionConfiguration? configuration;
+  @override
+  Stream<AudioInterruptionEvent> get interruptionEventStream =>
+      interruptions.stream;
+  @override
+  Stream<void> get becomingNoisyEventStream => noisy.stream;
+  @override
+  Future<void> configure(AudioSessionConfiguration value) async =>
+      configuration = value;
+  @override
+  Future<bool> setActive(
+    bool active, {
+    AVAudioSessionSetActiveOptions? avAudioSessionSetActiveOptions,
+    AndroidAudioFocusGainType? androidAudioFocusGainType,
+    AndroidAudioAttributes? androidAudioAttributes,
+    bool? androidWillPauseWhenDucked,
+    AudioSessionConfiguration fallbackConfiguration =
+        const AudioSessionConfiguration.music(),
+  }) async {
+    activations.add(active);
+    return true;
+  }
+
+  Future<void> close() async {
+    await interruptions.close();
+    await noisy.close();
+  }
 }

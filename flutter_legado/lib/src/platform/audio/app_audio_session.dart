@@ -26,13 +26,29 @@ AppAudioEvent mapAudioInterruption(
 /// 平台缝隙用于行为测试；Windows 继续使用现有播放器，不虚构系统焦点能力。
 abstract interface class AppAudioSessionBackend {
   Stream<AppAudioEvent> get events;
-  Future<void> configure();
+  Future<void> configure({bool ignoreAudioFocus = false});
   Future<bool> setActive(bool active);
 }
 
 final class PluginAudioSessionBackend implements AppAudioSessionBackend {
-  Future<AudioSession> get _session => AudioSession.instance;
-  bool get _supported => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+  PluginAudioSessionBackend({
+    Future<AudioSession> Function()? session,
+    TargetPlatform? platform,
+  }) : _readSession = session ?? (() => AudioSession.instance),
+       _platform =
+           platform ??
+           (!kIsWeb && Platform.isAndroid
+               ? TargetPlatform.android
+               : !kIsWeb && Platform.isIOS
+               ? TargetPlatform.iOS
+               : null);
+
+  final Future<AudioSession> Function() _readSession;
+  final TargetPlatform? _platform;
+  bool _ignoreAudioFocus = false, _hasAndroidFocus = false;
+  Future<AudioSession> get _session => _readSession();
+  bool get _isAndroid => _platform == TargetPlatform.android;
+  bool get _supported => _isAndroid || _platform == TargetPlatform.iOS;
 
   @override
   Stream<AppAudioEvent> get events async* {
@@ -41,7 +57,8 @@ final class PluginAudioSessionBackend implements AppAudioSessionBackend {
     final events = StreamController<AppAudioEvent>();
     final interruption = session.interruptionEventStream.listen((event) {
       // 连续语音不降音量掩盖正文；duck 与 pause 均暂停，unknown 不自动恢复。
-      events.add(mapAudioInterruption(event, isAndroid: Platform.isAndroid));
+      if (_isAndroid && _ignoreAudioFocus) return;
+      events.add(mapAudioInterruption(event, isAndroid: _isAndroid));
     }, onError: events.addError);
     final noisy = session.becomingNoisyEventStream.listen((_) {
       events.add(AppAudioEvent.stop);
@@ -56,30 +73,48 @@ final class PluginAudioSessionBackend implements AppAudioSessionBackend {
   }
 
   @override
-  Future<void> configure() async {
+  Future<void> configure({bool ignoreAudioFocus = false}) async {
+    _ignoreAudioFocus = ignoreAudioFocus;
     if (_supported) {
-      await (await _session).configure(
-        const AudioSessionConfiguration.speech(),
+      final session = await _session;
+      // 先发布新策略，再放弃焦点，避免自己的放弃通知被当成新的失焦。
+      if (_isAndroid && ignoreAudioFocus && _hasAndroidFocus) {
+        if (!await session.setActive(false)) throw StateError('释放音频焦点失败');
+        _hasAndroidFocus = false;
+      }
+      await session.configure(
+        const AudioSessionConfiguration.speech().copyWith(
+          avAudioSessionCategoryOptions: ignoreAudioFocus
+              ? AVAudioSessionCategoryOptions.mixWithOthers
+              : AVAudioSessionCategoryOptions.none,
+        ),
       );
     }
   }
 
   @override
-  Future<bool> setActive(bool active) async =>
-      !_supported ||
-      await (await _session).setActive(
-        active,
-        avAudioSessionSetActiveOptions: active
-            ? AVAudioSessionSetActiveOptions.none
-            : AVAudioSessionSetActiveOptions.notifyOthersOnDeactivation,
-      );
+  Future<bool> setActive(bool active) async {
+    if (!_supported) return true;
+    if (_isAndroid && (_ignoreAudioFocus || (!active && !_hasAndroidFocus))) {
+      return true;
+    }
+    final granted = await (await _session).setActive(
+      active,
+      avAudioSessionSetActiveOptions: active
+          ? AVAudioSessionSetActiveOptions.none
+          : AVAudioSessionSetActiveOptions.notifyOthersOnDeactivation,
+    );
+    if (_isAndroid && granted) _hasAndroidFocus = active;
+    return granted;
+  }
 }
 
 /// 共享会话的独立使用凭据；释放旧凭据不能释放新播放或 Web 保活的持有。
 final class AppAudioLease {
-  AppAudioLease._(this._session, this.audible);
+  AppAudioLease._(this._session, this.audible, this._isPlaying);
   final AppAudioSession _session;
   final bool audible;
+  final bool Function()? _isPlaying;
   bool _released = false;
   Future<void> release() {
     if (_released) return Future.value();
@@ -100,6 +135,7 @@ final class AppAudioSession {
   Future<void> _operations = Future.value();
   bool _interrupted = false, _temporary = false, _lastBusy = false;
   int _interruptionRevision = 0;
+  bool _ignoreAudioFocus = false;
 
   Stream<AppAudioEvent> get events {
     _listen();
@@ -152,9 +188,36 @@ final class AppAudioSession {
     return next;
   }
 
+  /// 只调整平台策略，不触碰播放器。暂停持有者不因设置变更重新抢占焦点。
+  Future<void> setIgnoreAudioFocus(bool value) => _serial(() async {
+    if (_ignoreAudioFocus == value) return;
+    _ignoreAudioFocus = value;
+    if (!_leases.any((lease) => lease.audible)) return;
+    final revision = _interruptionRevision;
+    try {
+      await _backend.configure(ignoreAudioFocus: value);
+      if (_interrupted || revision != _interruptionRevision) return;
+      final playing = _leases.any(
+        (lease) => lease.audible && (lease._isPlaying?.call() ?? true),
+      );
+      if (playing && !await _backend.setActive(true)) {
+        throw StateError('无法取得音频焦点，已暂停播放');
+      }
+    } catch (_) {
+      // 平台拒绝或配置失败后不能继续报告正常播放；显式重播可再次申请。
+      _interrupted = true;
+      _temporary = false;
+      _interruptionRevision++;
+      _publishBusy();
+      _events.add(AppAudioEvent.stop);
+      rethrow;
+    }
+  });
+
   Future<AppAudioLease?> acquire({
     bool audible = true,
     bool userInitiated = false,
+    bool Function()? isPlaying,
   }) {
     _listen();
     // 请求排队期间若又发生中断，旧请求也不能取得新会话。
@@ -171,7 +234,9 @@ final class AppAudioSession {
       }
       // TTS/视频插件可能改写共享配置，每次新使用前重申应用的语音策略。
       try {
-        await _backend.configure();
+        await _backend.configure(
+          ignoreAudioFocus: audible && _ignoreAudioFocus,
+        );
         if (revision != _interruptionRevision) return null;
         if (!await _backend.setActive(true)) {
           debugPrint('音频会话申请被平台拒绝：手动=$explicitPlayback');
@@ -186,7 +251,7 @@ final class AppAudioSession {
         if (_leases.isEmpty) await _backend.setActive(false);
         return null;
       }
-      final lease = AppAudioLease._(this, audible);
+      final lease = AppAudioLease._(this, audible, isPlaying);
       _leases.add(lease);
       _temporary = false;
       _interrupted = false;
