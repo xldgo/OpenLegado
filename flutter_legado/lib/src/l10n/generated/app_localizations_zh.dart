@@ -2862,10 +2862,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get readerHideNavigationBar => '隐藏导航栏';
 
   @override
-  String get readerExtendPageTips => '页眉页脚延伸至屏幕边缘';
+  String get readerExtendPageTips => '扩展至屏幕边缘';
 
   @override
-  String get readerExtendPageTipsDescription => '正文继续避让；系统栏可见或页眉居中时保留对应占位';
+  String get readerExtendPageTipsDescription => '页眉页脚可以进入屏幕边缘';
 
   @override
   String get readerAvoidDisplayCutouts => '刘海避让';
