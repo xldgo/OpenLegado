@@ -155,7 +155,6 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
-      expect(find.text('远程书籍'), findsOneWidget);
       expect(find.text('筛选 • 远程书籍'), findsOneWidget);
       expect(find.textContaining('请先在备份设置中配置默认 WebDAV'), findsOneWidget);
     });

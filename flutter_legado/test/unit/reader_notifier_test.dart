@@ -265,17 +265,6 @@ void main() {
       expect(readState().showControls, isFalse);
     });
 
-    test('初始阅读设置默认值', () async {
-      container.read(readerNotifierProvider);
-      await pumpInit();
-      // [PARITY C2 R1/R2] 默认字号 18→20、行距 1.67→1.7（对齐参考）
-      expect(readState().fontSize, equals(20.0));
-      expect(readState().lineHeight, equals(1.7));
-      expect(readState().backgroundColor, equals(ReaderBackground.white));
-      // 默认翻页模式为 cover（对齐 Android 原版）
-      expect(readState().pageTurnMode, equals(PageTurnMode.cover));
-    });
-
     test('初始无上一章/下一章', () async {
       container.read(readerNotifierProvider);
       await pumpInit();

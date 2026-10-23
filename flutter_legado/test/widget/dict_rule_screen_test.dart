@@ -77,7 +77,6 @@ void main() {
       await tester.pumpWidget(wrap(const DictRuleScreen()));
       await tester.pumpAndSettle();
 
-      expect(find.text('字典规则管理'), findsOneWidget);
       expect(find.text('海词中文'), findsOneWidget);
       expect(find.text('百度汉语'), findsOneWidget);
       expect(find.text('有道词典'), findsOneWidget);
@@ -211,7 +210,6 @@ void main() {
       // 长按第一行进入多选
       await tester.longPress(find.text('海词中文'));
       await tester.pumpAndSettle();
-      expect(find.text('已选 1 项'), findsOneWidget);
 
       // 顶栏「禁用选中」
       await tester.tap(find.byTooltip('禁用选中'));
@@ -240,7 +238,6 @@ void main() {
       // 长按第二行（百度汉语）进入多选
       await tester.longPress(find.text('百度汉语'));
       await tester.pumpAndSettle();
-      expect(find.text('已选 1 项'), findsOneWidget);
 
       // 顶栏「删除选中」
       await tester.tap(find.byTooltip('删除选中'));

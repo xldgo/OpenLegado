@@ -61,7 +61,14 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('恢复忽略列表'), 150);
+    await tester.scrollUntilVisible(
+      find.text('恢复忽略列表'),
+      150,
+      scrollable: find.descendant(
+        of: find.byType(ListView),
+        matching: find.byType(Scrollable),
+      ),
+    );
     await tester.pumpAndSettle();
   }
 

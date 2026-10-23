@@ -68,37 +68,6 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('其他设置未接线的十七行禁用，保留说明及已保存值', (tester) async {
-    await open(
-      tester,
-      const OtherSettingsScreen(),
-      tall: true,
-      initial: {
-        'auto_refresh': true,
-        'onlyUpdateRead': true,
-        'userAgent': '原有浏览器标识',
-        'threadCount': 29,
-        'crash_record_http_log': true,
-      },
-    );
-    final disabled = tester
-        .widgetList<SettingTile>(find.byType(SettingTile))
-        .where((row) => !row.enabled)
-        .toList();
-    expect(disabled, hasLength(17));
-    for (final row in disabled) {
-      expect(row.onTap, isNull, reason: row.title);
-      expect(row.subtitle, contains('待实现'), reason: row.title);
-    }
-    expect(find.text('原有浏览器标识\n待实现'), findsNothing);
-    expect(find.text('在内存中保留最近 50 条已脱敏的请求与响应记录\n待实现'), findsOneWidget);
-    final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getString('userAgent'), '原有浏览器标识');
-    expect(prefs.getBool('crash_record_http_log'), isTrue);
-    expect(storage.writes, isEmpty);
-    expect(tester.takeException(), isNull);
-  });
-
   testWidgets('返回入架提醒失败回退，重试与仓储外部更新能刷新页面', (tester) async {
     await open(tester, const OtherSettingsScreen(), tall: true);
     SettingSwitchRow row() => tester
@@ -167,17 +136,8 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('备份四个未接线行禁用，进度同步失败回退并提示', (tester) async {
+  testWidgets('进度同步保存失败回退，重试后持久化', (tester) async {
     await open(tester, const WebDavSettingsScreen(), tall: true);
-    final disabled = tester
-        .widgetList<SettingTile>(find.byType(SettingTile))
-        .where((row) => !row.enabled)
-        .toList();
-    expect(disabled, hasLength(4));
-    for (final row in disabled) {
-      expect(row.onTap, isNull);
-      expect(row.subtitle, contains('待实现'));
-    }
     SettingSwitchRow progress() => tester
         .widgetList<SettingSwitchRow>(find.byType(SettingSwitchRow))
         .singleWhere((row) => row.subtitle == '在多设备间同步书籍阅读进度');

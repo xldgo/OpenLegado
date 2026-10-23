@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/features/logs/presentation/app_log_screen.dart';
 import 'package:flutter_legado/src/providers/theme/theme_notifier.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -36,7 +37,7 @@ void main() {
     router.pushAppRoute(AppRoutes.appLog);
     await tester.pumpAndSettle();
     expect(router.state.uri.path, AppRoutes.appLog);
-    final pageContext = tester.element(find.text('应用日志'));
+    final pageContext = tester.element(find.byType(AppLogScreen));
     final route = ModalRoute.of(pageContext);
     await container
         .read(themeNotifierProvider.notifier)
@@ -44,11 +45,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(identical(GoRouter.of(navigator.context), router), isTrue);
     expect(
-      identical(ModalRoute.of(tester.element(find.text('应用日志'))), route),
+      identical(
+        ModalRoute.of(tester.element(find.byType(AppLogScreen))),
+        route,
+      ),
       isTrue,
     );
     expect(
-      Theme.of(tester.element(find.text('应用日志'))).brightness,
+      Theme.of(tester.element(find.byType(AppLogScreen))).brightness,
       Brightness.dark,
     );
     expect(router.state.uri.path, AppRoutes.appLog);

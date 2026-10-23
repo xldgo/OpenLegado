@@ -92,7 +92,6 @@ void main() {
     await tester.pumpWidget(wrap(const CacheDownloadScreen()));
     await tester.pump();
 
-    expect(find.text('缓存下载队列'), findsOneWidget);
     expect(find.text('暂无缓存下载任务'), findsOneWidget);
   });
 

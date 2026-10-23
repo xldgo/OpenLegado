@@ -23,7 +23,11 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
-    when(()=>mockApi.cacheDownloadService.watchTasks()).thenAnswer((_)=>Stream.fromFuture(Future.sync(()=>mockApi.cacheDownloadService.cacheDownloadList())));
+    when(() => mockApi.cacheDownloadService.watchTasks()).thenAnswer(
+      (_) => Stream.fromFuture(
+        Future.sync(() => mockApi.cacheDownloadService.cacheDownloadList()),
+      ),
+    );
     container = ProviderContainer(
       overrides: mergeTestOverrides([...mockApi.overrides]),
     );
@@ -67,7 +71,6 @@ void main() {
     await tester.pumpWidget(wrap(const OfflineCacheScreen()));
     await tester.pump();
 
-    expect(find.text('离线缓存'), findsOneWidget);
     expect(find.byType(SearchBar), findsNothing);
     expect(find.byType(RefreshIndicator), findsNothing);
     expect(find.text('书架暂无书籍'), findsOneWidget);

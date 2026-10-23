@@ -132,7 +132,10 @@ void main() {
     await tester.scrollUntilVisible(
       cbzChip,
       120,
-      scrollable: find.byType(Scrollable).first,
+      scrollable: find.byWidgetPredicate(
+        (widget) =>
+            widget is Scrollable && widget.axisDirection == AxisDirection.right,
+      ),
     );
     expect(cbzChip, findsOneWidget);
   });

@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/l10n/app_localization.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -46,7 +48,15 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: ThemeConfigScreen()),
+        child: const MaterialApp(
+          localizationsDelegates: [
+            AppLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh'),
+          home: ThemeConfigScreen(),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -63,12 +73,22 @@ void main() {
   }
 
   Future<void> dayRow(WidgetTester tester, String title) async {
-    await reveal(tester, find.text('自定义主题 · 白天'));
     final group = find.byWidgetPredicate(
       (widget) => widget is SettingsGroup && widget.title == '自定义主题 · 白天',
     );
     final label = find.descendant(of: group, matching: find.text(title));
-    await tester.ensureVisible(label);
+    await tester.scrollUntilVisible(
+      label,
+      200,
+      scrollable: find.descendant(
+        of: find.byType(ListView),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Scrollable &&
+              widget.axisDirection == AxisDirection.down,
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(label);
     await tester.pumpAndSettle();

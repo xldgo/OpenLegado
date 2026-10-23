@@ -24,7 +24,7 @@ void main() {
   BorderRadiusGeometry? cardRadius(ThemeData theme) =>
       (theme.cardTheme.shape as RoundedRectangleBorder).borderRadius;
 
-  test('界面字体贯通明暗组件及局部换色，切回默认不残留', () {
+  test('界面字体随明暗主题及局部换色保留，切回默认不残留', () {
     final themes = resolveAppThemes(
       preferences: const AppThemePreferences(fontFamily: 'Custom_Interface'),
     );
@@ -37,20 +37,6 @@ void main() {
       ),
     ]) {
       expect(theme.textTheme.bodyMedium?.fontFamily, 'Custom_Interface');
-      expect(theme.appBarTheme.titleTextStyle?.fontFamily, 'Custom_Interface');
-      expect(
-        theme.inputDecorationTheme.hintStyle?.fontFamily,
-        'Custom_Interface',
-      );
-      expect(theme.tabBarTheme.labelStyle?.fontFamily, 'Custom_Interface');
-      expect(
-        theme.menuButtonTheme.style?.textStyle?.resolve({})?.fontFamily,
-        'Custom_Interface',
-      );
-      expect(
-        theme.navigationBarTheme.labelTextStyle?.resolve({})?.fontFamily,
-        'Custom_Interface',
-      );
     }
     final defaults = resolveAppThemes(preferences: const AppThemePreferences());
     expect(

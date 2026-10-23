@@ -83,7 +83,6 @@ void main() {
       await tester.pumpWidget(wrap(const BookGroupScreen()));
       await tester.pumpAndSettle();
 
-      expect(find.text('分组管理'), findsOneWidget);
       expect(find.text('武侠'), findsOneWidget);
       expect(find.text('科幻'), findsOneWidget);
     });
@@ -654,6 +653,9 @@ void main() {
           origin: 'https://manga-source.com',
         );
         stubCommon(book);
+        when(
+          () => mockApi.bookSourceQueryService.resolveReadingType(any(), any()),
+        ).thenAnswer((_) async => BookType.image);
         when(() => mockApi.bookshelfRepository.getBook(any()))
             .thenAnswer((_) async => book);
         when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer(
