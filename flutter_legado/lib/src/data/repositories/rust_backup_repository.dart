@@ -1,5 +1,6 @@
 import '../bridge/rust_errors.dart';
 import '../../domain/models/old_data_import_result.dart';
+import '../../domain/models/backup_restore_stats.dart';
 import '../../domain/contracts/backup_repository.dart';
 
 import 'dart:io';
@@ -32,7 +33,7 @@ final class RustBackupRepository implements BackupRepository {
 
   /// 恢复数据（委托 Rust backup_restore：从备份文件导入）
   @override
-  Future<void> restore(String backupPath) async {
+  Future<BackupRestoreStats> restore(String backupPath) async {
     final file = File(backupPath);
     if (!await file.exists()) {
       throw AppException(
@@ -40,9 +41,17 @@ final class RustBackupRepository implements BackupRepository {
         operation: 'restore',
       );
     }
-    await rustFuture(
+    final stats = await rustFuture(
       () => bridge.backupRestore(path: backupPath),
       operation: 'backupRestore',
+    );
+    return BackupRestoreStats(
+      books: stats.books.toInt(),
+      bookmarks: stats.bookmarks.toInt(),
+      replaceRules: stats.replaceRules.toInt(),
+      bookSources: stats.bookSources.toInt(),
+      rssSources: stats.rssSources.toInt(),
+      readRecords: stats.readRecords.toInt(),
     );
   }
 

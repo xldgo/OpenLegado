@@ -7784,6 +7784,25 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'删除规则失败：{error}'**
   String ruleDeleteFailed(String error);
+
+  /// 本地备份恢复的真实结果
+  ///
+  /// In zh, this message translates to:
+  /// **'书籍{books}、书签{bookmarks}、替换规则{replaceRules}、书源{bookSources}、RSS源{rssSources}、阅读记录{readRecords}'**
+  String backupRestoreCounts(
+    int books,
+    int bookmarks,
+    int replaceRules,
+    int bookSources,
+    int rssSources,
+    int readRecords,
+  );
+
+  /// 本地备份恢复的真实结果
+  ///
+  /// In zh, this message translates to:
+  /// **'业务数据已恢复：{counts}\n设置恢复失败：{error}'**
+  String backupRestorePreferencesFailed(String counts, String error);
 }
 
 class _AppLocalizationsDelegate

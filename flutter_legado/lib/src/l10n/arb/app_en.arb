@@ -1371,5 +1371,41 @@
   "readerBookOpenSpeedSaveFailed": "Could not save the book opening speed. Please try again.",
   "ruleDeleted": "Rule deleted",
   "ruleDeleteFailed": "Failed to delete rule: {error}",
-  "@ruleDeleteFailed": {"placeholders": {"error": {"type": "String"}}}
+  "@ruleDeleteFailed": {"placeholders": {"error": {"type": "String"}}},
+  "backupRestoreCounts": "Books: {books}, bookmarks: {bookmarks}, replacement rules: {replaceRules}, book sources: {bookSources}, RSS sources: {rssSources}, reading records: {readRecords}",
+  "@backupRestoreCounts": {
+    "description": "本地备份恢复的真实结果",
+    "placeholders": {
+      "books": {
+        "type": "int"
+      },
+      "bookmarks": {
+        "type": "int"
+      },
+      "replaceRules": {
+        "type": "int"
+      },
+      "bookSources": {
+        "type": "int"
+      },
+      "rssSources": {
+        "type": "int"
+      },
+      "readRecords": {
+        "type": "int"
+      }
+    }
+  },
+  "backupRestorePreferencesFailed": "Business data restored: {counts}\nSettings restoration failed: {error}",
+  "@backupRestorePreferencesFailed": {
+    "description": "本地备份恢复的真实结果",
+    "placeholders": {
+      "counts": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  }
 }

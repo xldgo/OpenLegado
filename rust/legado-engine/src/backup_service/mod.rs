@@ -1,4 +1,4 @@
-//! 备份应用服务：文件及逐项恢复使用所属实例的存储。
+//! 备份应用服务：文件及事务恢复使用所属实例的存储。
 //!
 //! 提供数据库备份创建、恢复和备份文件列表功能。
 //! 备份格式为 JSON，包含 books/bookmarks/replaceRules/bookSources/rssSources/readRecords。
@@ -17,6 +17,8 @@ use legado_db::{
 };
 
 use crate::StorageContext;
+
+mod restore;
 
 /// 备份数据结构
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -175,105 +177,7 @@ impl BackupService {
     }
 
     pub fn restore_backup(&self, path: &str) -> LegadoResult<RestoreStats> {
-        let content = fs::read_to_string(path).map_err(|e| {
-            LegadoError::Io(std::io::Error::other(format!("读取备份文件失败: {e}")))
-        })?;
-
-        let backup: BackupData = serde_json::from_str(&content)
-            .map_err(|e| LegadoError::Internal(format!("备份文件解析失败: {e}")))?;
-
-        let stats = self.with_database(|db| {
-            let conn = db.connection();
-            let mut stats = RestoreStats {
-                books: 0,
-                bookmarks: 0,
-                replace_rules: 0,
-                book_sources: 0,
-                rss_sources: 0,
-                read_records: 0,
-            };
-
-            // 恢复书籍
-            // 评审 W3：失败不再静默吞错——UNIQUE 撞名等写入失败记 warn 日志，
-            // 便于排查「恢复数量少于备份数量」类问题（RestoreStats 仅含成功计数，
-            // 失败不入统计以免变更 FFI 返回结构）
-            let book_repo = BookRepository::new(conn);
-            for value in &backup.books {
-                if let Ok(book) = serde_json::from_value::<Book>(value.clone()) {
-                    match book_repo.insert(&book) {
-                        Ok(()) => stats.books += 1,
-                        Err(e) => log::warn!("恢复书籍失败（已跳过）: {} - {e}", book.book_url),
-                    }
-                }
-            }
-
-            // 恢复书签
-            let bookmark_repo = BookmarkRepository::new(conn);
-            for value in &backup.bookmarks {
-                if let Ok(bm) = serde_json::from_value::<Bookmark>(value.clone()) {
-                    match bookmark_repo.insert(&bm) {
-                        Ok(_) => stats.bookmarks += 1,
-                        Err(e) => log::warn!("恢复书签失败（已跳过）: {} - {e}", bm.book_name),
-                    }
-                }
-            }
-
-            // 恢复替换规则
-            let rule_repo = ReplaceRuleRepository::new(conn);
-            for value in &backup.replace_rules {
-                if let Ok(rule) =
-                    serde_json::from_value::<legado_core::models::ReplaceRule>(value.clone())
-                {
-                    match rule_repo.insert(&rule) {
-                        Ok(_) => stats.replace_rules += 1,
-                        Err(e) => log::warn!("恢复替换规则失败（已跳过）: {} - {e}", rule.name),
-                    }
-                }
-            }
-
-            // 恢复书源
-            let source_repo = BookSourceRepository::new(conn);
-            for value in &backup.book_sources {
-                if let Ok(source) = serde_json::from_value::<BookSource>(value.clone()) {
-                    match source_repo.insert(&source) {
-                        Ok(()) => stats.book_sources += 1,
-                        Err(e) => {
-                            log::warn!("恢复书源失败（已跳过）: {} - {e}", source.book_source_url)
-                        }
-                    }
-                }
-            }
-
-            // 恢复 RSS 源
-            for (index, value) in backup.rss_sources.iter().enumerate() {
-                match serde_json::from_value::<RssSource>(value.clone()) {
-                    Ok(source) => match insert_rss_source(conn, &source) {
-                        Ok(()) => stats.rss_sources += 1,
-                        Err(e) => {
-                            log::warn!("恢复 RSS 源第{}项失败（已跳过）: {e}", index + 1)
-                        }
-                    },
-                    Err(e) => log::warn!("解析 RSS 源第{}项失败（已跳过）: {e}", index + 1),
-                }
-            }
-
-            // 与备份创建使用同一DB实体，避免字段名不匹配时默认成空书名/零时长。
-            let record_repo = ReadRecordRepository::new(conn);
-            for value in &backup.read_records {
-                if let Ok(record) = serde_json::from_value::<legado_db::ReadRecord>(value.clone()) {
-                    match record_repo.upsert(&record.book_name, record.read_time) {
-                        Ok(()) => stats.read_records += 1,
-                        Err(e) => {
-                            log::warn!("恢复阅读记录失败（已跳过）: {} - {e}", record.book_name)
-                        }
-                    }
-                }
-            }
-
-            Ok(stats)
-        })?;
-
-        Ok(stats)
+        restore::restore(self, path)
     }
 
     pub fn list_backup_files(&self, dir: &str) -> Vec<BackupFile> {

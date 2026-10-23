@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/domain/models/backup_restore_stats.dart';
 import 'package:flutter_legado/src/domain/models/old_data_import_result.dart';
 
 import 'dart:convert';
@@ -34,6 +35,14 @@ class _FailedPreferences extends BackupPreferencesService {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(registerFallbacks);
+  const stats = BackupRestoreStats(
+    books: 2,
+    bookmarks: 1,
+    replaceRules: 3,
+    bookSources: 4,
+    rssSources: 5,
+    readRecords: 6,
+  );
   late MockRustApi api;
   late _Ignore ignore;
   late Directory directory;
@@ -47,7 +56,8 @@ void main() {
     addTearDown(() => directory.delete(recursive: true));
     when(() => api.backupRepository.backup(any()))
         .thenAnswer((_) async => file.path);
-    when(() => api.backupRepository.restore(any())).thenAnswer((_) async {});
+    when(() => api.backupRepository.restore(any()))
+        .thenAnswer((_) async => stats);
   });
   BackupService service({BackupPreferencesService? preferences}) =>
       BackupService(
@@ -95,8 +105,10 @@ void main() {
         (await SharedPreferences.getInstance()).getDouble('reader_font_size'),
         18.0,
       );
+      return stats;
     });
     final result = await service().restoreLocal(file.path);
+    expect(result.stats, same(stats));
     expect(result.preferencesError, isNull);
     expect(
       (await SharedPreferences.getInstance()).getDouble('reader_font_size'),
@@ -129,6 +141,7 @@ void main() {
     );
     final result = await service(preferences: _FailedPreferences())
         .restoreLocal(file.path);
+    expect(result.stats, same(stats));
     expect(result.preferencesError, isStateError);
     verify(() => api.backupRepository.restore(file.path)).called(1);
   });
@@ -148,6 +161,7 @@ void main() {
       usedPath = call.positionalArguments.first as String;
       final payload = jsonDecode(await File(usedPath!).readAsString()) as Map;
       expect((payload['books'] as List).single['bookUrl'], 'remote');
+      return stats;
     });
     await service().restoreLocal(file.path);
     expect(usedPath, isNot(file.path));
@@ -155,10 +169,19 @@ void main() {
     expect(await file.readAsString(), original);
   });
 
-  test('非JSON文件沿用仓储恢复，不从中应用偏好', () async {
+  test('未支持的ZIP在调用仓储之前明确拒绝，不修改设置', () async {
     final path = '${directory.path}/backup.zip';
-    await service().restoreLocal(path);
-    verify(() => api.backupRepository.restore(path)).called(1);
+    await expectLater(
+      service().restoreLocal(path),
+      throwsA(
+        isA<FormatException>().having(
+          (error) => error.message,
+          '格式提示',
+          contains('JSON备份'),
+        ),
+      ),
+    );
+    verifyNever(() => api.backupRepository.restore(any()));
     expect(
       (await SharedPreferences.getInstance()).getDouble('reader_font_size'),
       18.0,

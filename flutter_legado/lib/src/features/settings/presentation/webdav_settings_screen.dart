@@ -244,19 +244,32 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
   Future<void> _doRestoreFromLocal() async {
     final service = ref.read(backupServiceProvider);
     final refresher = ref.read(restoredSettingsRefresherProvider);
+    final l10n = context.l10n;
     await _runWithProgress('恢复中…', () async {
       final file = await FilePicker.pickFile(
         type: FileType.custom,
-        allowedExtensions: ['json', 'zip'],
+        allowedExtensions: ['json'],
       );
       final path = file?.path;
       if (path == null) return;
       final result = await service.restoreLocal(path);
       final failures = await refresher.refresh();
+      final stats = result.stats;
+      final summary = l10n.backupRestoreCounts(
+        stats.books,
+        stats.bookmarks,
+        stats.replaceRules,
+        stats.bookSources,
+        stats.rssSources,
+        stats.readRecords,
+      );
       _showResult(
         result.preferencesError == null
-            ? AppStrings.restoreSuccess
-            : '业务数据已恢复，但设置恢复失败：${result.preferencesError}',
+            ? '${l10n.restoreSuccess}：$summary'
+            : l10n.backupRestorePreferencesFailed(
+                summary,
+                '${result.preferencesError}',
+              ),
         failures,
       );
     });

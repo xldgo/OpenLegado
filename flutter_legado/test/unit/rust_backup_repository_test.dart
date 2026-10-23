@@ -52,21 +52,32 @@ void main() {
       '{modified: 123, name: 备份.json, path: dir/file, size: 9007199254740993}',
     ]);
   });
-  test('恢复忽略统计载荷但等待真实结果，原生失败仍上抛', () async {
+  test('恢复返回已提交统计，原生失败仍上抛', () async {
     final dir = await Directory.systemTemp.createTemp('legado-backup-dto-');
     addTearDown(() => dir.delete(recursive: true));
     final file = await File('${dir.path}/backup.json').writeAsString('{}');
     final stats = RestoreStatsDto(
-      books: BigInt.one,
-      bookmarks: BigInt.zero,
-      replaceRules: BigInt.zero,
-      bookSources: BigInt.zero,
-      rssSources: BigInt.zero,
-      readRecords: BigInt.zero,
+      books: BigInt.from(9007199254740993),
+      bookmarks: BigInt.one,
+      replaceRules: BigInt.two,
+      bookSources: BigInt.from(3),
+      rssSources: BigInt.from(4),
+      readRecords: BigInt.from(5),
     );
     when(() => bridge.crateFfiFfiBackupRestore(path: file.path))
         .thenAnswer((_) async => stats);
-    await repo.restore(file.path);
+    final restored = await repo.restore(file.path);
+    expect(
+      [
+        restored.books,
+        restored.bookmarks,
+        restored.replaceRules,
+        restored.bookSources,
+        restored.rssSources,
+        restored.readRecords,
+      ],
+      [9007199254740993, 1, 2, 3, 4, 5],
+    );
     verify(() => bridge.crateFfiFfiBackupRestore(path: file.path)).called(1);
     final failure = StateError('恢复失败');
     when(() => bridge.crateFfiFfiBackupRestore(path: file.path))

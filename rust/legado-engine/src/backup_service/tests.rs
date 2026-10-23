@@ -63,7 +63,7 @@ fn rss_restore_to_empty_database_preserves_all_entity_fields() {
 }
 
 #[test]
-fn backup_file_roundtrip_keeps_all_six_collections_and_partial_restore_counts() {
+fn backup_file_roundtrip_keeps_all_six_collections_and_committed_counts() {
     use std::sync::Arc;
     let source = Arc::new(crate::EngineContext::in_memory().unwrap());
     let target = crate::EngineContext::in_memory().unwrap();
@@ -91,7 +91,7 @@ fn backup_file_roundtrip_keeps_all_six_collections_and_partial_restore_counts() 
                 ..Default::default()
             })?;
             insert_rss_source(conn, &rss_fixture())?;
-            ReadRecordRepository::new(conn).upsert("备份书😀", 1234)?;
+            ReadRecordRepository::new(conn).upsert_full("设备", "备份书😀", "作者", 1234, 9876)?;
             Ok(())
         })
         .unwrap();
@@ -104,7 +104,7 @@ fn backup_file_roundtrip_keeps_all_six_collections_and_partial_restore_counts() 
     drop(source);
     assert!(weak.upgrade().is_none(), "服务不应持有根引擎");
     exporter.backup_create(path.to_str().unwrap()).unwrap();
-    let mut data: BackupData = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    let data: BackupData = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
     assert_eq!(data.version, 1);
     assert!(data.backup_time > 0);
     assert_eq!(data.read_records[0]["book_name"], "备份书😀");
@@ -121,9 +121,6 @@ fn backup_file_roundtrip_keeps_all_six_collections_and_partial_restore_counts() 
         .iter()
         .all(|items| items.len() == 1)
     );
-    // 坏条目不妨碍同一文档中的有效数据恢复，统计仅计成功条目。
-    data.books.push(serde_json::Value::Bool(false));
-    fs::write(&path, serde_json::to_vec(&data).unwrap()).unwrap();
     let stats = importer.restore_backup(path.to_str().unwrap()).unwrap();
     assert_eq!(
         [
@@ -149,6 +146,9 @@ fn backup_file_roundtrip_keeps_all_six_collections_and_partial_restore_counts() 
             assert_eq!(records.len(), 1);
             assert_eq!(records[0].book_name, "备份书😀");
             assert_eq!(records[0].read_time, 1234);
+            assert_eq!(records[0].device_id, "设备");
+            assert_eq!(records[0].author, "作者");
+            assert_eq!(records[0].last_read, 9876);
             let rss = RssSourceRepository::new(conn)
                 .find_all()
                 .map_err(LegadoError::Database)?;
@@ -209,7 +209,7 @@ fn backup_errors_and_existing_old_import_messages_keep_their_categories() {
     fs::write(&bad, "{invalid").unwrap();
     assert!(matches!(
         service.restore_backup(bad.to_str().unwrap()),
-        Err(LegadoError::Internal(_))
+        Err(LegadoError::Parser(_))
     ));
     assert!(matches!(
         BackupService::new(None).backup_create(bad.to_str().unwrap()),
@@ -219,5 +219,136 @@ fn backup_errors_and_existing_old_import_messages_keep_their_categories() {
         service
             .list_backup_files(dir.join("missing").to_str().unwrap())
             .is_empty()
+    );
+}
+
+#[test]
+fn restore_rejects_wrong_documents_and_late_invalid_rows_without_modifying_data() {
+    let engine = crate::EngineContext::in_memory().unwrap();
+    let service = BackupService::new(Some(engine.storage().clone()));
+    let directory = engine
+        .storage()
+        .data_directory("restore-validation")
+        .unwrap();
+    fs::create_dir_all(&directory).unwrap();
+    let path = directory.join("backup.json");
+    let existing = Book {
+        book_url: "https://backup.test/existing".into(),
+        name: "现有书".into(),
+        ..Default::default()
+    };
+    engine
+        .storage()
+        .with_database(|db| BookRepository::new(db.connection()).insert(&existing))
+        .unwrap();
+    let mut changed = existing.clone();
+    changed.name = "不应写入".into();
+    let documents = [
+        (b"PK\x03\x04zip".to_vec(), "ZIP"),
+        (b"[".to_vec(), "JSON解析"),
+        (b"[]".to_vec(), "JSON对象"),
+        (b"{}".to_vec(), "版本"),
+        (br#"{"version":2,"books":[]}"#.to_vec(), "版本"),
+        (br#"{"version":1,"unrelated":[]}"#.to_vec(), "业务数据集合"),
+        (br#"{"version":1,"books":false}"#.to_vec(), "结构错误"),
+        (
+            serde_json::to_vec(&serde_json::json!({
+                "version": 1, "books": [changed], "readRecords": [false]
+            }))
+            .unwrap(),
+            "readRecords第1项",
+        ),
+    ];
+    for (bytes, error_context) in documents {
+        fs::write(&path, bytes).unwrap();
+        let error = service.restore_backup(path.to_str().unwrap()).unwrap_err();
+        assert!(error.to_string().contains(error_context), "{error}");
+        engine
+            .storage()
+            .with_database(|db| {
+                let books = BookRepository::new(db.connection()).find_all()?;
+                assert_eq!(books.len(), 1);
+                assert_eq!(
+                    serde_json::to_value(&books[0]).unwrap(),
+                    serde_json::to_value(&existing).unwrap()
+                );
+                Ok(())
+            })
+            .unwrap();
+    }
+}
+
+#[test]
+fn restore_rolls_back_on_late_write_and_commit_failure_and_can_retry() {
+    let engine = crate::EngineContext::in_memory().unwrap();
+    let service = BackupService::new(Some(engine.storage().clone()));
+    let directory = engine
+        .storage()
+        .data_directory("restore-transaction")
+        .unwrap();
+    fs::create_dir_all(&directory).unwrap();
+    let path = directory.join("backup.json");
+    let existing = Book {
+        book_url: "https://backup.test/existing".into(),
+        name: "现有书".into(),
+        ..Default::default()
+    };
+    engine
+        .storage()
+        .with_database(|db| BookRepository::new(db.connection()).insert(&existing))
+        .unwrap();
+    let mut changed = existing.clone();
+    changed.name = "恢复后的书".into();
+    fs::write(&path, serde_json::to_vec(&serde_json::json!({
+        "version": 1, "books": [changed],
+        "bookmarks": [Bookmark { book_name: "书签".into(), ..Default::default() }],
+        "bookSources": [BookSource { book_source_url: "https://backup.test/source".into(), ..Default::default() }],
+        "readRecords": [{"book_name": "记录", "read_time": 100}]
+    })).unwrap()).unwrap();
+    let cases = [
+        (
+            "CREATE TRIGGER reject_restore BEFORE INSERT ON book_sources BEGIN SELECT RAISE(ABORT, '拒绝书源'); END;",
+            "DROP TRIGGER reject_restore;",
+            "bookSources第1项",
+        ),
+        (
+            "CREATE TABLE restore_commit_guard(bookUrl TEXT REFERENCES books(bookUrl) DEFERRABLE INITIALLY DEFERRED); CREATE TRIGGER reject_restore_commit AFTER INSERT ON readRecord BEGIN INSERT INTO restore_commit_guard VALUES ('missing'); END;",
+            "DROP TRIGGER reject_restore_commit; DROP TABLE restore_commit_guard;",
+            "提交备份恢复事务失败",
+        ),
+    ];
+    for (setup, cleanup, error_context) in cases {
+        engine
+            .storage()
+            .with_database(|db| {
+                db.connection().execute_batch(setup).unwrap();
+                Ok(())
+            })
+            .unwrap();
+        let error = service.restore_backup(path.to_str().unwrap()).unwrap_err();
+        assert!(error.to_string().contains(error_context), "{error}");
+        engine
+            .storage()
+            .with_database(|db| {
+                let conn = db.connection();
+                assert!(conn.is_autocommit());
+                assert_eq!(BookRepository::new(conn).find_all()?[0].name, "现有书");
+                assert!(BookmarkRepository::new(conn).find_all()?.is_empty());
+                assert!(BookSourceRepository::new(conn).find_all()?.is_empty());
+                assert!(ReadRecordRepository::new(conn).find_all()?.is_empty());
+                conn.execute_batch(cleanup).unwrap();
+                Ok(())
+            })
+            .unwrap();
+    }
+    let stats = service.restore_backup(path.to_str().unwrap()).unwrap();
+    assert_eq!(
+        [
+            stats.books,
+            stats.bookmarks,
+            stats.book_sources,
+            stats.read_records
+        ],
+        [1; 4]
     );
 }

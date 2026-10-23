@@ -4135,4 +4135,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String ruleDeleteFailed(String error) {
     return '删除规则失败：$error';
   }
+
+  @override
+  String backupRestoreCounts(
+    int books,
+    int bookmarks,
+    int replaceRules,
+    int bookSources,
+    int rssSources,
+    int readRecords,
+  ) {
+    return '书籍$books、书签$bookmarks、替换规则$replaceRules、书源$bookSources、RSS源$rssSources、阅读记录$readRecords';
+  }
+
+  @override
+  String backupRestorePreferencesFailed(String counts, String error) {
+    return '业务数据已恢复：$counts\n设置恢复失败：$error';
+  }
 }

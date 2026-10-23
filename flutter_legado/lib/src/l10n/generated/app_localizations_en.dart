@@ -4368,4 +4368,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String ruleDeleteFailed(String error) {
     return 'Failed to delete rule: $error';
   }
+
+  @override
+  String backupRestoreCounts(
+    int books,
+    int bookmarks,
+    int replaceRules,
+    int bookSources,
+    int rssSources,
+    int readRecords,
+  ) {
+    return 'Books: $books, bookmarks: $bookmarks, replacement rules: $replaceRules, book sources: $bookSources, RSS sources: $rssSources, reading records: $readRecords';
+  }
+
+  @override
+  String backupRestorePreferencesFailed(String counts, String error) {
+    return 'Business data restored: $counts\nSettings restoration failed: $error';
+  }
 }

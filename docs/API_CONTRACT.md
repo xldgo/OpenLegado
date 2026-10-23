@@ -2417,6 +2417,17 @@ Rust签名、数据库格式和生成绑定不变，缓存清理及下载任务�
 
 ### 2.11 备份操作（3 个方法）
 
+**BACKUP-RESTORE-20261024 B1（实施前冻结）**：FRB方法、六字段RestoreStatsDto、
+数据库schema与版本1备份格式不变。Dart `BackupRepository.restore`返回
+`BackupRestoreStats`（books/bookmarks/replaceRules/bookSources/rssSources/readRecords），
+正式适配逐字段映射既有DTO，Mock返回明确的零统计；页面消费实际统计。
+累计阅读记录使用既有全字段仓储写回设备、书名、作者、时长和最后阅读时间，不丢弃备份已有字段。
+恢复仅接受版本1、本项目业务集合的JSON文档；ZIP未接通前明确拒绝，不继续声称支持。
+Rust先完成所有条目的类型校验，再在同一数据库事务内写入；任意解析、写入或提交失败
+必须报错，不能跳过失败条目后返回成功，覆盖此前逐条跳过的约定。
+业务事务成功后才应用appPrefs；偏好失败返回业务已恢复的计数和独立错误，
+不承诺SQLite与Preferences跨存储原子性。WebDAV现有双JSON路径本批不改，B3替换。
+
 **Dart归属**：本节三项及既有`backupList`统一由`BackupRepository`及直接FRB/Mock实现承担，
 根BookApi只装配共享实例；备份文件及偏好编排由`BackupService`负责。
 Rust导出、参数、返回和数据库格式保持。
@@ -2424,7 +2435,7 @@ Rust导出、参数、返回和数据库格式保持。
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
 | `backup(String dirPath)` | dirPath | `Future<String>` | 备份数据，返回备份文件路径。**P2-4（2026-08-13）**：Flutter 在 FFI 写出 JSON 后注入 `appPrefs`（当前 SharedPreferences 快照，已按 restoreIgnore + alwaysIgnore 过滤）；无新 FFI 签名 |
-| `restore(String backupPath)` | backupPath | `Future<void>` | 恢复数据。BackupService从RestoreIgnoreRepository读取策略并预过滤本地书，先调用本方法恢复业务表，成功后由BackupPreferencesService按忽略规则应用appPrefs并检查写入结果；部分失败独立反馈，应用层集中刷新配置。Rust签名不变 |
+| `restore(String backupPath)` | backupPath | `Future<BackupRestoreStats>` | B1按上文返回真实统计；BackupService预过滤本地书，业务恢复成功后应用appPrefs；偏好失败独立反馈，应用层集中刷新配置。Rust签名不变 |
 | `importOldData(String dirPath)` | dirPath：含旧版备份文件的目录 | `Future<OldDataImportResult>` | **P2-4（2026-08-13）**：对齐原版 `ImportOldData.importUri`。读取目录下 `myBookShelf.json` / `myBookSource.json` / `myBookReplaceRule.json`（缺文件不致命，计入 `messages`）；书架字段映射（`noteUrl`→`bookUrl`、`bookInfoBean.*` 等）；书源经 `toNewRule`/`toNewUrl`/`toNewUrls`/`uaToHeader` 迁到 3.x 规则结构；替换规则兼容新格式或旧字段（`regex`/`replaceSummary`/`useTo`/`enable`/`serialNumber`）。已存在 `bookUrl` 的书跳过。返回结构化统计：books / bookSources / replaceRules / messages |
 
 ### 2.12 阅读记录（15 个方法）

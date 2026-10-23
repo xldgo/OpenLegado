@@ -7,6 +7,7 @@ import '../../domain/contracts/bookshelf_repository.dart';
 import '../../domain/contracts/restore_ignore_repository.dart';
 import '../../domain/contracts/webdav_service.dart';
 import '../../domain/models/webdav_connection.dart';
+import '../../domain/models/backup_restore_stats.dart';
 import '../../models/book.dart';
 import 'backup_preferences_service.dart';
 
@@ -64,38 +65,42 @@ class BackupService {
     }
   }
 
-  Future<({Object? preferencesError})> restoreLocal(String path) async {
+  Future<({BackupRestoreStats stats, Object? preferencesError})> restoreLocal(
+    String path,
+  ) async {
+    if (!path.toLowerCase().endsWith('.json')) {
+      throw const FormatException('暂不支持此备份格式，请选择本项目生成的JSON备份');
+    }
     final ignore = await _ignore.load();
+    final BackupRestoreStats stats;
     Map<String, dynamic>? prefs;
     File? filtered;
-    if (path.toLowerCase().endsWith('.json')) {
-      final payload = await _readBackup(path);
-      final rawPrefs = payload[kBackupAppPrefsKey];
-      if (rawPrefs != null) {
-        if (rawPrefs is! Map<String, dynamic>) {
-          throw const FormatException('备份设置必须为JSON对象');
-        }
-        prefs = rawPrefs;
+    final payload = await _readBackup(path);
+    final rawPrefs = payload[kBackupAppPrefsKey];
+    if (rawPrefs != null) {
+      if (rawPrefs is! Map<String, dynamic>) {
+        throw const FormatException('备份设置必须为JSON对象');
       }
-      final books = payload['books'];
-      if (ignore['localBook'] && books is List) {
-        payload['books'] = books.where((item) {
-          if (item is! Map) return true;
-          final origin = item['origin']?.toString() ?? '';
-          final value = item['type'];
-          final type = value is int ? value : int.tryParse('$value') ?? 0;
-          return !(origin == BookType.localTag ||
-              origin.startsWith(BookType.webDavTag) ||
-              (type & BookType.local) != 0);
-        }).toList();
-        filtered = File(
-          '${Directory.systemTemp.path}${Platform.pathSeparator}legado_restore_${DateTime.now().microsecondsSinceEpoch}.json',
-        );
-        await filtered.writeAsString(jsonEncode(payload));
-      }
+      prefs = rawPrefs;
+    }
+    final books = payload['books'];
+    if (ignore['localBook'] && books is List) {
+      payload['books'] = books.where((item) {
+        if (item is! Map) return true;
+        final origin = item['origin']?.toString() ?? '';
+        final value = item['type'];
+        final type = value is int ? value : int.tryParse('$value') ?? 0;
+        return !(origin == BookType.localTag ||
+            origin.startsWith(BookType.webDavTag) ||
+            (type & BookType.local) != 0);
+      }).toList();
+      filtered = File(
+        '${Directory.systemTemp.path}${Platform.pathSeparator}legado_restore_${DateTime.now().microsecondsSinceEpoch}.json',
+      );
+      await filtered.writeAsString(jsonEncode(payload));
     }
     try {
-      await _repository.restore(filtered?.path ?? path);
+      stats = await _repository.restore(filtered?.path ?? path);
     } finally {
       if (filtered != null) {
         try {
@@ -107,9 +112,9 @@ class BackupService {
     }
     try {
       await _preferences.applyFromBackup(prefs, ignore.values);
-      return (preferencesError: null);
+      return (stats: stats, preferencesError: null);
     } catch (error) {
-      return (preferencesError: error);
+      return (stats: stats, preferencesError: error);
     }
   }
 

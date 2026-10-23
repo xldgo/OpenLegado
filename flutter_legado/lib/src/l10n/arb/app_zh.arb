@@ -4589,5 +4589,41 @@
   "readerBookOpenSpeedSaveFailed": "开书动画速度保存失败，请重试",
   "ruleDeleted": "规则已删除",
   "ruleDeleteFailed": "删除规则失败：{error}",
-  "@ruleDeleteFailed": {"placeholders": {"error": {"type": "String"}}}
+  "@ruleDeleteFailed": {"placeholders": {"error": {"type": "String"}}},
+  "backupRestoreCounts": "书籍{books}、书签{bookmarks}、替换规则{replaceRules}、书源{bookSources}、RSS源{rssSources}、阅读记录{readRecords}",
+  "@backupRestoreCounts": {
+    "description": "本地备份恢复的真实结果",
+    "placeholders": {
+      "books": {
+        "type": "int"
+      },
+      "bookmarks": {
+        "type": "int"
+      },
+      "replaceRules": {
+        "type": "int"
+      },
+      "bookSources": {
+        "type": "int"
+      },
+      "rssSources": {
+        "type": "int"
+      },
+      "readRecords": {
+        "type": "int"
+      }
+    }
+  },
+  "backupRestorePreferencesFailed": "业务数据已恢复：{counts}\n设置恢复失败：{error}",
+  "@backupRestorePreferencesFailed": {
+    "description": "本地备份恢复的真实结果",
+    "placeholders": {
+      "counts": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  }
 }
