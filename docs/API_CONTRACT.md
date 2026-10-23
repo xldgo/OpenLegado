@@ -3020,6 +3020,20 @@ Depth为0，不拼接remote_dir；账号或密码非空才携带Basic Auth。5�
 
 ### 朗读扩展：缓存、音色目录与云端（§2.42 补充）
 
+**TTS-PAGE-PARAGRAPH-20261023（实施前冻结，Dart内部模型）**：按本地上游
+ReaderReadAloudChapter对齐页面模式：先生成原文段落，再以真实页起点切开段落；
+同页多个段落不合并。继续使用现有完整分页范围及既有一致性验证，不猜测分页。
+ReadAloudUnit保留start/text/sourceParagraphIndex/isParagraphEnd，end由start+文本UTF-16
+长度派生；同一原文段落在页面/符号切分后共享sourceParagraphIndex，仅最后片继承
+真实段末。云请求的长度片段是另一种范围，不冒充逻辑段落；构建播放cue时以原单元
+切片传递语义，仅最后一片继承isParagraphEnd。cue的unitIndex继续指播放单元，
+与sourceParagraphIndex分开；段落切换、选择及缓存索引仍用播放单元索引。
+当前段间停顿按播放单元执行，沿用上游服务和既有行为，不改成仅真实段末停顿。
+不调整原有换行/首尾空白归一、符号断点（引号问题暂缓）、长度断点/阈值、旧Rust
+朗读模块、数据库、设置键、FRB方法或生成物；只更新Dart内部契约及直接消费者。
+
+编写者：Codex + UI｜2026-10-23
+
 **RUST-BOUNDARY-B8B-20261023（实施前冻结）**：新增只读
 `cloudTtsCapabilities() → Future<List<CloudTtsCapabilitiesDto>>`，一次返回八家已支持Provider
 的类型化能力：provider、defaultModel/defaultVoice、formats/styles、表单能力开关

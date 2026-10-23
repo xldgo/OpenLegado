@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 import 'package:flutter_legado/src/domain/contracts/tts_cache_repository.dart';
+import 'package:flutter_legado/src/domain/models/read_aloud_content.dart';
 import 'package:flutter_legado/src/features/read_aloud/playback/file_read_aloud_engine.dart';
 import 'package:flutter_legado/src/features/read_aloud/playback/read_aloud_engine.dart';
 
@@ -39,8 +40,13 @@ List<ReadAloudPlaylistCue> cues(int count) => [
   for (var i = 0; i < count; i++)
     ReadAloudPlaylistCue(
       request: ReadAloudRequest(text: '正文$i。', engineId: 1, speed: 1.5),
-      sourceOffset: 10 + i * 6,
-      paragraphIndex: i,
+      unit: ReadAloudUnit(
+        start: 10 + i * 6,
+        text: '正文$i。',
+        sourceParagraphIndex: i,
+        isParagraphEnd: true,
+      ),
+      unitIndex: i,
     ),
 ];
 void main() {
@@ -83,7 +89,7 @@ void main() {
       await engine.speakPlaylist(
         plan,
         session.value,
-        onCueStarted: (cue) => started.add(cue.paragraphIndex),
+        onCueStarted: (cue) => started.add(cue.unitIndex),
       ),
       ReadAloudStart.started,
     );
@@ -118,7 +124,7 @@ void main() {
     await engine.speakPlaylist(
       cues(6),
       session.value,
-      onCueStarted: (cue) => started.add(cue.paragraphIndex),
+      onCueStarted: (cue) => started.add(cue.unitIndex),
     );
     await flush();
     expect(inputs, hasLength(3));
@@ -140,7 +146,7 @@ void main() {
     await engine.speakPlaylist(
       plan,
       session.value,
-      onCueStarted: (cue) => started.add(cue.paragraphIndex),
+      onCueStarted: (cue) => started.add(cue.unitIndex),
     );
     await flush();
     player.started!(plan.last);
@@ -205,7 +211,7 @@ void main() {
     await engine.speakPlaylist(
       cues(3),
       session.value,
-      onCueStarted: (cue) => started.add(cue.paragraphIndex),
+      onCueStarted: (cue) => started.add(cue.unitIndex),
     );
     await flush();
     expect(session.errors, isEmpty);
@@ -364,7 +370,7 @@ void main() {
     await engine.speakPlaylist(
       cues(3),
       _Session().value,
-      onCueStarted: (cue) => started.add(cue.paragraphIndex),
+      onCueStarted: (cue) => started.add(cue.unitIndex),
     );
     await flush();
     await engine.pause();

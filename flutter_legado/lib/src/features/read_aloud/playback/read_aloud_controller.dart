@@ -96,7 +96,7 @@ class ReadAloudController {
   int _cacheRetentionMinutes = 10;
   bool _cachePrepared = false;
   List<String> _paragraphs = [];
-  List<ReadAloudParagraph> _paragraphUnits = [];
+  List<ReadAloudUnit> _paragraphUnits = [];
   final readAloudPosition = ValueNotifier<ReadAloudPosition?>(null);
   final followReadAloud = ValueNotifier(true);
   int _readAloudSession = 0;
@@ -146,7 +146,7 @@ class ReadAloudController {
       chapterIndex: _state.currentIndex,
       paragraphIndex: _paragraphIndex,
       paragraphStart: unit.start,
-      paragraphEnd: unit.start + unit.text.length,
+      paragraphEnd: unit.end,
       offset: offset ?? unit.start + _paragraphStartOffset,
       session: _readAloudSession,
     );
@@ -435,7 +435,7 @@ class ReadAloudController {
                     _host.resolveEngineUrl() != request.engineUrl) {
                   return;
                 }
-                _paragraphIndex = cue.paragraphIndex;
+                _paragraphIndex = cue.unitIndex;
                 _paragraphStartOffset =
                     cue.sourceOffset - _paragraphUnits[_paragraphIndex].start;
                 _publishReadAloudPosition(offset: cue.sourceOffset);
@@ -497,13 +497,13 @@ class ReadAloudController {
       final unit = _paragraphUnits[index];
       final offset = index == _paragraphIndex ? _paragraphStartOffset : 0;
       final text = unit.text.substring(offset);
-      final List<ReadAloudUnit> parts = limits == null
+      final List<SpeechRequestPart> parts = limits == null
           ? [(text: text, start: 0)]
           : splitSpeechRequests(
               text,
               limit: limits.maxUtf16Units,
               maxUtf8Bytes: limits.maxUtf8Bytes,
-            ).map((part) => (text: part.text, start: part.start)).toList();
+            );
       for (final part in parts) {
         cues.add(
           ReadAloudPlaylistCue(
@@ -518,8 +518,11 @@ class ReadAloudController {
                 text: part.text,
               ),
             ),
-            sourceOffset: unit.start + offset + part.start,
-            paragraphIndex: index,
+            unit: unit.slice(
+              offset + part.start,
+              offset + part.start + part.text.length,
+            ),
+            unitIndex: index,
           ),
         );
       }

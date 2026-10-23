@@ -150,6 +150,31 @@ void main() {
     expect(fixture.system.texts.last, '段。');
   });
 
+  test('页面重排后按原文锚点恢复，暂停时不提前起播', () async {
+    const content = ReadAloudControllerFixture.first;
+    await fixture.controller.setContentSplit(ReadAloudSplitMode.page, '');
+    fixture.controller.registerPages(fixture.state.bookUrl, 0, content, [
+      (start: 0, end: 2),
+      (start: 2, end: content.length),
+    ]);
+    await fixture.controller.play(paragraphIndex: 1);
+    expect(fixture.system.texts.last, '段。');
+    fixture.system.onProgress!(1, 2);
+    fixture.pause();
+    await flushReadAloud();
+    final starts = fixture.system.texts.length;
+    fixture.controller.registerPages(fixture.state.bookUrl, 0, content, [
+      (start: 0, end: 3),
+      (start: 3, end: content.length),
+    ]);
+    await flushReadAloud();
+    expect(fixture.state.state, PlayerState.paused);
+    expect(fixture.controller.readAloudPosition.value!.offset, 3);
+    expect(fixture.system.texts, hasLength(starts));
+    await fixture.resume();
+    expect(fixture.system.texts.last, '。');
+  });
+
   test('章末停止规则优先于下一章与单章循环', () async {
     fixture.stopAtBoundary = true;
     fixture.state = fixture.state.copyWith(mode: AudioPlayMode.singleLoop);

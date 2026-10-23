@@ -1,3 +1,4 @@
+import '../../../domain/models/read_aloud_content.dart';
 import '../../../domain/contracts/tts_cache_repository.dart';
 
 /// 一段朗读的不可变输入，不携带书籍、章节或持久化状态。— Codex + UI
@@ -109,15 +110,17 @@ final class ReadAloudSession {
   void cancel() => _ended = true;
 }
 
-/// 播放文件的原文映射；一个逻辑段落可包含多个云端长度分片。— Codex + UI
+/// 播放文件携带原段落语义；unitIndex仅定位划分后的播放单元。— Codex + UI
 final class ReadAloudPlaylistCue {
   const ReadAloudPlaylistCue({
     required this.request,
-    required this.sourceOffset,
-    required this.paragraphIndex,
+    required this.unit,
+    required this.unitIndex,
   });
   final ReadAloudRequest request;
-  final int sourceOffset, paragraphIndex;
+  final ReadAloudUnit unit;
+  final int unitIndex;
+  int get sourceOffset => unit.start;
 }
 
 /// 文件引擎的可选能力，系统直接朗读不实现此接口。

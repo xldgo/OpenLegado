@@ -60,6 +60,10 @@ void main() {
       symbols: '？！。；',
     );
     expect(units.map((p) => p.text), ['甲😀？！', '乙。', '丙；', '丁']);
+    expect(
+      units.map((unit) => (unit.sourceParagraphIndex, unit.isParagraphEnd)),
+      [(0, false), (0, true), (1, false), (1, true)],
+    );
     for (final p in units) {
       expect(text.substring(p.start, p.start + p.text.length), p.text);
     }
@@ -72,6 +76,32 @@ void main() {
       2,
     );
   });
+  test('页面先保留原段落再按页界切开，同页段落不合并', () {
+    const text = '甲😀乙丙\n丁戊\n己庚';
+    final units = splitReadAloudContent(
+      text,
+      mode: ReadAloudSplitMode.page,
+      pages: [
+        (start: 0, end: 4),
+        (start: 4, end: 4),
+        (start: 4, end: text.length),
+      ],
+    );
+    expect(units.map((unit) => (unit.start, unit.text)), [
+      (0, '甲😀乙'),
+      (4, '丙'),
+      (6, '丁戊'),
+      (9, '己庚'),
+    ]);
+    expect(
+      units.map((unit) => (unit.sourceParagraphIndex, unit.isParagraphEnd)),
+      [(0, false), (0, true), (1, true), (2, true)],
+    );
+    for (final unit in units) {
+      expect(text.substring(unit.start, unit.end), unit.text);
+    }
+  });
+
   test('页面单元只消费完整真实范围，空白间隙允许，缺页或重叠拒绝', () {
     const text = '甲😀乙\n丙丁';
     final units = splitReadAloudContent(
@@ -79,7 +109,10 @@ void main() {
       mode: ReadAloudSplitMode.page,
       pages: [(start: 0, end: 4), (start: 5, end: 7)],
     );
-    expect(units, [(start: 0, text: '甲😀乙'), (start: 5, text: '丙丁')]);
+    expect(units.map((unit) => (start: unit.start, text: unit.text)), [
+      (start: 0, text: '甲😀乙'),
+      (start: 5, text: '丙丁'),
+    ]);
     expect(
       () => splitReadAloudContent(text, mode: ReadAloudSplitMode.page),
       throwsStateError,

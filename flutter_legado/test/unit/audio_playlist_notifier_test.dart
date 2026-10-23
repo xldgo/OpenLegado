@@ -10,6 +10,8 @@ import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 import 'package:flutter_legado/src/domain/contracts/cloud_tts_synthesizer.dart';
 import 'package:flutter_legado/src/domain/contracts/cloud_tts_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/tts_cache_repository.dart';
+import 'package:flutter_legado/src/domain/models/read_aloud_content.dart';
+import 'package:flutter_legado/src/features/read_aloud/playback/read_aloud_engine.dart';
 import 'package:flutter_legado/src/features/read_aloud/tts_providers.dart';
 import 'package:flutter_legado/src/features/read_aloud/cloud_tts_providers.dart';
 import 'package:flutter_legado/src/models/models.dart';
@@ -211,6 +213,17 @@ void main() {
     await start(cloud: true);
     notifier().startChapterStop(1);
     expect(player.items, hasLength(3));
+    expect(
+      player.items.map((item) {
+        final cue = item.tag as ReadAloudPlaylistCue;
+        return (
+          cue.unitIndex,
+          cue.unit.sourceParagraphIndex,
+          cue.unit.isParagraphEnd,
+        );
+      }),
+      [(0, 0, false), (0, 0, false), (0, 0, true)],
+    );
     player.advance();
     await flush();
     expect(notifier().currentParagraphIndex, 0);
@@ -223,6 +236,33 @@ void main() {
     await flush();
     expect(state().state, PlayerState.idle);
     expect(state().currentIndex, 0);
+    expect(player.starts, 1);
+  });
+
+  test('页面朗读逐个播放段落片段，换项保留原文位置和真实段末', () async {
+    content = '甲😀乙丙\n丁戊\n己庚';
+    await notifier().setContentSplit(ReadAloudSplitMode.page, '');
+    notifier().registerReadAloudPages('book', 0, content, [
+      (start: 0, end: 4),
+      (start: 4, end: content.length),
+    ]);
+    await start();
+    notifier().startChapterStop(1);
+    const expected = [(0, 0, false), (4, 0, true), (6, 1, true), (9, 2, true)];
+    for (var index = 0; index < expected.length; index++) {
+      final cue = player.currentPlaylistTag as ReadAloudPlaylistCue;
+      expect((
+        cue.unit.start,
+        cue.unit.sourceParagraphIndex,
+        cue.unit.isParagraphEnd,
+      ), expected[index]);
+      expect(cue.unitIndex, index);
+      expect(notifier().readAloudPosition.value!.offset, cue.unit.start);
+      expect(notifier().chaptersToStopRemaining, 1);
+      player.advance();
+      await flush();
+    }
+    expect(state().state, PlayerState.idle);
     expect(player.starts, 1);
   });
 

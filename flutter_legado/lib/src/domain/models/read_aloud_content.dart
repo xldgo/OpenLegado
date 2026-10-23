@@ -10,7 +10,31 @@ final _latinWord = RegExp(r'[A-Za-z0-9]');
 final _decimalDigit = RegExp(r'^[0-9]$');
 
 const defaultReadAloudSplitSymbols = '。！？…';
-typedef ReadAloudUnit = ({int start, String text});
+
+/// 源段落归属在按页或按符号切分后不变，原文终点按UTF-16长度派生。
+final class ReadAloudUnit {
+  const ReadAloudUnit({
+    required this.start,
+    required this.text,
+    required this.sourceParagraphIndex,
+    required this.isParagraphEnd,
+  });
+  final int start, sourceParagraphIndex;
+  final String text;
+  final bool isParagraphEnd;
+  int get end => start + text.length;
+
+  /// 入参是当前单元内的UTF-16偏移，只有最后一片继承真实段末。
+  ReadAloudUnit slice(int from, int to) => ReadAloudUnit(
+    start: start + from,
+    text: text.substring(from, to),
+    sourceParagraphIndex: sourceParagraphIndex,
+    isParagraphEnd: isParagraphEnd && to == text.length,
+  );
+}
+
+/// 云请求的技术长度分片不拥有原文段落语义。
+typedef SpeechRequestPart = ({int start, String text});
 typedef ReadAloudPageRange = ({int start, int end});
 
 /// 页面模式必须使用当前章节的完整真实分页范围，不猜测页宽或字数。
@@ -20,35 +44,6 @@ List<ReadAloudUnit> splitReadAloudContent(
   String symbols = defaultReadAloudSplitSymbols,
   List<ReadAloudPageRange>? pages,
 }) {
-  if (mode == ReadAloudSplitMode.page) {
-    if (pages == null || pages.isEmpty) {
-      throw StateError('请先在阅读器完成本章分页，再使用整页朗读');
-    }
-    final boundaries = <int>{0};
-    var offset = 0;
-    for (final cluster in content.characters) {
-      offset += cluster.length;
-      boundaries.add(offset);
-    }
-    var previous = 0;
-    final units = <ReadAloudUnit>[];
-    for (final page in pages) {
-      if (page.start < previous ||
-          page.end < page.start ||
-          page.end > content.length ||
-          !boundaries.contains(page.start) ||
-          !boundaries.contains(page.end) ||
-          content.substring(previous, page.start).trim().isNotEmpty) {
-        throw StateError('朗读页面范围与当前章节不一致');
-      }
-      _appendTrimmed(units, content, page.start, page.end);
-      previous = page.end;
-    }
-    if (content.substring(previous).trim().isNotEmpty) {
-      throw StateError('本章分页尚未完成');
-    }
-    return units;
-  }
   final paragraphs = <ReadAloudUnit>[];
   var start = 0;
   for (final separator in RegExp(
@@ -58,6 +53,28 @@ List<ReadAloudUnit> splitReadAloudContent(
     start = separator.end;
   }
   _appendTrimmed(paragraphs, content, start, content.length);
+  if (mode == ReadAloudSplitMode.page) {
+    _validatePages(content, pages);
+    final pageStarts = {for (final page in pages!) page.start}.toList();
+    final units = <ReadAloudUnit>[];
+    var pageIndex = 0;
+    for (final paragraph in paragraphs) {
+      while (pageIndex < pageStarts.length &&
+          pageStarts[pageIndex] <= paragraph.start) {
+        pageIndex++;
+      }
+      var start = 0;
+      while (pageIndex < pageStarts.length &&
+          pageStarts[pageIndex] < paragraph.end) {
+        final end = pageStarts[pageIndex] - paragraph.start;
+        units.add(paragraph.slice(start, end));
+        start = end;
+        pageIndex++;
+      }
+      units.add(paragraph.slice(start, paragraph.text.length));
+    }
+    return units;
+  }
   if (mode != ReadAloudSplitMode.symbols) return paragraphs;
   final selected = symbols
       .split('')
@@ -65,6 +82,34 @@ List<ReadAloudUnit> splitReadAloudContent(
       .toSet();
   if (selected.isEmpty) selected.addAll(defaultReadAloudSplitSymbols.split(''));
   return [for (final p in paragraphs) ..._splitSymbols(p, selected)];
+}
+
+/// 继续核验阅读器已完成的真实分页，不引入推测页界。
+void _validatePages(String content, List<ReadAloudPageRange>? pages) {
+  if (pages == null || pages.isEmpty) {
+    throw StateError('请先在阅读器完成本章分页，再使用整页朗读');
+  }
+  final boundaries = <int>{0};
+  var offset = 0;
+  for (final cluster in content.characters) {
+    offset += cluster.length;
+    boundaries.add(offset);
+  }
+  var previous = 0;
+  for (final page in pages) {
+    if (page.start < previous ||
+        page.end < page.start ||
+        page.end > content.length ||
+        !boundaries.contains(page.start) ||
+        !boundaries.contains(page.end) ||
+        content.substring(previous, page.start).trim().isNotEmpty) {
+      throw StateError('朗读页面范围与当前章节不一致');
+    }
+    previous = page.end;
+  }
+  if (content.substring(previous).trim().isNotEmpty) {
+    throw StateError('本章分页尚未完成');
+  }
 }
 
 void _appendTrimmed(
@@ -76,7 +121,14 @@ void _appendTrimmed(
   final raw = content.substring(start, end);
   final text = raw.trim();
   if (text.isNotEmpty) {
-    units.add((start: start + raw.indexOf(text), text: text));
+    units.add(
+      ReadAloudUnit(
+        start: start + raw.indexOf(text),
+        text: text,
+        sourceParagraphIndex: units.length,
+        isParagraphEnd: true,
+      ),
+    );
   }
 }
 
@@ -93,21 +145,18 @@ List<ReadAloudUnit> _splitSymbols(ReadAloudUnit unit, Set<String> symbols) {
       end++;
     }
     // 与上游一致：连续选中标点保留在前一个单元，不额外裁剪偏移。
-    result.add((
-      start: unit.start + start,
-      text: unit.text.substring(start, end),
-    ));
+    result.add(unit.slice(start, end));
     start = end;
     index = end;
   }
   if (start < unit.text.length) {
-    result.add((start: unit.start + start, text: unit.text.substring(start)));
+    result.add(unit.slice(start, unit.text.length));
   }
   return result;
 }
 
 /// 分片携带文本中的UTF-16范围，拼接严格还原输入；先句末、再词边界、最后字形簇。
-List<ReadAloudUnit> splitSpeechRequests(
+List<SpeechRequestPart> splitSpeechRequests(
   String text, {
   required int limit,
   int? maxUtf8Bytes,
@@ -128,7 +177,7 @@ List<ReadAloudUnit> splitSpeechRequests(
       byteOffsets.add(byteOffsets.last + bytes);
     }
   }
-  final result = <ReadAloudUnit>[];
+  final result = <SpeechRequestPart>[];
   var start = 0;
   while (start < clusters.length) {
     var end = start;
