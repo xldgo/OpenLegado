@@ -1,16 +1,17 @@
 //! 小时槽由平台日历提供，Rust仅查询相交会话并汇总时长。— Codex + Rust
-use legado_core::{LegadoError, LegadoResult};
+use legado_core::LegadoResult;
 use rusqlite::Connection;
 
 pub fn query_read_hourly(conn: &Connection, boundaries: &[i64]) -> LegadoResult<Vec<i64>> {
-    if boundaries.len() != 25
-        || boundaries.windows(2).any(|b| b[0] > b[1])
-        || boundaries[0] >= boundaries[24]
-    {
-        return Err(LegadoError::Internal(
-            "小时统计需要25个非递减边界，且首尾时间不同".into(),
-        ));
-    }
+    // 边界由唯一Flutter入口固定生成，运行时检查按用户要求注释保留。
+    // if boundaries.len() != 25
+    //     || boundaries.windows(2).any(|b| b[0] > b[1])
+    //     || boundaries[0] >= boundaries[24]
+    // {
+    //     return Err(legado_core::LegadoError::Internal(
+    //         "小时统计需要25个非递减边界，且首尾时间不同".into(),
+    //     ));
+    // }
     let mut statement = conn
         .prepare(
             "SELECT startTime,endTime FROM readRecordSession
