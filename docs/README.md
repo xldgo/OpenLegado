@@ -6,7 +6,7 @@
 
 ## 重构状态与流程
 
-- 当前任务、优先级、状态和进度：只查看 [REFACTORING_ACTIVE_PLAN.md](REFACTORING_ACTIVE_PLAN.md)。
+- 当前待办、待核验和合并验收清单：只查看 [REFACTORING_ACTIVE_PLAN.md](REFACTORING_ACTIVE_PLAN.md)；已完成批次通过Git历史与专题证据追溯。
 - Rust 资源归属、生命周期和双宿主接线方案：[RUST_ENGINE_CONTEXT_PLAN_20261016.md](RUST_ENGINE_CONTEXT_PLAN_20261016.md)；进度仍只维护于 Active。
 - 页面职责拆分与 Feature-first 批次边界：[FEATURE_FIRST_PAGE_DECOMPOSITION_20261017.md](FEATURE_FIRST_PAGE_DECOMPOSITION_20261017.md)；进度仍只维护于 Active。
 - 功能私有组件归位与阅读服务分层：[FEATURE_OWNERSHIP_MIGRATION_20261022.md](FEATURE_OWNERSHIP_MIGRATION_20261022.md)；进度仍只维护于 Active。
