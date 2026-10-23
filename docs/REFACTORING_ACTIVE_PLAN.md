@@ -1,5 +1,22 @@
 # Legado 后续重构执行计划（Active）
 
+### RUST-DEPS-20261023：Rust稳定依赖与安全补丁升级（P1，实施中）
+
+- 用户授权Rust依赖整体升级；从dev / 04752b7a2开始，单代理，不新建分支，保留主目录三份未跟踪报告。只更新稳定版及必要兼容代码，不改FFI契约/应用版本，不推送、触发CI或安装应用。
+- 已查询全部65项直接外部依赖的crates.io稳定版本，原始结果保存在build/rust-dependency-upgrade/registry.json。本批升级兼容范围内的锁文件和可迁移的HTML/PDF/LRU跨版本；三项RustSec漏洞一并修复。
+- 保留JSONPath0.7书源方言，以及RSA0.9要求的digest0.10/signature2/rand_core0.6组合，不使用预发布RSA或用不兼容新接口替代。FRB2.13及unicode-segmentation1.13.3已经是稳定版。libc0.2.191的已发布源码恢复iOS的dyld符号，解除旧锁定前定向复验原失败编译路径。
+- 验证只选受影响的加密/TLS/HTML/PDF/缓存/运行时场景，并做变更后的工作区编译与格式检查；不默认运行全量测试或设备构建。审计、依赖图差异和未测平台边界在收尾记录，不宣称独立审查。
+
+编写者：Codex + Rust｜2026-10-23
+
+### TTS-PLAYLIST-FIXTURE-20261023：修复旧集成测试的队列参数（P1，代码及定向验证完成）
+
+- 用户提供Flutter CI五项分析错误，read_aloud_playlist_test仍构造sourceOffset/paragraphIndex并读取旧getter；生产ReadAloudPlaylistCue已要求ReadAloudUnit及unitIndex。仅更新该真实WAV夹具，保留起播顺序、播放器数量和租约释放验证，不加旧接口兼容或修改播放器。
+- 定向分析集成测试及复用文件播放队列用例，不全量、不构建/安装设备、不推送；验证后本地提交，应用版本不变。
+- 结果：集成测试文件dart analyze无问题，file_read_aloud_playlist_test既有15项通过，格式及diff检查通过；日志flutter_legado/build/tts-playlist-fixture-{analysis,tests}.log。只更新夹具类型及顺序回调字段，无新增测试或生产行为变化；未运行真实设备WAV集成验证，不宣称平台播放验收。保留三个未跟踪审计/调研文档，仅本地提交。
+
+编写者：Codex + UI｜2026-10-23
+
 ### READER-EDGE-TIPS-20261023：页眉页脚独立延伸至屏幕边缘（P1，代码及定向验证完成，待设备观感验收）
 
 - 用户明确授权新增开关；dev / 63055b2cb，单代理，保留未跟踪审计文档。默认关闭，仅刘海避让开启时显示；正文继续避让，提示可向垂直边缘延伸；系统栏、横向缺口与居中页眉保护保持。契约先冻结，不改Rust/FRB/原生采样、版本或依赖。

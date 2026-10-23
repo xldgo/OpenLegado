@@ -10,6 +10,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:just_audio/just_audio.dart' as audio;
 import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 import 'package:flutter_legado/src/domain/contracts/tts_cache_repository.dart';
+import 'package:flutter_legado/src/domain/models/read_aloud_content.dart';
 import 'package:flutter_legado/src/features/read_aloud/playback/file_read_aloud_engine.dart';
 import 'package:flutter_legado/src/features/read_aloud/playback/read_aloud_engine.dart';
 import 'package:flutter_legado/src/services/read_aloud_audio_player.dart';
@@ -101,14 +102,19 @@ Future<Map<String, Object>> queued(List<File> files) async {
         for (var i = 0; i < files.length; i++)
           ReadAloudPlaylistCue(
             request: ReadAloudRequest(text: '$i'),
-            sourceOffset: i,
-            paragraphIndex: i,
+            unit: ReadAloudUnit(
+              start: i,
+              text: '$i',
+              sourceParagraphIndex: i,
+              isParagraphEnd: true,
+            ),
+            unitIndex: i,
           ),
       ],
       session,
       onCueStarted: (cue) {
         starts.add(watch.elapsedMilliseconds);
-        indices.add(cue.paragraphIndex);
+        indices.add(cue.unitIndex);
       },
     );
     expect(result, ReadAloudStart.started);
