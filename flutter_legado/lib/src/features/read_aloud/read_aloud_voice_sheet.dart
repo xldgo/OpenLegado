@@ -10,6 +10,7 @@ import '../../domain/contracts/http_tts_synthesizer.dart';
 import '../../domain/models/http_tts_voice_options.dart';
 import '../../widgets/app_settings_sheet.dart';
 import '../../widgets/app_settings_form.dart';
+import 'cloud_tts_provider_labels.dart';
 
 /// 编辑器的只读引擎快照，既不包含凭据也不承担保存。— Codex + UI
 final class VoiceEditorSource {
@@ -34,10 +35,12 @@ class ReadAloudVoiceSheet extends StatefulWidget {
     required this.source,
     this.voice,
     this.httpEmotionTag,
+    this.capabilities,
     required this.onPreview,
     required this.onStop,
   });
   final VoiceEditorSource source;
+  final CloudTtsCapabilities? capabilities;
   final ReadAloudVoice? voice;
   final String? httpEmotionTag;
   final Future<void> Function(ReadAloudVoice, String) onPreview;
@@ -107,8 +110,7 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
     );
     if (widget.source.provider != null) {
       _format =
-          _traits['format'] as String? ??
-          cloudTtsProfile(widget.source.provider!).formats.first;
+          _traits['format'] as String? ?? widget.capabilities!.formats.first;
     }
     if (widget.source.loadCatalog != null) unawaited(_loadCatalog());
   }
@@ -195,21 +197,19 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
         ? <String, dynamic>{
             // 未展示的请求参数仍属于音色，不因重命名或试听而丢失。
             ..._traits,
-            if (cloudTtsProfile(source.provider!).supportsLocale)
+            if (widget.capabilities!.supportsLocale)
               'locale': _locale.text.trim(),
-            if (cloudTtsProfile(source.provider!).supportsProsody) ...{
-              if (cloudTtsProfile(source.provider!).supportsRole)
-                'role': _role.text.trim(),
+            if (widget.capabilities!.supportsProsody) ...{
+              if (widget.capabilities!.supportsRole) 'role': _role.text.trim(),
               'pitch': double.parse(_pitch.text),
               'volume': double.parse(_volume.text),
             },
-            if (cloudTtsProfile(source.provider!).supportsSourceSpeed)
+            if (widget.capabilities!.supportsSourceSpeed)
               'speed': double.parse(_speed.text),
-            if (cloudTtsProfile(source.provider!).supportsStyle)
-              'style': _style.text,
-            if (source.provider == 'aws_polly')
+            if (widget.capabilities!.supportsStyle) 'style': _style.text,
+            if (widget.capabilities?.supportsSampleRate == true)
               'sampleRate': int.tryParse(_sampleRate.text.trim()),
-            if (cloudTtsProfile(source.provider!).supportsInstructions)
+            if (widget.capabilities!.supportsInstructions)
               'instructions': _instructions.text,
             'format': _format,
           }
@@ -274,9 +274,7 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
   @override
   Widget build(BuildContext context) {
     final source = widget.source;
-    final profile = source.provider == null
-        ? null
-        : cloudTtsProfile(source.provider!);
+    final profile = widget.capabilities;
     return AppSettingsSheet(
       contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       title: widget.voice == null ? '添加音色' : '编辑音色',
@@ -372,7 +370,8 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
                   controller: _locale,
                   decoration: InputDecoration(
                     labelText: '语言',
-                    hintText: profile.localeHint,
+                    hintText:
+                        cloudTtsProviderLabels[source.provider]!.localeHint,
                   ),
                 ),
               if (profile.supportsSourceSpeed)
@@ -394,7 +393,10 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
                 TextFormField(
                   key: const ValueKey('voice-style'),
                   controller: _style,
-                  decoration: InputDecoration(labelText: profile.styleLabel),
+                  decoration: InputDecoration(
+                    labelText:
+                        cloudTtsProviderLabels[source.provider]!.styleLabel,
+                  ),
                 ),
               if (profile.supportsStyle &&
                   (_catalogVoice?.styles ?? profile.styles).isNotEmpty)
@@ -466,7 +468,7 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
                 },
               ),
             ],
-            if (source.provider == 'aws_polly') ...[
+            if (widget.capabilities?.supportsSampleRate == true) ...[
               if (_catalogVoice?.supportedModels.isNotEmpty ?? false)
                 Text('可用模型：${_catalogVoice!.supportedModels.join('、')}'),
               TextFormField(
@@ -478,9 +480,7 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
                   if ((text ?? '').trim().isEmpty) return null;
                   final rate = int.tryParse(text!.trim());
                   final pcm = {'pcm', 'wav'}.contains(_format);
-                  return (pcm
-                              ? [8000, 16000]
-                              : [8000, 16000, 22050, 24000, 44100, 48000])
+                  return (pcm ? profile!.pcmSampleRates : profile!.sampleRates)
                           .contains(rate)
                       ? null
                       : pcm

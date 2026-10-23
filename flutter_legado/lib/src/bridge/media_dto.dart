@@ -122,6 +122,109 @@ class CloudSpeechInputDto {
           voiceOptions == other.voiceOptions;
 }
 
+class CloudTtsCapabilitiesDto {
+  final CloudTtsProviderDto provider;
+  final String defaultModel;
+  final String defaultVoice;
+  final List<String> formats;
+  final List<String> styles;
+  final Uint32List sampleRates;
+  final Uint32List pcmSampleRates;
+  final bool supportsSourceSpeed;
+  final bool supportsLocale;
+  final bool supportsProsody;
+  final bool requiresRegion;
+  final bool usesModel;
+  final bool usesSecretKey;
+  final bool remoteCatalog;
+  final bool staticVoiceDescriptors;
+  final bool supportsInstructions;
+  final bool supportsStyle;
+  final bool requiresAppId;
+  final bool supportsRole;
+  final bool supportsSampleRate;
+  final CloudTtsNumericRangeDto sourceSpeedRange;
+  final CloudTtsNumericRangeDto prosodyRange;
+
+  const CloudTtsCapabilitiesDto({
+    required this.provider,
+    required this.defaultModel,
+    required this.defaultVoice,
+    required this.formats,
+    required this.styles,
+    required this.sampleRates,
+    required this.pcmSampleRates,
+    required this.supportsSourceSpeed,
+    required this.supportsLocale,
+    required this.supportsProsody,
+    required this.requiresRegion,
+    required this.usesModel,
+    required this.usesSecretKey,
+    required this.remoteCatalog,
+    required this.staticVoiceDescriptors,
+    required this.supportsInstructions,
+    required this.supportsStyle,
+    required this.requiresAppId,
+    required this.supportsRole,
+    required this.supportsSampleRate,
+    required this.sourceSpeedRange,
+    required this.prosodyRange,
+  });
+
+  @override
+  int get hashCode =>
+      provider.hashCode ^
+      defaultModel.hashCode ^
+      defaultVoice.hashCode ^
+      formats.hashCode ^
+      styles.hashCode ^
+      sampleRates.hashCode ^
+      pcmSampleRates.hashCode ^
+      supportsSourceSpeed.hashCode ^
+      supportsLocale.hashCode ^
+      supportsProsody.hashCode ^
+      requiresRegion.hashCode ^
+      usesModel.hashCode ^
+      usesSecretKey.hashCode ^
+      remoteCatalog.hashCode ^
+      staticVoiceDescriptors.hashCode ^
+      supportsInstructions.hashCode ^
+      supportsStyle.hashCode ^
+      requiresAppId.hashCode ^
+      supportsRole.hashCode ^
+      supportsSampleRate.hashCode ^
+      sourceSpeedRange.hashCode ^
+      prosodyRange.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CloudTtsCapabilitiesDto &&
+          runtimeType == other.runtimeType &&
+          provider == other.provider &&
+          defaultModel == other.defaultModel &&
+          defaultVoice == other.defaultVoice &&
+          formats == other.formats &&
+          styles == other.styles &&
+          sampleRates == other.sampleRates &&
+          pcmSampleRates == other.pcmSampleRates &&
+          supportsSourceSpeed == other.supportsSourceSpeed &&
+          supportsLocale == other.supportsLocale &&
+          supportsProsody == other.supportsProsody &&
+          requiresRegion == other.requiresRegion &&
+          usesModel == other.usesModel &&
+          usesSecretKey == other.usesSecretKey &&
+          remoteCatalog == other.remoteCatalog &&
+          staticVoiceDescriptors == other.staticVoiceDescriptors &&
+          supportsInstructions == other.supportsInstructions &&
+          supportsStyle == other.supportsStyle &&
+          requiresAppId == other.requiresAppId &&
+          supportsRole == other.supportsRole &&
+          supportsSampleRate == other.supportsSampleRate &&
+          sourceSpeedRange == other.sourceSpeedRange &&
+          prosodyRange == other.prosodyRange;
+}
+
 class CloudTtsMetadataDto {
   final String id;
   final String name;
@@ -183,6 +286,24 @@ class CloudTtsMetadataDto {
           createdAt == other.createdAt &&
           updatedAt == other.updatedAt &&
           credentialKey == other.credentialKey;
+}
+
+class CloudTtsNumericRangeDto {
+  final double min;
+  final double max;
+
+  const CloudTtsNumericRangeDto({required this.min, required this.max});
+
+  @override
+  int get hashCode => min.hashCode ^ max.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CloudTtsNumericRangeDto &&
+          runtimeType == other.runtimeType &&
+          min == other.min &&
+          max == other.max;
 }
 
 enum CloudTtsProviderDto {

@@ -47,6 +47,72 @@ impl From<CloudTtsProviderDto> for legado_core::cloud_tts::CloudTtsProviderType 
         }
     }
 }
+#[derive(Debug, Clone, Copy)]
+pub struct CloudTtsNumericRangeDto {
+    pub min: f64,
+    pub max: f64,
+}
+impl From<legado_core::cloud_tts::capabilities::CloudTtsNumericRange> for CloudTtsNumericRangeDto {
+    fn from(value: legado_core::cloud_tts::capabilities::CloudTtsNumericRange) -> Self {
+        Self {
+            min: value.min,
+            max: value.max,
+        }
+    }
+}
+#[derive(Debug, Clone)]
+pub struct CloudTtsCapabilitiesDto {
+    pub provider: CloudTtsProviderDto,
+    pub default_model: String,
+    pub default_voice: String,
+    pub formats: Vec<String>,
+    pub styles: Vec<String>,
+    pub sample_rates: Vec<u32>,
+    pub pcm_sample_rates: Vec<u32>,
+    pub supports_source_speed: bool,
+    pub supports_locale: bool,
+    pub supports_prosody: bool,
+    pub requires_region: bool,
+    pub uses_model: bool,
+    pub uses_secret_key: bool,
+    pub remote_catalog: bool,
+    pub static_voice_descriptors: bool,
+    pub supports_instructions: bool,
+    pub supports_style: bool,
+    pub requires_app_id: bool,
+    pub supports_role: bool,
+    pub supports_sample_rate: bool,
+    pub source_speed_range: CloudTtsNumericRangeDto,
+    pub prosody_range: CloudTtsNumericRangeDto,
+}
+impl From<legado_core::cloud_tts::capabilities::CloudTtsCapabilities> for CloudTtsCapabilitiesDto {
+    fn from(value: legado_core::cloud_tts::capabilities::CloudTtsCapabilities) -> Self {
+        Self {
+            provider: value.provider.into(),
+            default_model: value.default_model.into(),
+            default_voice: value.default_voice.into(),
+            formats: value.formats.iter().map(|value| (*value).into()).collect(),
+            styles: value.styles.iter().map(|value| (*value).into()).collect(),
+            sample_rates: value.sample_rates.to_vec(),
+            pcm_sample_rates: value.pcm_sample_rates.to_vec(),
+            supports_source_speed: value.supports_source_speed,
+            supports_locale: value.supports_locale,
+            supports_prosody: value.supports_prosody,
+            requires_region: value.requires_region,
+            uses_model: value.uses_model,
+            uses_secret_key: value.uses_secret_key,
+            remote_catalog: value.remote_catalog,
+            static_voice_descriptors: value.static_voice_descriptors,
+            supports_instructions: value.supports_instructions,
+            supports_style: value.supports_style,
+            requires_app_id: value.requires_app_id,
+            supports_role: value.supports_role,
+            supports_sample_rate: value.supports_sample_rate,
+            source_speed_range: value.source_speed_range.into(),
+            prosody_range: value.prosody_range.into(),
+        }
+    }
+}
 #[derive(Debug, Clone)]
 pub struct CloudTtsSpeechLimitsDto {
     pub max_utf16_units: u32,

@@ -56,16 +56,33 @@ impl CloudTtsProvider for VolcengineCloudTtsProvider {
             return Err(invalid("火山音色或文本无效，每片最多 1024 UTF-8 字节"));
         }
         if !request.speed.is_finite()
-            || !(0.2..=3.0).contains(&request.speed)
+            || !self
+                .provider_type()
+                .capabilities()
+                .source_speed_range
+                .contains(request.speed)
             || !request.pitch.is_finite()
-            || !(0.1..=3.0).contains(&request.pitch)
+            || !self
+                .provider_type()
+                .capabilities()
+                .prosody_range
+                .contains(request.pitch)
             || !request.volume.is_finite()
-            || !(0.1..=3.0).contains(&request.volume)
+            || !self
+                .provider_type()
+                .capabilities()
+                .prosody_range
+                .contains(request.volume)
         {
             return Err(invalid("火山语速须为 0.2～3，音调和音量须为 0.1～3"));
         }
         let format = request.format.to_ascii_lowercase();
-        if !matches!(format.as_str(), "mp3" | "ogg_opus" | "wav" | "pcm") {
+        if !self
+            .provider_type()
+            .capabilities()
+            .formats
+            .contains(&format.as_str())
+        {
             return Err(invalid("火山音频格式不支持"));
         }
         let endpoint = if engine.base_url.trim().is_empty() {

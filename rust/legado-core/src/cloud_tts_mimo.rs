@@ -29,12 +29,13 @@ impl CloudTtsProvider for MimoCloudTtsProvider {
             } else {
                 id.into()
             },
-            styles: [
-                "开心", "悲伤", "愤怒", "惊讶", "恐惧", "厌恶", "小声", "平静",
-            ]
-            .into_iter()
-            .map(str::to_owned)
-            .collect(),
+            styles: self
+                .provider_type()
+                .capabilities()
+                .styles
+                .iter()
+                .map(|value| (*value).to_owned())
+                .collect(),
             sample_rate: Some(24000),
             ..Default::default()
         })

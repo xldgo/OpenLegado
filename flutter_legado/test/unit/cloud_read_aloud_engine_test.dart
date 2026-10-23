@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/domain/contracts/cloud_tts_provider.dart';
+
 import 'dart:convert';
 import 'dart:async';
 
@@ -33,6 +35,10 @@ class _Synth implements CloudTtsSynthesizer {
 }
 
 class _DelayedRepository implements CloudTtsRepository {
+  @override
+  Future<Map<String, CloudTtsCapabilities>> providerCapabilities() =>
+      MockCloudTtsRepository().providerCapabilities();
+
   Completer<CloudTtsSpeechLimits>? limits;
   @override
   Future<CloudTtsSpeechLimits> speechLimits(String provider) =>

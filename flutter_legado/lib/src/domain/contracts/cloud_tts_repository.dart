@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'cloud_tts_provider.dart';
+
 /// 请求分片限制源于Rust；长度单位与原文UTF-16坐标保持明确。— Codex + Bridge
 final class CloudTtsSpeechLimits {
   const CloudTtsSpeechLimits({required this.maxUtf16Units, this.maxUtf8Bytes});
@@ -91,6 +93,7 @@ String cloudTtsId(String selection) {
 }
 
 abstract interface class CloudTtsRepository {
+  Future<Map<String, CloudTtsCapabilities>> providerCapabilities();
   Future<CloudTtsSpeechLimits> speechLimits(String provider);
 
   Future<List<CloudTtsEngine>> list();

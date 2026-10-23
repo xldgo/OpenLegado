@@ -243,9 +243,15 @@ impl CloudTtsProvider for AwsPollyCloudTtsProvider {
         };
         if let Some(rate) = rate
             && !(if wire == "pcm" {
-                [8000, 16000].contains(&rate)
+                self.provider_type()
+                    .capabilities()
+                    .pcm_sample_rates
+                    .contains(&rate)
             } else {
-                [8000, 16000, 22050, 24000, 44100, 48000].contains(&rate)
+                self.provider_type()
+                    .capabilities()
+                    .sample_rates
+                    .contains(&rate)
             })
         {
             return Err(invalid("AWS 音频采样率不支持"));

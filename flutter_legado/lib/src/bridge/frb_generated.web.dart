@@ -432,7 +432,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CloudSpeechInputDto dco_decode_cloud_speech_input_dto(dynamic raw);
 
   @protected
+  CloudTtsCapabilitiesDto dco_decode_cloud_tts_capabilities_dto(dynamic raw);
+
+  @protected
   CloudTtsMetadataDto dco_decode_cloud_tts_metadata_dto(dynamic raw);
+
+  @protected
+  CloudTtsNumericRangeDto dco_decode_cloud_tts_numeric_range_dto(dynamic raw);
 
   @protected
   CloudTtsProviderDto dco_decode_cloud_tts_provider_dto(dynamic raw);
@@ -627,6 +633,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ChapterDto> dco_decode_list_chapter_dto(dynamic raw);
 
   @protected
+  List<CloudTtsCapabilitiesDto> dco_decode_list_cloud_tts_capabilities_dto(
+    dynamic raw,
+  );
+
+  @protected
   List<CloudTtsMetadataDto> dco_decode_list_cloud_tts_metadata_dto(dynamic raw);
 
   @protected
@@ -685,6 +696,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Int64List dco_decode_list_prim_i_64_strict(dynamic raw);
+
+  @protected
+  Uint32List dco_decode_list_prim_u_32_strict(dynamic raw);
 
   @protected
   List<int> dco_decode_list_prim_u_8_loose(dynamic raw);
@@ -1624,7 +1638,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  CloudTtsCapabilitiesDto sse_decode_cloud_tts_capabilities_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   CloudTtsMetadataDto sse_decode_cloud_tts_metadata_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CloudTtsNumericRangeDto sse_decode_cloud_tts_numeric_range_dto(
     SseDeserializer deserializer,
   );
 
@@ -1883,6 +1907,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ChapterDto> sse_decode_list_chapter_dto(SseDeserializer deserializer);
 
   @protected
+  List<CloudTtsCapabilitiesDto> sse_decode_list_cloud_tts_capabilities_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<CloudTtsMetadataDto> sse_decode_list_cloud_tts_metadata_dto(
     SseDeserializer deserializer,
   );
@@ -1967,6 +1996,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Int64List sse_decode_list_prim_i_64_strict(SseDeserializer deserializer);
+
+  @protected
+  Uint32List sse_decode_list_prim_u_32_strict(SseDeserializer deserializer);
 
   @protected
   List<int> sse_decode_list_prim_u_8_loose(SseDeserializer deserializer);
@@ -3184,8 +3216,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_cloud_tts_capabilities_dto(
+    CloudTtsCapabilitiesDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_cloud_tts_metadata_dto(
     CloudTtsMetadataDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_cloud_tts_numeric_range_dto(
+    CloudTtsNumericRangeDto self,
     SseSerializer serializer,
   );
 
@@ -3529,6 +3573,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_cloud_tts_capabilities_dto(
+    List<CloudTtsCapabilitiesDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_cloud_tts_metadata_dto(
     List<CloudTtsMetadataDto> self,
     SseSerializer serializer,
@@ -3636,6 +3686,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_prim_i_64_strict(
     Int64List self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_prim_u_32_strict(
+    Uint32List self,
     SseSerializer serializer,
   );
 

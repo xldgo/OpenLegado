@@ -1,6 +1,7 @@
 import 'dart:convert';
 
-import 'package:flutter_legado/src/domain/contracts/cloud_tts_provider.dart';
+import 'package:flutter_legado/src/data/repositories/mock_cloud_tts_capabilities.dart';
+import 'package:flutter_legado/src/features/read_aloud/cloud_tts_provider_labels.dart';
 import 'package:flutter_legado/src/domain/contracts/read_aloud_voice_repository.dart';
 import 'package:flutter_legado/src/features/read_aloud/read_aloud_voice_sheet.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
@@ -19,12 +20,12 @@ void main() {
     saved = null;
     preview = null;
     previewText = null;
-    final profile = cloudTtsProfile(provider);
+    final profile = mockCloudTtsCapabilities[provider]!;
     final voice = ReadAloudVoice(
-      id: readAloudVoiceId('cloud_tts', 'engine', profile.voice),
+      id: readAloudVoiceId('cloud_tts', 'engine', profile.defaultVoice),
       engineType: 'cloud_tts',
       engineId: 'engine',
-      speakerId: profile.voice,
+      speakerId: profile.defaultVoice,
       displayName: '原音色',
       traitsJson: jsonEncode(traits ?? {}),
       managedBy: 'user',
@@ -42,10 +43,11 @@ void main() {
                 saved = await AppBottomSheet.showContent<ReadAloudVoice>(
                   context: context,
                   builder: (_) => ReadAloudVoiceSheet(
+                    capabilities: profile,
                     source: VoiceEditorSource(
                       kind: 'cloud_tts',
                       id: 'engine',
-                      name: profile.name,
+                      name: cloudTtsProviderLabels[provider]!.name,
                       provider: provider,
                       voices: [voice],
                     ),
@@ -68,7 +70,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  for (final provider in cloudTtsProviderProfiles.keys) {
+  for (final provider in mockCloudTtsCapabilities.keys) {
     testWidgets('$provider 重命名保存保留未展示参数和身份', (tester) async {
       final traits = {
         'locale': 'English',
@@ -91,7 +93,7 @@ void main() {
         readAloudVoiceId(
           'cloud_tts',
           'engine',
-          cloudTtsProfile(provider).voice,
+          mockCloudTtsCapabilities[provider]!.defaultVoice,
         ),
       );
       expect(jsonDecode(saved!.traitsJson), traits);

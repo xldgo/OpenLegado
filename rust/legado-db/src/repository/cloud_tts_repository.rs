@@ -81,19 +81,9 @@ impl CloudTtsMetadata {
         options.validate()?;
         Ok(CloudTtsSynthesisRequest {
             text,
-            voice_id: options.voice_id.unwrap_or_else(|| {
-                match self.provider {
-                    CloudTtsProviderType::OpenAiSpeech => "alloy",
-                    CloudTtsProviderType::Mimo => "mimo_default",
-                    CloudTtsProviderType::AlibabaCloud => "Cherry",
-                    CloudTtsProviderType::AzureSpeech => "zh-CN-XiaoxiaoNeural",
-                    CloudTtsProviderType::AwsPolly => "Zhiyu",
-                    CloudTtsProviderType::Volcengine => "BV001_streaming",
-                    CloudTtsProviderType::GeminiTts => "Kore",
-                    CloudTtsProviderType::VolcengineV3 => "zh_female_vv_uranus_bigtts",
-                }
-                .into()
-            }),
+            voice_id: options
+                .voice_id
+                .unwrap_or_else(|| self.provider.capabilities().default_voice.into()),
             locale: options.locale.unwrap_or_default(),
             style: options.style.unwrap_or_default(),
             role: options.role.unwrap_or_default(),
@@ -101,19 +91,9 @@ impl CloudTtsMetadata {
             speed: options.speed.unwrap_or(1.0),
             pitch: options.pitch.unwrap_or(1.0),
             volume: options.volume.unwrap_or(1.0),
-            format: options.format.unwrap_or_else(|| {
-                match self.provider {
-                    CloudTtsProviderType::OpenAiSpeech => "mp3",
-                    CloudTtsProviderType::AzureSpeech
-                    | CloudTtsProviderType::AwsPolly
-                    | CloudTtsProviderType::Volcengine
-                    | CloudTtsProviderType::VolcengineV3 => "mp3",
-                    CloudTtsProviderType::Mimo
-                    | CloudTtsProviderType::AlibabaCloud
-                    | CloudTtsProviderType::GeminiTts => "wav",
-                }
-                .into()
-            }),
+            format: options
+                .format
+                .unwrap_or_else(|| self.provider.capabilities().formats[0].into()),
             sample_rate: options.sample_rate,
         })
     }

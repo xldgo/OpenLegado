@@ -5,7 +5,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../domain/contracts/cloud_tts_repository.dart';
-import '../../domain/contracts/cloud_tts_provider.dart';
+import 'cloud_tts_provider_labels.dart';
 import '../../l10n/app_localization.dart';
 import 'cloud_tts_engine_sheet.dart';
 import 'cloud_tts_providers.dart';
@@ -469,7 +469,7 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen>
         ),
         title: Text(engine.name),
         subtitle: Text(
-          '${cloudTtsProfile(engine.provider).name} · ${engine.model}',
+          '${cloudTtsProviderLabels[engine.provider]!.name} · ${engine.model}',
         ),
         onTap: engine.enabled && !_cloudBusy
             ? () => _chooseEngine(cloud: engine)

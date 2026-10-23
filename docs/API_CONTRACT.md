@@ -3020,6 +3020,23 @@ Depth为0，不拼接remote_dir；账号或密码非空才携带Basic Auth。5�
 
 ### 朗读扩展：缓存、音色目录与云端（§2.42 补充）
 
+**RUST-BOUNDARY-B8B-20261023（实施前冻结）**：新增只读
+`cloudTtsCapabilities() → Future<List<CloudTtsCapabilitiesDto>>`，一次返回八家已支持Provider
+的类型化能力：provider、defaultModel/defaultVoice、formats/styles、表单能力开关
+（支持语速/语言/韵律/角色/风格/指令/采样率、需要区域/AppID/SecretKey、使用模型、
+远端目录/静态完整目录）、sourceSpeedRange/prosodyRange（min/max）、
+sampleRates/pcmSampleRates（Polly沿用现有按格式区分的采样率列表，其他为空）。
+查询不访问数据库/凭据/网络；默认值及格式来自Core同一描述，DB默认请求、Provider
+格式/适用范围校验及Flutter表单共享。数值范围表示既有表单支持的编辑范围，Azure等
+Provider已有更宽的协议接受范围保持，不借收敛缩小既有载荷口径；动态音色/模型约束
+继续由实际Provider校验，不以静态能力假装全部有效。
+CloudTtsRepository新增providerCapabilities()，正式实现只映射DTO，Mock提供离线夹具。
+Flutter保留本地化名称/标签/提示和显示顺序，删除生产静态业务配置表；表单打开前
+获取能力快照，失败走现有错误面，不回退旧表。新建使用默认值，编辑保留已存值及
+未展示参数，不自动迁移/重写配置。FRB加法式新增1方法，现有方法及DB结构不变。
+
+编写者：Codex + Rust / UI / Bridge｜2026-10-23
+
 **RUST-BOUNDARY-B8A-20261023（实施前冻结）**：新增只读
 `cloudTtsSpeechLimits(provider: CloudTtsProviderDto) → Future<CloudTtsSpeechLimitsDto>`，
 返回 `maxUtf16Units: u32` 和 `maxUtf8Bytes: Option<u32>`，不访问数据库、网络或凭据。

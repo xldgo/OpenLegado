@@ -1,3 +1,7 @@
+import 'package:flutter_legado/src/data/repositories/mock_cloud_tts_repository.dart';
+import 'package:flutter_legado/src/features/read_aloud/cloud_tts_providers.dart';
+import 'package:flutter_legado/src/data/repositories/mock_cloud_tts_capabilities.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -46,6 +50,7 @@ void main() {
                 saved = await AppBottomSheet.showContent<ReadAloudVoice>(
                   context: context,
                   builder: (_) => ReadAloudVoiceSheet(
+                    capabilities: mockCloudTtsCapabilities['azure_speech'],
                     source: VoiceEditorSource(
                       kind: 'cloud_tts',
                       id: 'azure',
@@ -76,6 +81,11 @@ void main() {
     CloudTtsEditResult? result;
     await tester.pumpWidget(
       ProviderScope(
+        overrides: [
+          cloudTtsRepositoryProvider.overrideWithValue(
+            MockCloudTtsRepository(),
+          ),
+        ],
         child: MaterialApp(
           theme: AppTheme.light,
           home: Scaffold(

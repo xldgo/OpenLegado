@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fmt;
 
+pub mod capabilities;
 pub(crate) mod sse;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -79,7 +80,10 @@ impl Default for CloudTtsEngine {
             base_url: String::new(),
             api_key: String::new(),
             secret_key: String::new(),
-            model: "gpt-4o-mini-tts".into(),
+            model: CloudTtsProviderType::OpenAiSpeech
+                .capabilities()
+                .default_model
+                .into(),
             region: String::new(),
             app_id: String::new(),
             enabled: true,

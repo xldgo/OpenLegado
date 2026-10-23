@@ -56,11 +56,22 @@ impl CloudTtsProvider for OpenAiCloudTtsProvider {
                 "OpenAI 单次朗读文本超过 4096 字符，需由朗读会话分片",
             ));
         }
-        if !request.speed.is_finite() || !(0.25..=4.0).contains(&request.speed) {
+        if !request.speed.is_finite()
+            || !self
+                .provider_type()
+                .capabilities()
+                .source_speed_range
+                .contains(request.speed)
+        {
             return Err(invalid("OpenAI TTS 速度必须在 0.25 到 4.0 之间"));
         }
         let format = request.format.to_lowercase();
-        if !["mp3", "opus", "aac", "flac", "wav", "pcm"].contains(&format.as_str()) {
+        if !self
+            .provider_type()
+            .capabilities()
+            .formats
+            .contains(&format.as_str())
+        {
             return Err(invalid("OpenAI TTS 音频格式不支持"));
         }
         let instructions = [request.style.as_str(), request.instructions.as_str()]

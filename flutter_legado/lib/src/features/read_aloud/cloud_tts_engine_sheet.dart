@@ -5,6 +5,8 @@ import '../../domain/contracts/cloud_tts_provider.dart';
 import '../../domain/contracts/cloud_tts_repository.dart';
 import '../../l10n/app_localization.dart';
 import 'cloud_tts_settings.dart';
+import 'cloud_tts_providers.dart';
+import 'cloud_tts_provider_labels.dart';
 import '../../widgets/app_settings_sheet.dart';
 import '../../widgets/app_settings_form.dart';
 import '../../widgets/bottom_sheet_widget.dart';
@@ -20,14 +22,26 @@ Future<CloudTtsEditResult?> showCloudTtsEngineEditor(
   BuildContext context,
   WidgetRef ref, [
   CloudTtsEngine? engine,
-]) => AppBottomSheet.showContent<CloudTtsEditResult>(
-  context: context,
-  showDragHandle: true,
-  builder: (_) => CloudTtsEngineSheet(engine: engine),
-);
+]) async {
+  final capabilities = await ref
+      .read(cloudTtsRepositoryProvider)
+      .providerCapabilities();
+  if (!context.mounted) return null;
+  return AppBottomSheet.showContent<CloudTtsEditResult>(
+    context: context,
+    showDragHandle: true,
+    builder: (_) =>
+        CloudTtsEngineSheet(engine: engine, capabilities: capabilities),
+  );
+}
 
 class CloudTtsEngineSheet extends StatefulWidget {
-  const CloudTtsEngineSheet({super.key, this.engine});
+  const CloudTtsEngineSheet({
+    super.key,
+    this.engine,
+    required this.capabilities,
+  });
+  final Map<String, CloudTtsCapabilities> capabilities;
   final CloudTtsEngine? engine;
   @override
   State<CloudTtsEngineSheet> createState() => _CloudTtsEngineSheetState();
@@ -43,13 +57,13 @@ class _CloudTtsEngineSheetState extends State<CloudTtsEngineSheet> {
     super.initState();
     final engine = widget.engine;
     _provider = engine?.provider ?? 'openai_speech';
-    final profile = cloudTtsProfile(_provider);
+    final profile = widget.capabilities[_provider]!;
     _enabled = engine?.enabled ?? true;
     _inputs = {
       for (final entry in <String, String>{
-        'name': engine?.name ?? profile.name,
+        'name': engine?.name ?? cloudTtsProviderLabels[_provider]!.name,
         'baseUrl': engine?.baseUrl ?? '',
-        'model': engine?.model ?? profile.model,
+        'model': engine?.model ?? profile.defaultModel,
         'appId': engine?.appId ?? '',
         'region': engine?.region ?? '',
         'apiKey': '',
@@ -63,11 +77,12 @@ class _CloudTtsEngineSheetState extends State<CloudTtsEngineSheet> {
     if (provider == null || provider == _provider || widget.engine != null) {
       return;
     }
-    final old = cloudTtsProfile(_provider), next = cloudTtsProfile(provider);
+    final old = cloudTtsProviderLabels[_provider]!,
+        next = cloudTtsProviderLabels[provider]!;
     setState(() {
       _provider = provider;
       if (_inputs['name']!.text == old.name) _inputs['name']!.text = next.name;
-      _inputs['model']!.text = next.model;
+      _inputs['model']!.text = widget.capabilities[provider]!.defaultModel;
       _inputs['apiKey']!.clear();
       _inputs['secretKey']!.clear();
       _inputs['baseUrl']!.clear();
@@ -87,14 +102,14 @@ class _CloudTtsEngineSheetState extends State<CloudTtsEngineSheet> {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    final profile = cloudTtsProfile(_provider);
+    final profile = widget.capabilities[_provider]!;
     final labels = {
       'name': l.cloudTtsName,
       'baseUrl': l.cloudTtsBaseUrl,
-      'model': profile.modelLabel ?? l.cloudTtsModel,
+      'model': cloudTtsProviderLabels[_provider]!.modelLabel ?? l.cloudTtsModel,
       'appId': 'App ID',
       'apiKey':
-          profile.apiKeyLabel ??
+          cloudTtsProviderLabels[_provider]!.apiKeyLabel ??
           (profile.usesSecretKey ? 'Access Key ID' : l.cloudTtsApiKey),
       'secretKey': 'Secret Access Key',
       'region': '区域',
@@ -137,7 +152,7 @@ class _CloudTtsEngineSheetState extends State<CloudTtsEngineSheet> {
               initialValue: _provider,
               decoration: InputDecoration(labelText: l.cloudTtsProvider),
               items: [
-                for (final e in cloudTtsProviderProfiles.entries)
+                for (final e in cloudTtsProviderLabels.entries)
                   DropdownMenuItem(value: e.key, child: Text(e.value.name)),
               ],
               onChanged: widget.engine == null ? _changeProvider : null,

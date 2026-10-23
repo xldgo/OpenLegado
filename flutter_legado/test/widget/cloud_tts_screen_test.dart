@@ -1,3 +1,7 @@
+import 'package:flutter_legado/src/domain/contracts/cloud_tts_repository.dart';
+import 'package:flutter_legado/src/domain/contracts/cloud_tts_provider.dart';
+import 'package:flutter_legado/src/features/read_aloud/cloud_tts_engine_sheet.dart';
+
 import '../fixtures/app_test_api.dart';
 
 import 'package:mocktail/mocktail.dart';
@@ -14,6 +18,8 @@ import 'package:flutter_legado/src/platform/tts/cloud_tts_credential_store.dart'
 import 'package:flutter_legado/src/features/audio/application/audio_notifier.dart';
 
 import '../mocks/mocks.dart';
+
+class _CapabilitiesFailure extends Mock implements CloudTtsRepository {}
 
 MockRustApi _api() {
   final api = MockRustApi();
@@ -37,6 +43,80 @@ Future<void> _openCloudEditor(WidgetTester tester) async {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(registerFallbacks);
+  testWidgets('能力读取失败留在管理页，重试后用返回的默认模型新建', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final api = _api();
+    final repository = _CapabilitiesFailure();
+    when(() => repository.list()).thenAnswer((_) async => []);
+    when(() => repository.providerCapabilities())
+        .thenThrow(StateError('能力读取失败'));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: mergeTestOverrides([
+          ...api.overrides,
+          cloudTtsRepositoryProvider.overrideWithValue(repository),
+          cloudTtsCredentialStoreProvider.overrideWithValue(
+            MemoryCloudTtsCredentialStore(),
+          ),
+          cloudTtsPreviewPlayerProvider.overrideWithValue(
+            FakeStreamAudioPlayer(),
+          ),
+          streamAudioPlayerProvider.overrideWithValue(FakeStreamAudioPlayer()),
+        ]),
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: const ReadAloudConfigScreen(initialTab: 1),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('添加引擎'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ListTile, '云 TTS'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CloudTtsEngineSheet), findsNothing);
+    expect(find.textContaining('能力读取失败'), findsWidgets);
+    final capabilities = await api.cloudTtsRepository.providerCapabilities();
+    final old = capabilities['openai_speech']!;
+    // 非内置模型验证表单确实消费查询结果，不从旧配置表取默认值。
+    final replacement = CloudTtsCapabilities(
+      defaultModel: 'fixture-model',
+      defaultVoice: old.defaultVoice,
+      formats: old.formats,
+      styles: old.styles,
+      supportsSourceSpeed: old.supportsSourceSpeed,
+      supportsLocale: old.supportsLocale,
+      supportsProsody: old.supportsProsody,
+      requiresRegion: old.requiresRegion,
+      usesModel: old.usesModel,
+      usesSecretKey: old.usesSecretKey,
+      remoteCatalog: old.remoteCatalog,
+      staticVoiceDescriptors: old.staticVoiceDescriptors,
+      supportsInstructions: old.supportsInstructions,
+      supportsStyle: old.supportsStyle,
+      requiresAppId: old.requiresAppId,
+      supportsRole: old.supportsRole,
+      supportsSampleRate: old.supportsSampleRate,
+      sampleRates: old.sampleRates,
+      pcmSampleRates: old.pcmSampleRates,
+      sourceSpeedRange: old.sourceSpeedRange,
+      prosodyRange: old.prosodyRange,
+    );
+    when(
+      () => repository.providerCapabilities(),
+    ).thenAnswer((_) async => {...capabilities, 'openai_speech': replacement});
+    await _openCloudEditor(tester);
+    expect(
+      tester
+          .widget<TextFormField>(find.byKey(const ValueKey('cloud-model')))
+          .controller!
+          .text,
+      'fixture-model',
+    );
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(await repository.list(), isEmpty);
+  });
   testWidgets('添加/编辑保留设备凭据，API Key 不显示；删除清理两侧', (tester) async {
     SharedPreferences.setMockInitialValues({
       kHttpTtsSeedVersionKey: kHttpTtsSeedVersion,
@@ -289,8 +369,6 @@ void main() {
     await tester.pumpAndSettle();
     final saved = (await api.cloudTtsRepository.list()).single;
     expect(saved.provider, 'alibaba_cloud');
-    expect(saved.options, isEmpty);
-    expect(saved.options, isEmpty);
     expect(saved.options, isEmpty);
     expect(saved.options.containsKey('speed'), false);
     expect(await credentials.read(saved.credentialKey), 'alibaba-fixture-key');

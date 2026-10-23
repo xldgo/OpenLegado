@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/domain/contracts/cloud_tts_provider.dart';
+
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +9,10 @@ import 'package:flutter_legado/src/data/repositories/mock_cloud_tts_repository.d
 import 'package:flutter_legado/src/features/read_aloud/cloud_tts_settings.dart';
 
 class _Repository implements CloudTtsRepository {
+  @override
+  Future<Map<String, CloudTtsCapabilities>> providerCapabilities() =>
+      inner.providerCapabilities();
+
   @override
   Future<CloudTtsSpeechLimits> speechLimits(String provider) =>
       inner.speechLimits(provider);

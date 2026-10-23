@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/data/repositories/mock_cloud_tts_capabilities.dart';
+
 import 'dart:convert';
 
 import 'package:flutter_legado/src/domain/contracts/cloud_tts_repository.dart';
@@ -51,7 +53,7 @@ void main() {
     CloudTtsEditResult? result;
     await open(
       tester,
-      () => const CloudTtsEngineSheet(),
+      () => CloudTtsEngineSheet(capabilities: mockCloudTtsCapabilities),
       (v) => result = v as CloudTtsEditResult?,
     );
     await tester.tap(find.byKey(const ValueKey('cloud-provider')));
@@ -99,7 +101,8 @@ void main() {
     CloudTtsEditResult? result;
     await open(
       tester,
-      () => const CloudTtsEngineSheet(
+      () => CloudTtsEngineSheet(
+        capabilities: mockCloudTtsCapabilities,
         engine: CloudTtsEngine(
           id: 'polly',
           name: 'Polly',
@@ -121,6 +124,7 @@ void main() {
     await open(
       tester,
       () => ReadAloudVoiceSheet(
+        capabilities: mockCloudTtsCapabilities['aws_polly'],
         source: VoiceEditorSource(
           kind: 'cloud_tts',
           id: 'polly',

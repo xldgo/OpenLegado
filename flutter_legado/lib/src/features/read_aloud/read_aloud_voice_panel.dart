@@ -9,7 +9,6 @@ import 'package:material_ui/material_ui.dart';
 import '../../domain/contracts/read_aloud_voice_repository.dart';
 import '../audio/application/audio_notifier.dart';
 import '../../domain/contracts/cloud_tts_repository.dart';
-import '../../domain/contracts/cloud_tts_provider.dart';
 import 'http_tts_repository_provider.dart';
 import 'read_aloud_voice_sheet.dart';
 import 'read_aloud_voice_preview.dart';
@@ -185,11 +184,16 @@ class ReadAloudVoicePanelState extends ConsumerState<ReadAloudVoicePanel> {
         .where((e) => e.engine.id == source.id)
         .firstOrNull
         ?.engine;
+    final capabilities = source.provider == null
+        ? null
+        : (await ref
+              .read(cloudTtsRepositoryProvider)
+              .providerCapabilities())[source.provider]!;
+    if (!mounted) return;
     final editorSource =
         source.kind == 'cloud_tts' &&
             engine != null &&
-            (cloudTtsProfile(engine.provider).remoteCatalog ||
-                cloudTtsProfile(engine.provider).staticVoiceDescriptors)
+            (capabilities!.remoteCatalog || capabilities.staticVoiceDescriptors)
         ? VoiceEditorSource(
             kind: source.kind,
             id: source.id,
@@ -205,6 +209,7 @@ class ReadAloudVoicePanelState extends ConsumerState<ReadAloudVoicePanel> {
       showDragHandle: true,
       builder: (_) => ReadAloudVoiceSheet(
         source: editorSource,
+        capabilities: capabilities,
         voice: voice,
         httpEmotionTag:
             voice != null && _selections[voice.engineId]?.voiceId == voice.id
@@ -353,11 +358,12 @@ class ReadAloudVoicePanelState extends ConsumerState<ReadAloudVoicePanel> {
     try {
       final repository = ref.read(cloudTtsRepositoryProvider);
       final engines = await repository.list();
+      final profiles = await repository.providerCapabilities();
       final entries = <({CloudTtsEngine engine, List<String> voices})>[];
       for (final engine in engines.where((e) => e.enabled)) {
         entries.add((
           engine: engine,
-          voices: cloudTtsProfile(engine.provider).remoteCatalog
+          voices: profiles[engine.provider]!.remoteCatalog
               ? <String>[]
               : await repository.voices(engine.provider),
         ));

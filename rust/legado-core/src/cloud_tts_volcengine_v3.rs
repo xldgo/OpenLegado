@@ -57,7 +57,14 @@ impl CloudTtsProvider for VolcengineV3CloudTtsProvider {
         }
         if [request.speed, request.volume, request.pitch]
             .into_iter()
-            .any(|v| !v.is_finite() || !(0.5..=2.0).contains(&v))
+            .any(|v| {
+                !v.is_finite()
+                    || !self
+                        .provider_type()
+                        .capabilities()
+                        .prosody_range
+                        .contains(v)
+            })
         {
             return Err(invalid("火山 V3 合成语速、音调和音量倍率须为 0.5～2"));
         }

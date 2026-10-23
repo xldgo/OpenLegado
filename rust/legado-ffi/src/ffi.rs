@@ -2477,6 +2477,12 @@ pub mod ffi {
     }
 
     /// 云端元数据，不返回平台凭据。
+    pub fn cloud_tts_capabilities() -> Vec<crate::media_dto::CloudTtsCapabilitiesDto> {
+        legado_core::cloud_tts::CloudTtsProviderType::ALL
+            .into_iter()
+            .map(|provider| provider.capabilities().into())
+            .collect()
+    }
     pub fn cloud_tts_speech_limits(
         provider: crate::media_dto::CloudTtsProviderDto,
     ) -> crate::media_dto::CloudTtsSpeechLimitsDto {

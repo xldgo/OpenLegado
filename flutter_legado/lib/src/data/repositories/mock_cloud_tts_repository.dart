@@ -1,10 +1,14 @@
 import '../../domain/contracts/cloud_tts_provider.dart';
+import 'mock_cloud_tts_capabilities.dart';
 import '../../domain/contracts/cloud_tts_repository.dart';
 
 final class MockCloudTtsRepository implements CloudTtsRepository {
   MockCloudTtsRepository({this.onDelete});
   final void Function(String)? onDelete;
   final _engines = <String, CloudTtsEngine>{};
+  @override
+  Future<Map<String, CloudTtsCapabilities>> providerCapabilities() async =>
+      mockCloudTtsCapabilities;
 
   /// 无原生依赖的请求限制夹具，不实现Provider协议校验。— Codex + Bridge
   @override
@@ -30,12 +34,12 @@ final class MockCloudTtsRepository implements CloudTtsRepository {
       List.unmodifiable(_engines.values);
   @override
   Future<void> save(CloudTtsEngine engine) async {
-    if (!cloudTtsProviderProfiles.containsKey(engine.provider) ||
+    if (!mockCloudTtsCapabilities.containsKey(engine.provider) ||
         engine.name.trim().isEmpty ||
         engine.credentialKey.isEmpty) {
       throw StateError('云端配置无效');
     }
-    if (cloudTtsProfile(engine.provider).requiresAppId &&
+    if (mockCloudTtsCapabilities[engine.provider]!.requiresAppId &&
         engine.appId.trim().isEmpty) {
       throw StateError('App ID 不能为空');
     }
@@ -66,7 +70,7 @@ final class MockCloudTtsRepository implements CloudTtsRepository {
     }
     final format = options['format'];
     if (format != null &&
-        !cloudTtsProfile(engine.provider).formats.contains(format)) {
+        !mockCloudTtsCapabilities[engine.provider]!.formats.contains(format)) {
       throw StateError('云端音频格式不支持');
     }
     _engines[engine.id] = engine;
@@ -80,7 +84,7 @@ final class MockCloudTtsRepository implements CloudTtsRepository {
 
   @override
   Future<List<String>> voices(String provider) async {
-    if (cloudTtsProfile(provider).remoteCatalog) return const [];
+    if (mockCloudTtsCapabilities[provider]!.remoteCatalog) return const [];
     if (provider == 'volcengine_v3') {
       return const [
         'zh_female_vv_uranus_bigtts',

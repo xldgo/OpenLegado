@@ -2,6 +2,8 @@
 @Timeout(Duration(minutes: 3))
 library;
 
+import 'package:flutter_legado/src/domain/contracts/cloud_tts_provider.dart';
+
 /// 真实缓存命中请求的元数据/凭据调用计数，不替代设备 IPC 或功耗测量。— Codex + Bridge
 import 'dart:convert';
 import 'dart:io';
@@ -17,6 +19,10 @@ import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 import '../helpers/native_ffi.dart';
 
 class _Repository implements CloudTtsRepository {
+  @override
+  Future<Map<String, CloudTtsCapabilities>> providerCapabilities() =>
+      inner.providerCapabilities();
+
   @override
   Future<CloudTtsSpeechLimits> speechLimits(String provider) =>
       inner.speechLimits(provider);
