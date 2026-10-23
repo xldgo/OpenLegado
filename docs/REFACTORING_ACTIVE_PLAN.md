@@ -1,5 +1,15 @@
 # Legado 后续重构执行计划（Active）
 
+### FRB-STALE-OUTPUTS-20261023：清理旧绑定与导出（P2，清理及定向验证完成）
+
+- 用户同意删除已确认无消费者的五个FRB2.11.1残留：bridge/lib.dart及api下book_import/reader/rss/search.dart。删除四条旧export，保留18个正式适配器使用的手写rust_lib.dart，仅纠正其自动生成误注释及规范中的全目录生成物口径。
+- 当前2.13绑定不引用旧七个类型，不改变Rust接口/DTO/方法编号/content hash、生成配置、依赖或应用版本。只做调用方定向分析与必要既有回归，不全量、不为文件删除新增测试、不重编native、不推送或安装。生成工具对旧输出残留的识别改进另行处理，本批不夹带改写生成流程。
+
+- 结果：五个旧文件共226行删除；旧api空目录移除，手写入口仅导出RustLib及ffi/ffi.dart。data层dart analyze无问题，reading/network-server/cache-download三个必要调用方测试文件22项既有用例通过，Dart格式与git diff --check通过。生产/测试/integration_test无旧五路径引用，不通过新增源码守卫测试锁文件名。
+- 证据：build/frb-stale-outputs/{analyze,tests}.log；单代理diff复核，无独立审查、生成器重跑或真实native/设备验收。FRB协议和编解码未变，版本及更新日志不变；仅本批八文件本地提交，保留三份其他任务未跟踪报告，不推送或安装。
+
+编写者：Codex + Rust / Bridge｜2026-10-23
+
 ### FRB-EMPTY-DIR-20261023：移除旧Dart绑定占位目录（P2，核查及清理完成）
 
 - 用户要求核查并清理flutter_legado/lib/src/rust；目录仅有注释占位文件.gitkeep.dart，生产代码/测试/生成工具无引用。当前FRB配置和Python生成工具均使用lib/src/bridge，删除占位文件及空目录，不迁移生成物或改变生成路径。

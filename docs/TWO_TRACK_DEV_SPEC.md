@@ -170,8 +170,9 @@ Android应用和插件使用AGP内置Kotlin（`android.builtInKotlin=true`），
 3. **content hash 双向抽查**：每次重配后用 `FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH`
    校验两侧一致——Dart 侧启动报错信息中的 hash 与 Rust 编译时嵌入的 hash
    必须相同；交付/验收 APK 前先抽查两侧 hash，发现不一致一律整套重建而非局部修补。
-4. **生成文件零手改**：`bridge/` 目录及 `frb_generated.*` 均为 codegen 产物，
-   任何手写注释/警示都会被下次 codegen 抹除；需要持久化的约束一律写入本文档。
+4. **生成文件零手改**：`bridge/` 中带 FRB 生成标记的绑定及 `frb_generated.*` 为 codegen
+   产物，不手工修改；需要持久化的约束写入本文档。`bridge/rust_lib.dart` 是项目手写的
+   导出入口，只汇总生成接口，不实现跨语言逻辑；Python生成工具保护该文件不被覆盖。
 
 ### 3.6 Rust 服务装配约束（通用）
 

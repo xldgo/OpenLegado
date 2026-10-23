@@ -1,15 +1,8 @@
-/// flutter_rust_bridge 生成代码的导出入口
+/// FRB 生成绑定的手写统一导出入口。— Codex + Bridge
 ///
-/// 重新导出生成的 RustLib 和所有桥接函数。
-/// codegen 运行后自动生成，请勿手动编辑。
+/// 仅汇总运行时入口及实体接口，不实现跨语言调用逻辑。
+/// 本文件由项目维护，生成工具不会覆盖。
 library;
 
 export 'frb_generated.dart' show RustLib;
 export 'ffi/ffi.dart';
-export 'api/book_import.dart';
-export 'api/reader.dart';
-export 'api/rss.dart';
-export 'api/search.dart';
-
-// lib.dart 中的 Book/BookChapter 等类型与 models/ 中的同名类冲突，
-// 使用时需通过 import prefix 区分
