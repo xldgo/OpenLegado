@@ -35,7 +35,10 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
     container = ProviderContainer(
-      overrides: mergeTestOverrides([...mockApi.overrides]),
+      overrides: mergeTestOverrides([
+        ...mockApi.overrides,
+        ReadAloudPlannerStub.singleUnit().providerOverride,
+      ]),
     );
     addTearDown(container.dispose);
   });
@@ -329,7 +332,11 @@ void main() {
 
       await readNotifier().play();
 
-      expect(readState().state, equals(PlayerState.playing));
+      expect(
+        readState().state,
+        equals(PlayerState.playing),
+        reason: readState().errorMessage,
+      );
       expect(readState().isPlaying, isTrue);
     });
 
@@ -339,7 +346,11 @@ void main() {
 
       await readNotifier().play();
 
-      expect(readState().state, equals(PlayerState.playing));
+      expect(
+        readState().state,
+        equals(PlayerState.playing),
+        reason: readState().errorMessage,
+      );
     });
 
     test('play 加载章节内容', () async {
@@ -449,7 +460,11 @@ void main() {
 
       // singleLoop 模式下仍停留在当前章
       expect(readState().currentIndex, equals(2));
-      expect(readState().state, equals(PlayerState.playing));
+      expect(
+        readState().state,
+        equals(PlayerState.playing),
+        reason: readState().errorMessage,
+      );
     });
   });
 

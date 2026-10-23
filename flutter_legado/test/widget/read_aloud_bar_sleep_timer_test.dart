@@ -41,6 +41,19 @@ void main() {
   late FakeStreamAudioPlayer fakePlayer;
   late ProviderContainer container;
 
+  // 在Widget测试检查待处理计时器前，卸载界面并释放测试持有的容器。
+  void testPlayback(String name, Future<void> Function(WidgetTester) body) {
+    testWidgets(name, (tester) async {
+      try {
+        await body(tester);
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+        await tester.pump();
+      }
+    });
+  }
+
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     api = MockRustApi();
@@ -130,7 +143,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
   }
 
-  testWidgets('朗读条设 20 分钟即 Notifier 单一计时源；第 10 分钟不 pause，'
+  testPlayback('朗读条设 20 分钟即 Notifier 单一计时源；第 10 分钟不 pause，'
       '第 20 分钟 stop（双计时并行回归）', (tester) async {
     await startStream();
     await pumpBar(tester);
@@ -169,7 +182,7 @@ void main() {
     expect(readState().state, PlayerState.idle);
   });
 
-  testWidgets('卸载朗读条后倒计时继续走完并停止播放（静默失效消除）', (tester) async {
+  testPlayback('卸载朗读条后倒计时继续走完并停止播放（静默失效消除）', (tester) async {
     await startStream();
     await pumpBar(tester);
     await openTimerPicker(tester);
@@ -190,7 +203,7 @@ void main() {
     expect(fakePlayer.isPlaying, isFalse);
   });
 
-  testWidgets('暂停期间剩余量冻结，恢复后继续（对齐原版 doDs 暂停不计时）', (tester) async {
+  testPlayback('暂停期间剩余量冻结，恢复后继续（对齐原版 doDs 暂停不计时）', (tester) async {
     await startStream();
     await pumpBar(tester);
     await openTimerPicker(tester);
@@ -221,7 +234,7 @@ void main() {
     expect(readNotifier().isSleepTimerActive, isFalse);
   });
 
-  testWidgets('分钟到点动作为 stop（非 pause），对齐原版 ReadAloud.stop', (tester) async {
+  testPlayback('分钟到点动作为 stop（非 pause），对齐原版 ReadAloud.stop', (tester) async {
     await startStream();
     await pumpBar(tester);
     await openTimerPicker(tester);
@@ -236,7 +249,7 @@ void main() {
     expect(readNotifier().isSleepTimerActive, isFalse);
   });
 
-  testWidgets('按章停走 Notifier：本章自然播完即章末 stop', (tester) async {
+  testPlayback('按章停走 Notifier：本章自然播完即章末 stop', (tester) async {
     await startStream();
     await pumpBar(tester);
     await openTimerPicker(tester);
@@ -258,7 +271,7 @@ void main() {
     expect(notifier.isSleepTimerActive, isFalse);
   });
 
-  testWidgets('朗读条取消定时清空 Notifier 计时（入口状态与数据源同源）', (tester) async {
+  testPlayback('朗读条取消定时清空 Notifier 计时（入口状态与数据源同源）', (tester) async {
     await startStream();
     await pumpBar(tester);
     await openTimerPicker(tester);
@@ -276,7 +289,7 @@ void main() {
     expect(readNotifier().sleepRemainingSeconds, 0);
   });
 
-  testWidgets('听书页/他处已设的计时在朗读条可见（同一剩余量展示）', (tester) async {
+  testPlayback('听书页/他处已设的计时在朗读条可见（同一剩余量展示）', (tester) async {
     await startStream();
     // 模拟听书页先设 5 分钟（朗读条未参与设定）
     readNotifier().startSleepTimer(5);

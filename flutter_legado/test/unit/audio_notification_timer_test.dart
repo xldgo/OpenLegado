@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/domain/models/read_aloud_content.dart';
+
 import '../fixtures/app_test_api.dart';
 
 import 'package:flutter_legado/src/domain/models/audio_media.dart';
@@ -146,6 +148,31 @@ void main() {
     container = ProviderContainer(
       overrides: mergeTestOverrides([
         ...mockApi.overrides,
+        ReadAloudPlannerStub(
+          (text) => text == '第一段。\n第二段。'
+              ? const [
+                  ReadAloudUnit(
+                    start: 0,
+                    text: '第一段。',
+                    sourceParagraphIndex: 0,
+                    isParagraphEnd: true,
+                  ),
+                  ReadAloudUnit(
+                    start: 5,
+                    text: '第二段。',
+                    sourceParagraphIndex: 1,
+                    isParagraphEnd: true,
+                  ),
+                ]
+              : [
+                  ReadAloudUnit(
+                    start: 0,
+                    text: text,
+                    sourceParagraphIndex: 0,
+                    isParagraphEnd: true,
+                  ),
+                ],
+        ).providerOverride,
         streamAudioPlayerProvider.overrideWithValue(fakePlayer),
         audioServiceProvider.overrideWithValue(mockAudio),
         mediaArtworkLoaderProvider.overrideWithValue(artworkLoader),

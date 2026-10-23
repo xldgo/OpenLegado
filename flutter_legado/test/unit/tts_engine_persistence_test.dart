@@ -62,6 +62,7 @@ void main() {
     container = ProviderContainer(
       overrides: mergeTestOverrides([
         ...api.overrides,
+        ReadAloudPlannerStub.singleUnit().providerOverride,
         streamAudioPlayerProvider.overrideWithValue(fakePlayer),
         audioServiceProvider.overrideWithValue(audioService),
       ]),

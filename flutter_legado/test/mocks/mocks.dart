@@ -359,6 +359,16 @@ class MockRustApi extends Mock implements TestApi {
               (call.positionalArguments[0] as int) & (4 | 8 | 32 | 64 | 128),
         );
 
+    // 默认无片头片尾；跳过策略用例显式覆盖Rust计算结果。
+    when(
+      () => audioBookService.resolveSkipWindow(
+        readConfig: any(named: 'readConfig'),
+        durationMs: any(named: 'durationMs'),
+        globalOpenCredits: any(named: 'globalOpenCredits'),
+        globalCloseCredits: any(named: 'globalCloseCredits'),
+      ),
+    ).thenAnswer((_) async => null);
+
     // 阅读会话显式装配记录仓储；具体记录行为仍由各测试独立配置。
     when(() => readRecordRepository).thenReturn(ReadRecordRepositoryMock());
     // 普通夹具给出默认跟随配置，避免无关播放测试进入旧Preferences迁移。
@@ -416,6 +426,8 @@ class MockAudioService extends Mock implements AudioService {
         isStream: false,
       ),
     );
+    when(() => requestAudioFocus(userInitiated: any(named: 'userInitiated')))
+        .thenAnswer((_) async => true);
     when(() => updateProgress(any())).thenAnswer((_) async {});
     when(() => seekStream).thenAnswer((_) => const Stream.empty());
     when(() => openPlaybackStream).thenAnswer((_) => const Stream.empty());

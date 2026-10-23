@@ -87,9 +87,21 @@ void main() {
 
     testWidgets('无正文不进入朗读链：不误报无引擎提示', (tester) async {
       stubChapter(content: '');
-      await readNotifier().loadChapters('url');
-      await readNotifier().play();
-      expect(readState().errorMessage, isNull);
+      final empty = ProviderContainer(
+        overrides: mergeTestOverrides([
+          ...mockApi.overrides,
+          ReadAloudPlannerStub((_) => []).providerOverride,
+          streamAudioPlayerProvider.overrideWithValue(fakePlayer),
+        ]),
+      );
+      addTearDown(empty.dispose);
+      final notifier = empty.read(audioNotifierProvider.notifier);
+      await notifier.loadChapters('url');
+      await notifier.play();
+      expect(empty.read(audioNotifierProvider).errorMessage, isNull);
+      expect(fakePlayer.playedLocalFiles, isEmpty);
+      empty.dispose();
+      await tester.pump();
     });
 
     testWidgets('配置引擎后提示自动清除', (tester) async {

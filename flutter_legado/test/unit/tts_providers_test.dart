@@ -56,11 +56,9 @@ void main() {
     final second = MockBookApi(
       httpTtsSynthesizer: const RustHttpTtsSynthesizer(),
     );
-    container.updateOverrides(
-      mergeTestOverrides([
-        httpTtsSynthesizerProvider.overrideWithValue(second.httpTtsSynthesizer),
-      ]),
-    );
+    container.updateOverrides([
+      httpTtsSynthesizerProvider.overrideWithValue(second.httpTtsSynthesizer),
+    ]);
     expect(
       container.read(httpTtsSynthesizerProvider),
       same(second.httpTtsSynthesizer),

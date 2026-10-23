@@ -79,6 +79,17 @@ void main() {
     late FakeStreamAudioPlayer fakePlayer;
     late ProviderContainer container;
 
+    void testPlayback(String name, Future<void> Function(WidgetTester) body) {
+      testWidgets(name, (tester) async {
+        try {
+          await body(tester);
+        } finally {
+          container.dispose();
+          await tester.pump();
+        }
+      });
+    }
+
     /// audioSpeak 收到的 engineUrl（按调用序）
     final receivedEngineUrls = <String>[];
 
@@ -89,6 +100,7 @@ void main() {
       container = ProviderContainer(
         overrides: mergeTestOverrides([
           ...mockApi.overrides,
+          ReadAloudPlannerStub.singleUnit().providerOverride,
           streamAudioPlayerProvider.overrideWithValue(fakePlayer),
         ]),
       );
@@ -124,7 +136,7 @@ void main() {
       await notifier.play();
     }
 
-    testWidgets('存量「名称,http://…」→ audioSpeak 收到裸 URL', (tester) async {
+    testPlayback('存量「名称,http://…」→ audioSpeak 收到裸 URL', (tester) async {
       await speakWith('本地引擎,http://192.168.1.2:8770/tts?text={{text}}');
 
       expect(receivedEngineUrls, ['http://192.168.1.2:8770/tts?text={{text}}']);
@@ -133,14 +145,14 @@ void main() {
       expect(state.errorMessage, isNull);
     });
 
-    testWidgets('名称含逗号的存量复合串同样归一（取真正 URL 起点）', (tester) async {
+    testPlayback('名称含逗号的存量复合串同样归一（取真正 URL 起点）', (tester) async {
       await speakWith('我的,引擎,http://host/tts?text={{text}}');
 
       expect(receivedEngineUrls, ['http://host/tts?text={{text}}']);
       expect(fakePlayer.playedLocalFiles, hasLength(1));
     });
 
-    testWidgets('裸 URL（新选择器形态）原样传给 audioSpeak', (tester) async {
+    testPlayback('裸 URL（新选择器形态）原样传给 audioSpeak', (tester) async {
       await speakWith('https://tts.example.com/api?text={{speakText}}');
 
       expect(receivedEngineUrls, [

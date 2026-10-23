@@ -28,6 +28,17 @@ void main() {
   late FakeStreamAudioPlayer fakePlayer;
   late ProviderContainer container;
 
+  void testPlayback(String name, Future<void> Function(WidgetTester) body) {
+    testWidgets(name, (tester) async {
+      try {
+        await body(tester);
+      } finally {
+        container.dispose();
+        await tester.pump();
+      }
+    });
+  }
+
   setUpAll(() {
     registerFallbacks();
   });
@@ -77,7 +88,7 @@ void main() {
   }
 
   group('A2 播放模式/语速持久化', () {
-    testWidgets('setMode 经 audioWithPlayMode 合并 readConfig 并 updateBook', (
+    testPlayback('setMode 经 audioWithPlayMode 合并 readConfig 并 updateBook', (
       tester,
     ) async {
       Map<String, dynamic>? mergedJson;
@@ -124,7 +135,7 @@ void main() {
       verify(() => mockApi.bookshelfRepository.updateBook(any())).called(1);
     });
 
-    testWidgets('updateConfig(speed) 防抖合并后写 ReadConfig.playSpeed', (
+    testPlayback('updateConfig(speed) 防抖合并后写 ReadConfig.playSpeed', (
       tester,
     ) async {
       Book? savedBook;
@@ -192,7 +203,7 @@ void main() {
   });
 
   group('A3 流媒体进度写入', () {
-    testWidgets('播放中按位置增量 ≥5s 节流写库', (tester) async {
+    testPlayback('播放中按位置增量 ≥5s 节流写库', (tester) async {
       await startStream();
 
       fakePlayer.emitProgress(
@@ -225,7 +236,7 @@ void main() {
       readNotifier().stop();
     });
 
-    testWidgets('章节播完自动切章前写当前章进度，不写新章脏进度', (tester) async {
+    testPlayback('章节播完自动切章前写当前章进度，不写新章脏进度', (tester) async {
       await startStream();
 
       fakePlayer.emitProgress(
@@ -256,7 +267,7 @@ void main() {
       readNotifier().stop();
     });
 
-    testWidgets('stop 前写入当前进度', (tester) async {
+    testPlayback('stop 前写入当前进度', (tester) async {
       await startStream();
 
       fakePlayer.emitProgress(
@@ -279,7 +290,7 @@ void main() {
           .called(1);
     });
 
-    testWidgets('pause 前写入当前进度（既有行为回归）', (tester) async {
+    testPlayback('pause 前写入当前进度（既有行为回归）', (tester) async {
       await startStream();
 
       fakePlayer.emitProgress(
@@ -302,7 +313,7 @@ void main() {
           .called(1);
     });
 
-    testWidgets('容器销毁（onDispose）尽力写入当前进度', (tester) async {
+    testPlayback('容器销毁（onDispose）尽力写入当前进度', (tester) async {
       await startStream();
 
       fakePlayer.emitProgress(
@@ -325,7 +336,7 @@ void main() {
           .called(1);
     });
 
-    testWidgets('TTS 模式完成/停止不写流媒体进度键（键语义为毫秒）', (tester) async {
+    testPlayback('TTS 模式完成/停止不写流媒体进度键（键语义为毫秒）', (tester) async {
       when(() => mockApi.readingRepository.getChapters(any()))
           .thenAnswer((_) async => [const BookChapter(title: '第一章', index: 0)]);
       when(() => mockApi.bookshelfRepository.getBook(any()))

@@ -41,7 +41,22 @@ class _Api extends MockRustApi {
 
 void main() {
   setUpAll(registerFallbacks);
-  testWidgets('编辑已选预设后情感写回默认值，保留标签并用于列表试听', (tester) async {
+  void testVoice(String name, Future<void> Function(WidgetTester) body) {
+    testWidgets(name, (tester) async {
+      try {
+        await body(tester);
+      } finally {
+        final panel = find.byType(ReadAloudVoicePanel);
+        if (tester.any(panel)) {
+          await tester.state<ReadAloudVoicePanelState>(panel).stopPreview();
+        }
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+      }
+    });
+  }
+
+  testVoice('编辑已选预设后情感写回默认值，保留标签并用于列表试听', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final api = _Api();
     api.voices.importHttp(1, {
@@ -123,29 +138,10 @@ void main() {
     expect(jsonDecode(exported['speakersJson']).single['tags'], ['女']);
     expect(tester.takeException(), isNull);
   });
-  testWidgets('选择情感写入独立设置并显示选中，排除隐藏、恢复保持选择', (tester) async {
+  testVoice('选择情感写入独立设置并显示选中，排除隐藏、恢复保持选择', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final api = _Api();
     final settings = <String, String>{};
-    final previewEmotions = <String?>[];
-    when(
-      () => api.httpTtsSynthesizer.synthesize(
-        engineId: any(named: 'engineId'),
-        text: any(named: 'text'),
-        engineUrl: any(named: 'engineUrl'),
-        speed: any(named: 'speed'),
-        pitch: any(named: 'pitch'),
-        volume: any(named: 'volume'),
-        voiceName: any(named: 'voiceName'),
-        toneId: any(named: 'toneId'),
-        speakerName: any(named: 'speakerName'),
-        emotionTag: any(named: 'emotionTag'),
-        cancellation: any(named: 'cancellation'),
-      ),
-    ).thenAnswer((call) async {
-      previewEmotions.add(call.namedArguments[#emotionTag] as String?);
-      return const HttpTtsAudio(audioPath: '/http-preview.wav');
-    });
     api.voices.importHttp(1, {
       'speakersJson': '[{"name":"中文女声","toneID":"a"}]',
       'emotionsJson': '[{"name":"高兴","tag":"happy"}]',
@@ -177,9 +173,7 @@ void main() {
     await tester.pumpAndSettle();
     final saved = jsonDecode(settings['ttsVoice:1']!);
     expect(saved['emotionTag'], 'happy');
-    await tester.tap(find.byTooltip('试听'));
-    await tester.pumpAndSettle();
-    expect(previewEmotions, ['happy']);
+    // 情感传给合成器由试听单测及上一个界面用例覆盖，这里只验证选择与管理。
     expect(find.textContaining('已选择'), findsOneWidget);
     await tester.tap(find.byType(PopupMenuButton<String>));
     await tester.pumpAndSettle();

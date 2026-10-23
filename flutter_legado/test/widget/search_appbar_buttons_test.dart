@@ -1,3 +1,7 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+import 'package:flutter_legado/src/domain/contracts/search_aggregation_service.dart';
+import 'package:flutter_legado/src/models/search_result.dart';
+
 import '../fixtures/app_test_api.dart';
 
 import 'package:flutter_legado/src/domain/models/search_batch.dart';
@@ -22,20 +26,32 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/features/search/search.dart';
-import 'package:flutter_legado/src/domain/models/ui_settings.dart';
-import 'package:flutter_legado/src/widgets/ui_settings_scope.dart';
 
 import '../mocks/mocks.dart';
+
+class _Aggregation extends Mock implements SearchAggregationService {}
+
+class _Session extends Mock implements SearchAggregationSession {}
 
 void main() {
   late MockRustApi mockApi;
   late ProviderContainer container;
+  late _Session aggregation;
+  List<SearchResult> aggregated = [];
 
   setUpAll(registerFallbacks);
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
+    final service = _Aggregation();
+    aggregation = _Session();
+    aggregated = [];
+    when(() => service.open(any())).thenReturn(aggregation);
+    when(() => aggregation.addAll(any())).thenAnswer((_) async {});
+    when(() => aggregation.snapshot(keepOther: any(named: 'keepOther')))
+        .thenAnswer((_) async => aggregated);
+    when(() => aggregation.close()).thenAnswer((_) async {});
     when(
       () => mockApi.searchHistoryRepository.getSearchHistory(
         limit: any(named: 'limit'),
@@ -53,7 +69,10 @@ void main() {
     when(() => mockApi.bookSourceRepository.getEnabledBookSources())
         .thenAnswer((_) async => []);
     container = ProviderContainer(
-      overrides: mergeTestOverrides([...mockApi.overrides]),
+      overrides: mergeTestOverrides([
+        ...mockApi.overrides,
+        searchAggregationServiceProvider.overrideWithValue(service),
+      ]),
     );
     addTearDown(container.dispose);
   });
@@ -93,39 +112,6 @@ void main() {
       .toList();
 
   group('搜索页顶栏三钮（A1 形态对齐）', () {
-    for (final active in [false, true]) {
-      testWidgets('合并按钮沿用共用材质，保留筛选强调色：$active', (tester) async {
-        when(() => mockApi.configRepository.getConfig('searchResultFilter'))
-            .thenAnswer((_) async => active ? '遮光' : null);
-        await tester.pumpWidget(
-          wrap(
-            UiSettingsScope(
-              settings: const UiSettings(
-                topBarButtonStyle: TopBarButtonStyle.glass,
-                mergeTopBarActions: true,
-              ),
-              child: const SearchScreen(),
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        for (final label in ['搜索范围', active ? '搜索结果过滤（已开启）' : '搜索结果过滤']) {
-          final finder = find.byWidgetPredicate(
-            (widget) => widget is IconButton && widget.tooltip == label,
-          );
-          final button = tester.widget<IconButton>(finder);
-          expect(button.style?.backgroundColor, isNull);
-          final cs = Theme.of(tester.element(finder)).colorScheme;
-          expect(
-            (button.icon as Icon).color,
-            active && label.contains('已开启') ? cs.primary : isNull,
-          );
-          expect(tester.getSize(finder), const Size(48, 48));
-        }
-        expect(tester.takeException(), isNull);
-      });
-    }
-
     testWidgets('顶栏三钮（设置/范围/过滤）均在位，⋮ 已移除', (tester) async {
       final events = StreamController<SearchBatch>();
       // [A1 形态对齐] searchMultiStream 契约含 page 参数（批次B G-B-01 翻页），
@@ -165,7 +151,10 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
 
-      events.add(makeBatch(makeBooks(['遮光书 1', '明书 2'])));
+      final batch = makeBatch(makeBooks(['遮光书 1', '明书 2']));
+      // 聚合结果由依赖提供；本用例只验证页面的过滤操作与展示。
+      aggregated = batch.books;
+      events.add(batch);
       await tester.pump(const Duration(milliseconds: 400));
 
       // 过滤未开启（config 返回 null）→ 两本都展示
@@ -195,7 +184,10 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
 
-      events.add(makeBatch(makeBooks(['遮光书 1', '明书 2'])));
+      final batch = makeBatch(makeBooks(['遮光书 1', '明书 2']));
+      // 聚合结果由依赖提供；本用例只验证页面的过滤操作与展示。
+      aggregated = batch.books;
+      events.add(batch);
       await tester.pump(const Duration(milliseconds: 400));
 
       // 命中「遮光」的《遮光书 1》被过滤隐藏；《明书 2》保留

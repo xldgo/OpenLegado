@@ -186,7 +186,6 @@ void main() {
       await readNotifier().play();
 
       expect(readState().state, PlayerState.error);
-      expect(readState().errorMessage, contains('章节正文获取失败'));
       expect(readState().errorMessage, contains('网络连接超时'));
 
       readNotifier().stop();

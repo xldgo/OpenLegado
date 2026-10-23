@@ -33,6 +33,19 @@ void main() {
   late FakeStreamAudioPlayer fakePlayer;
   late ProviderContainer container;
 
+  // 在Widget测试检查待处理计时器前，卸载界面并释放测试持有的容器。
+  void testPlayback(String name, Future<void> Function(WidgetTester) body) {
+    testWidgets(name, (tester) async {
+      try {
+        await body(tester);
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+        await tester.pump();
+      }
+    });
+  }
+
   setUpAll(() {
     registerFallbacks();
   });
@@ -82,7 +95,7 @@ void main() {
   }
 
   group('a) 按章停止（章末边界，对齐原版 ChapterStopTimer）', () {
-    testWidgets('TTS 到点不在段末停止，播完最后一段才在章末停止', (tester) async {
+    testPlayback('TTS 到点不在段末停止，播完最后一段才在章末停止', (tester) async {
       when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
         (_) async => const [
           BookChapter(title: '第一章', index: 0),
@@ -126,7 +139,7 @@ void main() {
       expect(readState().state, PlayerState.idle);
       expect(readState().currentIndex, 0);
     });
-    testWidgets('时间到点后等待章末，保持时间模式且不进入下一章', (tester) async {
+    testPlayback('时间到点后等待章末，保持时间模式且不进入下一章', (tester) async {
       await startStream();
       final notifier = readNotifier();
       notifier.startSleepTimer(1, finishCurrentChapter: true);
@@ -147,7 +160,7 @@ void main() {
       expect(notifier.isWaitingForTimerChapterEnd, isFalse);
     });
 
-    testWidgets('到点前自然切章继续倒计时，到点后当前章完成才停', (tester) async {
+    testPlayback('到点前自然切章继续倒计时，到点后当前章完成才停', (tester) async {
       await startStream();
       final notifier = readNotifier();
       notifier.startSleepTimer(1, finishCurrentChapter: true);
@@ -166,7 +179,7 @@ void main() {
       expect(readState().state, PlayerState.idle);
     });
 
-    testWidgets('切换到点策略不重置秒数，章末等待中关闭策略立即停止', (tester) async {
+    testPlayback('切换到点策略不重置秒数，章末等待中关闭策略立即停止', (tester) async {
       await startStream();
       final notifier = readNotifier();
       notifier.startSleepTimer(1);
@@ -185,7 +198,7 @@ void main() {
       expect(notifier.isSleepTimerActive, isFalse);
     });
 
-    testWidgets('章末等待可取消/重设，取消不停止播放也不会遗留幽灵章末停止', (tester) async {
+    testPlayback('章末等待可取消/重设，取消不停止播放也不会遗留幽灵章末停止', (tester) async {
       await startStream();
       final notifier = readNotifier();
       notifier.startSleepTimer(1, finishCurrentChapter: true);
@@ -214,7 +227,7 @@ void main() {
       expect(readState().state, PlayerState.idle);
     });
 
-    testWidgets('流媒体：按章停止 1 = 本章播完即停，不进入下一章且写进度', (tester) async {
+    testPlayback('流媒体：按章停止 1 = 本章播完即停，不进入下一章且写进度', (tester) async {
       await startStream(); // 3 章
       readNotifier().startChapterStop(1);
       expect(readNotifier().sleepTimerMode, SleepTimerMode.chapters);
@@ -250,7 +263,7 @@ void main() {
       );
     });
 
-    testWidgets('流媒体：按章停止 2 = 第一章完成计数并切章，第二章完成才停', (tester) async {
+    testPlayback('流媒体：按章停止 2 = 第一章完成计数并切章，第二章完成才停', (tester) async {
       await startStream();
       readNotifier().startChapterStop(2);
 
@@ -271,7 +284,7 @@ void main() {
       expect(readNotifier().isSleepTimerActive, isFalse);
     });
 
-    testWidgets('手动 next() 不计按章，计数保持不变', (tester) async {
+    testPlayback('手动 next() 不计按章，计数保持不变', (tester) async {
       await startStream();
       readNotifier().startChapterStop(1);
 
@@ -282,7 +295,7 @@ void main() {
       expect(readNotifier().chaptersToStopRemaining, 1);
     });
 
-    testWidgets('TTS：末段播完到章末停止（不切章、不写流媒体进度键）', (tester) async {
+    testPlayback('TTS：末段播完到章末停止（不切章、不写流媒体进度键）', (tester) async {
       when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
         (_) async => [
           const BookChapter(title: '第一章', index: 0),
@@ -306,6 +319,13 @@ void main() {
         ),
       ).thenAnswer((_) async => HttpTtsAudio(audioPath: '/tmp/tts/para.mp3'));
 
+      container.updateOverrides(
+        mergeTestOverrides([
+          ...mockApi.overrides,
+          streamAudioPlayerProvider.overrideWithValue(fakePlayer),
+          ReadAloudPlannerStub.singleUnit().providerOverride,
+        ]),
+      );
       await readNotifier().loadChapters('url');
       readNotifier().updateConfig(
         engineUrl: 'https://tts.example.com/{{text}}',
@@ -328,7 +348,7 @@ void main() {
   });
 
   group('b) 计时下沉：退出听书页后倒计时继续', () {
-    testWidgets('页面 widget 销毁后分钟倒计时仍走完并停止播放', (tester) async {
+    testPlayback('页面 widget 销毁后分钟倒计时仍走完并停止播放', (tester) async {
       when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
         (_) async => [
           const BookChapter(title: '第一章', index: 0),
@@ -395,7 +415,7 @@ void main() {
   });
 
   group('c) 分钟倒计时到点停止 + force 写进度', () {
-    testWidgets('倒计时归零：停止播放并在停止前 force 写当前进度', (tester) async {
+    testPlayback('倒计时归零：停止播放并在停止前 force 写当前进度', (tester) async {
       await startStream();
       fakePlayer.emitProgress(
         const Duration(seconds: 3),
@@ -427,7 +447,7 @@ void main() {
   });
 
   group('d) 暂停/恢复对倒计时的影响（对齐原版：暂停冻结）', () {
-    testWidgets('暂停期间倒计时冻结，恢复播放后从剩余时间继续', (tester) async {
+    testPlayback('暂停期间倒计时冻结，恢复播放后从剩余时间继续', (tester) async {
       await startStream();
       readNotifier().startSleepTimer(5);
       expect(readNotifier().sleepRemainingSeconds, 300);
@@ -457,7 +477,7 @@ void main() {
   });
 
   group('e) 模式互斥/取消/上限', () {
-    testWidgets('分钟与按章互斥：设置其一清空另一', (tester) async {
+    testPlayback('分钟与按章互斥：设置其一清空另一', (tester) async {
       readNotifier().startChapterStop(3);
       expect(readNotifier().sleepTimerMode, SleepTimerMode.chapters);
       expect(readNotifier().chaptersToStopRemaining, 3);
@@ -476,7 +496,7 @@ void main() {
       expect(readNotifier().sleepTimerMode, SleepTimerMode.off);
     });
 
-    testWidgets('上限对齐原版：分钟 ≤180、章 ≤99；0 视为关闭', (tester) async {
+    testPlayback('上限对齐原版：分钟 ≤180、章 ≤99；0 视为关闭', (tester) async {
       readNotifier().startSleepTimer(181);
       expect(readNotifier().sleepRemainingSeconds, 180 * 60);
 
