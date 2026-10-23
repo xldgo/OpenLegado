@@ -253,6 +253,9 @@ void main() {
     expect(await logs.appLogExport(), contains('本机日志'));
     const rss = RustRssSourceRepository();
     final originals = await rss.getRssSources();
+    final bookCount = (await const RustBookshelfRepository().getBooks()).length;
+    final ruleCount =
+        (await const RustReplaceRuleRepository().getReplaceRules()).length;
     final path = '${root.absolute.path}/backup.json';
     expect(await bridge.backupCreate(path: path), path);
     final files = await bridge.backupList(dir: root.absolute.path);
@@ -268,8 +271,9 @@ void main() {
     }
     expect(await rss.getRssSources(), isEmpty);
     final stats = await bridge.backupRestore(path: path);
-    expect(stats.books, BigInt.one);
-    expect(stats.replaceRules, BigInt.one);
+    expect(stats.books, BigInt.from(bookCount));
+    expect(stats.replaceRules, BigInt.from(ruleCount));
+    expect(stats.additional['readRecordDaily'], BigInt.zero);
     expect(stats.rssSources, BigInt.from(originals.length));
     final restored = await rss.getRssSources();
     expect(restored, originals);

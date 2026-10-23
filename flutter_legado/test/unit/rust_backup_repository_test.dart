@@ -63,6 +63,7 @@ void main() {
       bookSources: BigInt.from(3),
       rssSources: BigInt.from(4),
       readRecords: BigInt.from(5),
+      additional: {'httpTts': BigInt.from(7)},
     );
     when(() => bridge.crateFfiFfiBackupRestore(path: file.path))
         .thenAnswer((_) async => stats);
@@ -78,6 +79,7 @@ void main() {
       ],
       [9007199254740993, 1, 2, 3, 4, 5],
     );
+    expect(restored.additional, {'httpTts': 7});
     verify(() => bridge.crateFfiFfiBackupRestore(path: file.path)).called(1);
     final failure = StateError('恢复失败');
     when(() => bridge.crateFfiFfiBackupRestore(path: file.path))

@@ -292,6 +292,7 @@ class RestoreStatsDto {
   final BigInt bookSources;
   final BigInt rssSources;
   final BigInt readRecords;
+  final Map<String, BigInt> additional;
 
   const RestoreStatsDto({
     required this.books,
@@ -300,6 +301,7 @@ class RestoreStatsDto {
     required this.bookSources,
     required this.rssSources,
     required this.readRecords,
+    required this.additional,
   });
 
   @override
@@ -309,7 +311,8 @@ class RestoreStatsDto {
       replaceRules.hashCode ^
       bookSources.hashCode ^
       rssSources.hashCode ^
-      readRecords.hashCode;
+      readRecords.hashCode ^
+      additional.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -321,7 +324,8 @@ class RestoreStatsDto {
           replaceRules == other.replaceRules &&
           bookSources == other.bookSources &&
           rssSources == other.rssSources &&
-          readRecords == other.readRecords;
+          readRecords == other.readRecords &&
+          additional == other.additional;
 }
 
 class RssArticleDto {

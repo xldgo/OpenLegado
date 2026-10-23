@@ -4625,5 +4625,13 @@
         "type": "String"
       }
     }
+  },
+  "backupRestoreAdditional": "其他业务记录{count}项",
+  "@backupRestoreAdditional": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

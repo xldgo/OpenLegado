@@ -255,14 +255,22 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
       final result = await service.restoreLocal(path);
       final failures = await refresher.refresh();
       final stats = result.stats;
-      final summary = l10n.backupRestoreCounts(
-        stats.books,
-        stats.bookmarks,
-        stats.replaceRules,
-        stats.bookSources,
-        stats.rssSources,
-        stats.readRecords,
+      final additional = stats.additional.values.fold<int>(
+        0,
+        (sum, value) => sum + value,
       );
+      final summary =
+          l10n.backupRestoreCounts(
+            stats.books,
+            stats.bookmarks,
+            stats.replaceRules,
+            stats.bookSources,
+            stats.rssSources,
+            stats.readRecords,
+          ) +
+          (additional == 0
+              ? ''
+              : '、${l10n.backupRestoreAdditional(additional)}');
       _showResult(
         result.preferencesError == null
             ? '${l10n.restoreSuccess}：$summary'

@@ -7803,6 +7803,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'业务数据已恢复：{counts}\n设置恢复失败：{error}'**
   String backupRestorePreferencesFailed(String counts, String error);
+
+  /// No description provided for @backupRestoreAdditional.
+  ///
+  /// In zh, this message translates to:
+  /// **'其他业务记录{count}项'**
+  String backupRestoreAdditional(int count);
 }
 
 class _AppLocalizationsDelegate

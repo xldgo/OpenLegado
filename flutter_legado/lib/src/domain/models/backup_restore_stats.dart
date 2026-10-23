@@ -7,6 +7,7 @@ final class BackupRestoreStats {
     required this.bookSources,
     required this.rssSources,
     required this.readRecords,
+    this.additional = const {},
   });
 
   final int books;
@@ -15,4 +16,5 @@ final class BackupRestoreStats {
   final int bookSources;
   final int rssSources;
   final int readRecords;
+  final Map<String, int> additional;
 }

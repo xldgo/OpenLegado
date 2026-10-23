@@ -6,52 +6,17 @@
 use std::fs;
 use std::path::Path;
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
-use legado_core::models::{Book, BookSource, Bookmark, RssSource};
 use legado_core::{LegadoError, LegadoResult};
 use legado_db::repository::Repository;
-use legado_db::{
-    BookRepository, BookSourceRepository, BookmarkRepository, ReadRecordRepository,
-    ReplaceRuleRepository, RssSourceRepository,
-};
+use legado_db::{BookRepository, BookSourceRepository, ReplaceRuleRepository};
 
 use crate::StorageContext;
 
 mod restore;
 
-/// 备份数据结构
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BackupData {
-    /// 备份版本
-    #[serde(default = "default_version")]
-    pub version: i32,
-    /// 备份时间戳（毫秒）
-    #[serde(default, rename = "backupTime")]
-    pub backup_time: i64,
-    /// 书籍列表
-    #[serde(default)]
-    pub books: Vec<serde_json::Value>,
-    /// 书签列表
-    #[serde(default)]
-    pub bookmarks: Vec<serde_json::Value>,
-    /// 替换规则列表
-    #[serde(default, rename = "replaceRules")]
-    pub replace_rules: Vec<serde_json::Value>,
-    /// 书源列表
-    #[serde(default, rename = "bookSources")]
-    pub book_sources: Vec<serde_json::Value>,
-    /// RSS 源列表
-    #[serde(default, rename = "rssSources")]
-    pub rss_sources: Vec<serde_json::Value>,
-    /// 阅读记录列表
-    #[serde(default, rename = "readRecords")]
-    pub read_records: Vec<serde_json::Value>,
-}
-
-fn default_version() -> i32 {
-    1
-}
+pub use legado_db::backup::BackupData;
 
 /// 恢复统计
 #[derive(Debug, Clone, Serialize)]
@@ -62,6 +27,7 @@ pub struct RestoreStats {
     pub book_sources: usize,
     pub rss_sources: usize,
     pub read_records: usize,
+    pub additional: std::collections::HashMap<String, usize>,
 }
 
 /// 备份目录条目；FFI在边界映射为传输DTO。
@@ -81,10 +47,21 @@ pub struct OldImportResult {
 }
 pub struct BackupService {
     storage: Option<StorageContext>,
+    rates: Option<std::sync::Arc<legado_fetcher::rate_limit::RateLimiterRegistry>>,
 }
 impl BackupService {
     pub fn new(storage: Option<StorageContext>) -> Self {
-        Self { storage }
+        Self {
+            storage,
+            rates: None,
+        }
+    }
+    pub fn with_rate_limiter(
+        mut self,
+        rates: std::sync::Arc<legado_fetcher::rate_limit::RateLimiterRegistry>,
+    ) -> Self {
+        self.rates = Some(rates);
+        self
     }
     fn with_database<T>(
         &self,
@@ -102,61 +79,7 @@ impl BackupService {
             .as_millis() as i64;
 
         let backup_data = self.with_database(|db| {
-            let conn = db.connection();
-
-            // 收集书籍
-            let book_repo = BookRepository::new(conn);
-            let books: Vec<serde_json::Value> = book_repo
-                .find_all()?
-                .into_iter()
-                .filter_map(|b| serde_json::to_value(&b).ok())
-                .collect();
-
-            // 收集书签
-            let bookmark_repo = BookmarkRepository::new(conn);
-            let bookmarks: Vec<serde_json::Value> = bookmark_repo
-                .find_all()?
-                .into_iter()
-                .filter_map(|b| serde_json::to_value(&b).ok())
-                .collect();
-
-            // 收集替换规则
-            let rule_repo = ReplaceRuleRepository::new(conn);
-            let replace_rules: Vec<serde_json::Value> = rule_repo
-                .find_all()?
-                .into_iter()
-                .filter_map(|r| serde_json::to_value(&r).ok())
-                .collect();
-
-            // 收集书源
-            let source_repo = BookSourceRepository::new(conn);
-            let book_sources: Vec<serde_json::Value> = source_repo
-                .find_all()?
-                .into_iter()
-                .filter_map(|s| serde_json::to_value(&s).ok())
-                .collect();
-
-            // RSS 备份沿用实体字段类型与完整仓储映射。
-            let rss_sources = collect_rss_sources(conn)?;
-
-            // 收集阅读记录
-            let record_repo = ReadRecordRepository::new(conn);
-            let read_records: Vec<serde_json::Value> = record_repo
-                .find_all()?
-                .into_iter()
-                .filter_map(|r| serde_json::to_value(&r).ok())
-                .collect();
-
-            Ok(BackupData {
-                version: 1,
-                backup_time: now,
-                books,
-                bookmarks,
-                replace_rules,
-                book_sources,
-                rss_sources,
-                read_records,
-            })
+            legado_db::backup::BackupRepository::new(db.connection()).export(now)
         })?;
 
         // 确保目录存在
@@ -336,28 +259,6 @@ impl BackupService {
             messages,
         })
     }
-}
-
-fn collect_rss_sources(conn: &rusqlite::Connection) -> LegadoResult<Vec<serde_json::Value>> {
-    RssSourceRepository::new(conn)
-        .find_all()
-        .map_err(LegadoError::Database)?
-        .into_iter()
-        .map(|source| {
-            let mut value = serde_json::to_value(&source)?;
-            if source.enabled_cookie_jar.is_none() {
-                value["enabledCookieJar"] = serde_json::Value::Null;
-            }
-            Ok(value)
-        })
-        .collect()
-}
-
-fn insert_rss_source(conn: &rusqlite::Connection, source: &RssSource) -> LegadoResult<()> {
-    RssSourceRepository::new(conn)
-        .insert(source)
-        .map(|_| ())
-        .map_err(LegadoError::Database)
 }
 
 #[cfg(test)]

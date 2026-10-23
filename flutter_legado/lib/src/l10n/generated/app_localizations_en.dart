@@ -4385,4 +4385,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String backupRestorePreferencesFailed(String counts, String error) {
     return 'Business data restored: $counts\nSettings restoration failed: $error';
   }
+
+  @override
+  String backupRestoreAdditional(int count) {
+    return 'Other business records: $count';
+  }
 }

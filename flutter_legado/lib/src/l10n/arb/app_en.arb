@@ -1407,5 +1407,13 @@
         "type": "String"
       }
     }
+  },
+  "backupRestoreAdditional": "Other business records: {count}",
+  "@backupRestoreAdditional": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

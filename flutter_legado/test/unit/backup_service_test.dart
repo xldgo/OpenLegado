@@ -147,20 +147,30 @@ void main() {
   });
 
   test('忽略本地书通过临时载荷过滤，源文件不变且临时文件清理', () async {
-    ignore.config = RestoreIgnoreConfig({'localBook': true});
+    ignore.config = RestoreIgnoreConfig({
+      'localBook': true,
+      'threadCount': true,
+    });
     final original = jsonEncode({
-      'books': [
-        {'bookUrl': 'local', 'origin': 'loc_book'},
-        {'bookUrl': 'dav', 'origin': 'dav:https://example/book'},
-        {'bookUrl': 'remote', 'origin': 'https://source.example'},
-      ],
+      'config': {'threadCount': '16', 'searchScope': 'all'},
+      'collections': {
+        'books': [
+          {'bookUrl': 'local', 'origin': 'loc_book'},
+          {'bookUrl': 'dav', 'origin': 'dav:https://example/book'},
+          {'bookUrl': 'remote', 'origin': 'https://source.example'},
+        ],
+      },
     });
     await file.writeAsString(original);
     String? usedPath;
     when(() => api.backupRepository.restore(any())).thenAnswer((call) async {
       usedPath = call.positionalArguments.first as String;
       final payload = jsonDecode(await File(usedPath!).readAsString()) as Map;
-      expect((payload['books'] as List).single['bookUrl'], 'remote');
+      expect(
+        (payload['collections']['books'] as List).single['bookUrl'],
+        'remote',
+      );
+      expect(payload['config'], {'searchScope': 'all'});
       return stats;
     });
     await service().restoreLocal(file.path);

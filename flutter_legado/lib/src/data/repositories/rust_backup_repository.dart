@@ -52,6 +52,9 @@ final class RustBackupRepository implements BackupRepository {
       bookSources: stats.bookSources.toInt(),
       rssSources: stats.rssSources.toInt(),
       readRecords: stats.readRecords.toInt(),
+      additional: Map.unmodifiable(
+        stats.additional.map((key, value) => MapEntry(key, value.toInt())),
+      ),
     );
   }
 

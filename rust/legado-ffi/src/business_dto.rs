@@ -466,6 +466,7 @@ pub struct RestoreStatsDto {
     pub book_sources: usize,
     pub rss_sources: usize,
     pub read_records: usize,
+    pub additional: std::collections::HashMap<String, usize>,
 }
 impl From<crate::api::backup_api::RestoreStats> for RestoreStatsDto {
     fn from(v: crate::api::backup_api::RestoreStats) -> Self {
@@ -476,6 +477,7 @@ impl From<crate::api::backup_api::RestoreStats> for RestoreStatsDto {
             book_sources: v.book_sources,
             rss_sources: v.rss_sources,
             read_records: v.read_records,
+            additional: v.additional,
         }
     }
 }

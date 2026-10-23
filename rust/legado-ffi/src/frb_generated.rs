@@ -12421,6 +12421,14 @@ impl SseDecode for std::collections::HashMap<String, crate::layout_dto::LayoutVa
     }
 }
 
+impl SseDecode for std::collections::HashMap<String, usize> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <Vec<(String, usize)>>::sse_decode(deserializer);
+        return inner.into_iter().collect();
+    }
+}
+
 impl SseDecode for std::collections::HashMap<i32, String> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -15451,6 +15459,18 @@ impl SseDecode for Vec<(String, String)> {
     }
 }
 
+impl SseDecode for Vec<(String, usize)> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<(String, usize)>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<crate::business_dto::ReplaceRuleDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -16648,6 +16668,15 @@ impl SseDecode for (String, String) {
     }
 }
 
+impl SseDecode for (String, usize) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_field0 = <String>::sse_decode(deserializer);
+        let mut var_field1 = <usize>::sse_decode(deserializer);
+        return (var_field0, var_field1);
+    }
+}
+
 impl SseDecode for crate::transfer_dto::RedirectInfoDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -16709,6 +16738,8 @@ impl SseDecode for crate::business_dto::RestoreStatsDto {
         let mut var_bookSources = <usize>::sse_decode(deserializer);
         let mut var_rssSources = <usize>::sse_decode(deserializer);
         let mut var_readRecords = <usize>::sse_decode(deserializer);
+        let mut var_additional =
+            <std::collections::HashMap<String, usize>>::sse_decode(deserializer);
         return crate::business_dto::RestoreStatsDto {
             books: var_books,
             bookmarks: var_bookmarks,
@@ -16716,6 +16747,7 @@ impl SseDecode for crate::business_dto::RestoreStatsDto {
             book_sources: var_bookSources,
             rss_sources: var_rssSources,
             read_records: var_readRecords,
+            additional: var_additional,
         };
     }
 }
@@ -21543,6 +21575,7 @@ impl flutter_rust_bridge::IntoDart for crate::business_dto::RestoreStatsDto {
             self.book_sources.into_into_dart().into_dart(),
             self.rss_sources.into_into_dart().into_dart(),
             self.read_records.into_into_dart().into_dart(),
+            self.additional.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -22898,6 +22931,13 @@ impl SseEncode for std::collections::HashMap<String, crate::layout_dto::LayoutVa
             self.into_iter().collect(),
             serializer,
         );
+    }
+}
+
+impl SseEncode for std::collections::HashMap<String, usize> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <Vec<(String, usize)>>::sse_encode(self.into_iter().collect(), serializer);
     }
 }
 
@@ -25074,6 +25114,16 @@ impl SseEncode for Vec<(String, String)> {
     }
 }
 
+impl SseEncode for Vec<(String, usize)> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <(String, usize)>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<crate::business_dto::ReplaceRuleDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -25969,6 +26019,14 @@ impl SseEncode for (String, String) {
     }
 }
 
+impl SseEncode for (String, usize) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.0, serializer);
+        <usize>::sse_encode(self.1, serializer);
+    }
+}
+
 impl SseEncode for crate::transfer_dto::RedirectInfoDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -26008,6 +26066,7 @@ impl SseEncode for crate::business_dto::RestoreStatsDto {
         <usize>::sse_encode(self.book_sources, serializer);
         <usize>::sse_encode(self.rss_sources, serializer);
         <usize>::sse_encode(self.read_records, serializer);
+        <std::collections::HashMap<String, usize>>::sse_encode(self.additional, serializer);
     }
 }
 

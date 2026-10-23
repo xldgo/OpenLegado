@@ -22,6 +22,7 @@ All notable changes to this project will be documented in this file.
 - 卷标题不再把附带数据当作正文，普通章节的空正文错误保持；贡献者：Codex + Rust。
 
 ### Added
+- 备份扩展至24个业务集合及普通配置，保留分组、规则、音色和阅读明细的ID及引用；重复恢复不再新增副本；贡献者：Codex + Rust / UI。
 - 源编辑框最大行数接入书源与RSS编辑，多行字段支持不限或自定行数；贡献者：Codex + UI。
 - 接入忽略音频焦点设置，Android不申请音频焦点，iOS允许与其他音频混播；贡献者：Codex + UI。
 - 阅读屏幕设置新增“扩展至屏幕边缘”，正文继续避让安全区；贡献者：Codex + UI。

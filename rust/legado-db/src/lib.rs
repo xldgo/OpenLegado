@@ -25,6 +25,7 @@
 //! assert_eq!(count, 0);
 //! ```
 
+pub mod backup;
 pub mod connection;
 pub mod default_data;
 pub mod error;

@@ -83,9 +83,13 @@ class BackupService {
       }
       prefs = rawPrefs;
     }
-    final books = payload['books'];
+    final collections = payload['collections'];
+    var changed = false;
+    final books = collections is Map<String, dynamic>
+        ? collections['books']
+        : null;
     if (ignore['localBook'] && books is List) {
-      payload['books'] = books.where((item) {
+      collections['books'] = books.where((item) {
         if (item is! Map) return true;
         final origin = item['origin']?.toString() ?? '';
         final value = item['type'];
@@ -94,6 +98,20 @@ class BackupService {
             origin.startsWith(BookType.webDavTag) ||
             (type & BookType.local) != 0);
       }).toList();
+      changed = true;
+    }
+    final config = payload['config'];
+    if (ignore['threadCount'] &&
+        config is Map<String, dynamic> &&
+        config.containsKey('threadCount')) {
+      config.remove('threadCount');
+      changed = true;
+    }
+    if (ignore['coverConfig'] && collections is Map<String, dynamic>) {
+      collections['coverRules'] = <dynamic>[];
+      changed = true;
+    }
+    if (changed) {
       filtered = File(
         '${Directory.systemTemp.path}${Platform.pathSeparator}legado_restore_${DateTime.now().microsecondsSinceEpoch}.json',
       );

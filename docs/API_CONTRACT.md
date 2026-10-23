@@ -2417,6 +2417,18 @@ Rust签名、数据库格式和生成绑定不变，缓存清理及下载任务�
 
 ### 2.11 备份操作（3 个方法）
 
+**BACKUP-RESTORE-20261024 B2（实施前冻结）**：当前开发格式改为`format=openlegado`、
+`version=2`、`backupTime`、`collections`及`config`的JSON文档，不增加版本1兼容分支。
+collections为明确白名单业务集合，含书架/分组/书签/规则/订阅/RSS收藏与已读/朗读引擎与音色/
+累计、每日与会话记录，集合项保留原主键及完整数据库字段；书籍使用现有BookRepository实体路径，
+其余仅在DB专用备份仓储内按主键原地upsert，不使用REPLACE删除关联数据。
+库表/列名只来自本机白名单与schema，输入不能选择任意SQL对象；未知集合/字段、缺失集合、
+类型错误或重复主键在写入前拒绝。临时表、目录/音频/网络缓存、日志、下载任务、隐私凭据不导出。
+部分新增类仓储会重分配ID，因此本批不复用其新增API，也不扩展普通CRUD为通用备份接口。
+配置仅收录已确认普通Rust设置键，拒绝任意config缓存和凭据；appPrefs继续由Dart编排。
+RestoreStats/RestoreStatsDto/BackupRestoreStats新增`additional: Map<String, count>`，保留六个主统计，
+新增集合统计由此承载；同步正式/Mock实现、生成绑定。读取/写入/提交失败均保持B1事务语义。
+
 **BACKUP-RESTORE-20261024 B1（实施前冻结）**：FRB方法、六字段RestoreStatsDto、
 数据库schema与版本1备份格式不变。Dart `BackupRepository.restore`返回
 `BackupRestoreStats`（books/bookmarks/replaceRules/bookSources/rssSources/readRecords），

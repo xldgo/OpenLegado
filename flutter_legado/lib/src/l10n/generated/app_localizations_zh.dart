@@ -4152,4 +4152,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String backupRestorePreferencesFailed(String counts, String error) {
     return '业务数据已恢复：$counts\n设置恢复失败：$error';
   }
+
+  @override
+  String backupRestoreAdditional(int count) {
+    return '其他业务记录$count项';
+  }
 }

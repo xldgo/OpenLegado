@@ -222,6 +222,11 @@ RestoreStatsDto fixtureRestoreStatsDto(Object? raw) {
     bookSources: BigInt.from(v['bookSources'] as int? ?? 0),
     rssSources: BigInt.from(v['rssSources'] as int? ?? 0),
     readRecords: BigInt.from(v['readRecords'] as int? ?? 0),
+    additional: {
+      for (final entry
+          in (v['additional'] as Map<String, dynamic>? ?? {}).entries)
+        entry.key: BigInt.from(entry.value as int),
+    },
   );
 }
 

@@ -3,11 +3,11 @@ use legado_core::LegadoResult;
 use legado_engine::backup_service::BackupService;
 pub use legado_engine::backup_service::{BackupData, RestoreStats};
 fn host_service() -> BackupService {
-    BackupService::new(
-        crate::engine_holder::current()
-            .ok()
-            .map(|engine| engine.storage().clone()),
-    )
+    match crate::engine_holder::current() {
+        Ok(engine) => BackupService::new(Some(engine.storage().clone()))
+            .with_rate_limiter(engine.rate_limiter()),
+        Err(_) => BackupService::new(None),
+    }
 }
 pub fn backup_create(path: &str) -> LegadoResult<String> {
     host_service().backup_create(path)
@@ -60,7 +60,7 @@ mod tests {
         // 验证 JSON 格式
         let content = fs::read_to_string(&backup_path).unwrap();
         let data: BackupData = serde_json::from_str(&content).unwrap();
-        assert_eq!(data.version, 1);
+        assert_eq!(data.version, 2);
         assert!(data.backup_time > 0);
 
         // 恢复备份

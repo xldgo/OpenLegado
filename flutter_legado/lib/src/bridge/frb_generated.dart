@@ -12788,6 +12788,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  Map<String, BigInt> dco_decode_Map_String_usize_None(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return Map.fromEntries(
+      dco_decode_list_record_string_usize(raw).map((e) => MapEntry(e.$1, e.$2)),
+    );
+  }
+
+  @protected
   Map<int, String> dco_decode_Map_i_32_String_None(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return Map.fromEntries(
@@ -15111,6 +15119,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<(String, BigInt)> dco_decode_list_record_string_usize(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_record_string_usize).toList();
+  }
+
+  @protected
   List<ReplaceRuleDto> dco_decode_list_replace_rule_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_replace_rule_dto).toList();
@@ -15873,6 +15887,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  (String, BigInt) dco_decode_record_string_usize(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2) {
+      throw Exception('Expected 2 elements, got ${arr.length}');
+    }
+    return (dco_decode_String(arr[0]), dco_decode_usize(arr[1]));
+  }
+
+  @protected
   RedirectInfoDto dco_decode_redirect_info_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -15914,8 +15938,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   RestoreStatsDto dco_decode_restore_stats_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 6)
-      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    if (arr.length != 7)
+      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
     return RestoreStatsDto(
       books: dco_decode_usize(arr[0]),
       bookmarks: dco_decode_usize(arr[1]),
@@ -15923,6 +15947,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       bookSources: dco_decode_usize(arr[3]),
       rssSources: dco_decode_usize(arr[4]),
       readRecords: dco_decode_usize(arr[5]),
+      additional: dco_decode_Map_String_usize_None(arr[6]),
     );
   }
 
@@ -16920,6 +16945,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var inner = sse_decode_list_record_string_layout_value_dto(deserializer);
+    return Map.fromEntries(inner.map((e) => MapEntry(e.$1, e.$2)));
+  }
+
+  @protected
+  Map<String, BigInt> sse_decode_Map_String_usize_None(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_list_record_string_usize(deserializer);
     return Map.fromEntries(inner.map((e) => MapEntry(e.$1, e.$2)));
   }
 
@@ -20174,6 +20208,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<(String, BigInt)> sse_decode_list_record_string_usize(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <(String, BigInt)>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_record_string_usize(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
   List<ReplaceRuleDto> sse_decode_list_replace_rule_dto(
     SseDeserializer deserializer,
   ) {
@@ -21349,6 +21397,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  (String, BigInt) sse_decode_record_string_usize(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_field0 = sse_decode_String(deserializer);
+    var var_field1 = sse_decode_usize(deserializer);
+    return (var_field0, var_field1);
+  }
+
+  @protected
   RedirectInfoDto sse_decode_redirect_info_dto(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_redirected = sse_decode_bool(deserializer);
@@ -21407,6 +21465,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_bookSources = sse_decode_usize(deserializer);
     var var_rssSources = sse_decode_usize(deserializer);
     var var_readRecords = sse_decode_usize(deserializer);
+    var var_additional = sse_decode_Map_String_usize_None(deserializer);
     return RestoreStatsDto(
       books: var_books,
       bookmarks: var_bookmarks,
@@ -21414,6 +21473,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       bookSources: var_bookSources,
       rssSources: var_rssSources,
       readRecords: var_readRecords,
+      additional: var_additional,
     );
   }
 
@@ -22683,6 +22743,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_list_record_string_layout_value_dto(
+      self.entries.map((e) => (e.key, e.value)).toList(),
+      serializer,
+    );
+  }
+
+  @protected
+  void sse_encode_Map_String_usize_None(
+    Map<String, BigInt> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_record_string_usize(
       self.entries.map((e) => (e.key, e.value)).toList(),
       serializer,
     );
@@ -25403,6 +25475,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_record_string_usize(
+    List<(String, BigInt)> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_record_string_usize(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_list_replace_rule_dto(
     List<ReplaceRuleDto> self,
     SseSerializer serializer,
@@ -26414,6 +26498,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_record_string_usize(
+    (String, BigInt) self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.$1, serializer);
+    sse_encode_usize(self.$2, serializer);
+  }
+
+  @protected
   void sse_encode_redirect_info_dto(
     RedirectInfoDto self,
     SseSerializer serializer,
@@ -26459,6 +26553,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_usize(self.bookSources, serializer);
     sse_encode_usize(self.rssSources, serializer);
     sse_encode_usize(self.readRecords, serializer);
+    sse_encode_Map_String_usize_None(self.additional, serializer);
   }
 
   @protected

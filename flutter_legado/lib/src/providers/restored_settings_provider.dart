@@ -1,3 +1,5 @@
+import '../features/read_aloud/read_aloud_voice_provider.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/bootstrap/restored_settings_refresher.dart';
@@ -44,6 +46,12 @@ final restoredSettingsRefresherProvider = Provider<RestoredSettingsRefresher>(
     ('服务设置', () => ref.read(serviceSettingsRepositoryProvider).reload()),
     ('搜索设置', () => ref.read(searchSettingsRepositoryProvider).reload()),
     ('朗读设置', () => ref.read(audioSessionSettingsProvider).reload()),
+    (
+      '朗读音色',
+      () async {
+        ref.invalidate(readAloudVoicesProvider);
+      },
+    ),
     (
       '书架数据',
       () async {

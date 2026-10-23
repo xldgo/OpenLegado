@@ -373,7 +373,7 @@ impl<'a> ReadRecordRepository<'a> {
     // ─── [热力图每日时长契约] 每日时长聚合（热力图"每日时长"模式数据源）────────
 
     /// 确保 readRecordDaily 表存在（CREATE TABLE IF NOT EXISTS，无数据迁移需求）
-    pub(super) fn ensure_daily_table(&self) -> LegadoResult<()> {
+    pub(crate) fn ensure_daily_table(&self) -> LegadoResult<()> {
         self.conn
             .execute(
                 "CREATE TABLE IF NOT EXISTS readRecordDaily (\
