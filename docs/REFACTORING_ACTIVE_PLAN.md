@@ -1,5 +1,15 @@
 # Legado 后续重构执行计划（Active）
 
+### JS-VM-FIXTURE-20261023：主脚本VM共享测试夹具修复（P1，代码及定向验证完成）
+
+- 用户要求修复server_engine_js的book-1/book-2断言失败；本地定向复现相同结果。根因是SOURCE-JS-SCOPE-20261022已明确普通声明按次隔离，两个旧集成夹具仍把顶层var计数当作缓存VM身份；不据此修改生产隔离规则或归因于依赖升级。
+- 仅将FFI与Server的mainJs夹具改为globalThis.calls，保留开库前后/FFI与Web共享、独立Engine隔离及原有连续计数断言。不新增同义测试、不改生产/API/依赖/版本或用户更新日志；单代理、定向验证后本地提交，不推送或安装。
+
+- 结果：FFI的main_js_vm_survives_database_open_and_is_reused_by_web与Server的same_source_main_js_shares_vm_between_hosts_but_not_engines两项均通过；原计数断言不变。仅两个测试文件及本条计划变动，定向rustfmt和git diff --check通过；没有扩大到全量测试、平台构建或新增保护逻辑。
+- 证据：build/rust-dependency-upgrade/server-engine-js.log为修改前同型失败，server-engine-js-fixed.log与server-context-js-fixed.log为修正后输出；分别使用cargo test --locked -p legado-ffi --features quickjs --test server_engine_js，以及cargo test --locked -p legado-server --features quickjs --test engine_context same_source_main_js_shares_vm_between_hosts_but_not_engines -- --exact。单代理复核，保留原VM共享/独立引擎隔离目的，不把所有预期改成book-1。本地提交，不推送、触发CI或安装；版本不变。
+
+编写者：Codex + Rust / Bridge｜2026-10-23
+
 ### SEARCH-NATIVE-ASSEMBLY-20261023：真实搜索用例聚合器装配修复（P1，代码及定向真实宿主验证完成）
 
 - 用户提供native搜索会话用例single读取空列表失败。核查mergeTestOverrides默认注入录制聚合器，动态本机HTTP数据不在录制样例中，导致聚合异常；本批仅修该native用例显式使用正式Rust聚合器，并在读取列表前断言错误/结果，避免掩盖原始失败。

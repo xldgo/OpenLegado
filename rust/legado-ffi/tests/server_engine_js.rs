@@ -17,9 +17,10 @@ impl Drop for StopServer {
 
 #[test]
 fn main_js_vm_survives_database_open_and_is_reused_by_web() {
+    // 普通声明按次隔离；显式来源状态用于验证 VM 跨开库和宿主复用。
     let source = json!({
         "bookSourceUrl": "https://local-js.test",
-        "mainJs": "var calls = 0; function getBookInfo(){ calls++; return {name:'book-' + calls}; }"
+        "mainJs": "function getBookInfo(){ globalThis.calls = (globalThis.calls || 0) + 1; return {name:'book-' + globalThis.calls}; }"
     });
     let book_url = "https://local-js.test/book";
     let next_name = || {

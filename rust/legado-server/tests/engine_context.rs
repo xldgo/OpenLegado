@@ -122,7 +122,7 @@ async fn same_source_main_js_shares_vm_between_hosts_but_not_engines() {
             .uri("/api/webbook/info")
             .header("content-type", "application/json")
             .body(Body::from(serde_json::json!({
-                "source": {"bookSourceUrl": "https://same-source.test", "mainJs": "var calls = 0; function getBookInfo(){ calls++; return {name:'book-' + calls}; }"},
+                "source": {"bookSourceUrl": "https://same-source.test", "mainJs": "function getBookInfo(){ globalThis.calls = (globalThis.calls || 0) + 1; return {name:'book-' + globalThis.calls}; }"},
                 "book_url": "https://same-source.test/book"
             }).to_string())).unwrap()).await.unwrap();
         let status = response.status();
