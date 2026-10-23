@@ -10,6 +10,8 @@
 - 限制：Linux 完整 metadata 首次离线检查缺缓存，联网恢复下载又遇到本机 Schannel SEC_E_NO_CREDENTIALS，未完成非 Windows 解析图检查；平台条件已包含在全部成员声明对照中，不据此声称跨平台编译通过。此次只改清单，没有运行全量业务测试、原生构建或新增机械测试，单代理复核，无独立审查。
 - 证据：本 worktree 的 build/workspace-deps/verification.json、metadata-{before,after}-windows-{default,all}.json 与下载失败日志；原清单和锁文件快照在同目录，仅作本次核对、不入库。主目录修改不变，应用版本不变，本地提交，不推送。
 
+- 后续整理：按用户确认，将 rusqlite 的 bundled 作为全项目统一 SQLite 构建策略移至 workspace 根声明，DB/Engine/FFI 三处仅继承。Windows 默认及全功能 Cargo metadata 修改前后完整一致，锁文件逐字节不变，diff 检查通过；证据 build/workspace-deps/bundled/verification.json。不新增测试、不构建设备，本地单独提交。
+
 编写者：Codex + Rust｜2026-10-24
 
 ### FRB-STALE-OUTPUTS-20261023：清理旧绑定与导出（P2，清理及定向验证完成）
