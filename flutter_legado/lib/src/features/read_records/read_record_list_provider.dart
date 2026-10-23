@@ -1,5 +1,3 @@
-export 'read_record_dataset.dart' show readRecordSessionsProvider;
-
 import '../../models/book_chapter.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';

@@ -62,7 +62,6 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
     final notifier = ref.read(readRecordNotifierProvider.notifier);
     ref.invalidate(readRecordRecordsProvider);
     ref.invalidate(readRecordDatasetProvider);
-    ref.invalidate(readRecordSessionsProvider);
     ref.invalidate(readRecordTimelineProvider);
     await Future.wait<Object?>([
       notifier.load(),

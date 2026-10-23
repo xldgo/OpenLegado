@@ -50,17 +50,3 @@ final readRecordDatasetProvider = FutureProvider<ReadRecordDataset>((
     details: results[1] as List<ReadRecordDetail>,
   );
 });
-
-final readRecordSessionsProvider =
-    FutureProvider.autoDispose<List<ReadRecordSession>>((ref) {
-      final repo = ref.watch(readRecordRepositoryProvider);
-      if (repo is ReadRecordChangeSource) {
-        final subscription = (repo as ReadRecordChangeSource).changes.listen((
-          _,
-        ) {
-          if (ref.mounted) ref.invalidateSelf();
-        });
-        ref.onDispose(subscription.cancel);
-      }
-      return repo.getReadRecordSessions();
-    });

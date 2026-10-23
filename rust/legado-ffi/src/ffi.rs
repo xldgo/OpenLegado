@@ -1867,6 +1867,13 @@ pub mod ffi {
         Ok(rt)
     }
 
+    /// 按平台本地小时边界只读汇总真实会话，返回24个槽的秒数。
+    pub fn read_record_hourly(boundaries: Vec<i64>) -> Result<Vec<i64>, BridgeError> {
+        Ok(crate::api::read_record_api::get_read_record_hourly(
+            &boundaries,
+        )?)
+    }
+
     /// 只读查询周期统计、排行及日历。
     pub fn read_record_overview(
         period: ReadRecordPeriodDto,

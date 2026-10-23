@@ -32,6 +32,7 @@ abstract interface class ReadRecordRepository {
     DateTime date,
   );
   Future<List<ReadBookRanking>> getReadRecordBooksForDay(DateTime date);
+  Future<List<int>> getReadRecordHourly(List<int> boundaries);
 
   Future<void> deleteReadRecordDetail(
     String bookName,

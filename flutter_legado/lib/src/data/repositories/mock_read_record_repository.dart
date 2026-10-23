@@ -147,6 +147,10 @@ class MockReadRecordRepository
       Future.error(UnsupportedError('Mock未提供当天统计，请注入结果夹具'));
 
   @override
+  Future<List<int>> getReadRecordHourly(List<int> boundaries) =>
+      Future.error(UnsupportedError('Mock未提供小时统计，请注入结果夹具'));
+
+  @override
   Future<List<ReadRecordTimelineEntry>> getReadRecordTimeline(String query) =>
       Future.error(UnsupportedError('Mock未提供阅读时间线，请注入时间线夹具'));
 

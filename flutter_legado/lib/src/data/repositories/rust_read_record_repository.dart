@@ -147,6 +147,14 @@ final class RustReadRecordRepository
           )
           .toList();
 
+  @override
+  Future<List<int>> getReadRecordHourly(List<int> boundaries) async =>
+      (await rustFuture(
+        () =>
+            bridge.readRecordHourly(boundaries: Int64List.fromList(boundaries)),
+        operation: 'readRecordHourly',
+      )).map((seconds) => seconds.toInt()).toList();
+
   String _dateKey(DateTime date) =>
       '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   ReadBookRanking _ranking(statistics.ReadBookRankingDto row) =>

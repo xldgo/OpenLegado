@@ -151,6 +151,13 @@ pub fn clear_read_records() -> LegadoResult<bool> {
     })
 }
 
+/// 按平台给定的小时边界汇总真实会话。
+pub fn get_read_record_hourly(boundaries: &[i64]) -> LegadoResult<Vec<i64>> {
+    with_database(|db| {
+        legado_db::repository::read_record_hourly::query_read_hourly(db.connection(), boundaries)
+    })
+}
+
 /// 按周期读取真实明细及累计记录，不写回统计快照。
 pub fn get_read_record_overview(
     period: legado_db::repository::read_record_statistics::ReadRecordPeriod,

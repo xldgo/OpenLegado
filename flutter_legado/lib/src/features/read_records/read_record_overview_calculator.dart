@@ -1,8 +1,7 @@
 import '../../models/read_record_identity.dart';
-import '../../models/models.dart';
 import 'read_record_overview_state.dart';
 
-/// 对照上游 GetReadRecordOverviewUseCase 的纯统计计算。— Codex + UI
+/// 统计页面的日历导航与平台小时边界；聚合由Rust负责。— Codex + UI
 class ReadRecordOverviewCalculator {
   static DateTime? parseDate(String value) {
     final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(value);
@@ -62,39 +61,9 @@ class ReadRecordOverviewCalculator {
 
   static Set<String> authors(String value) => readRecordAuthors(value);
 
-  /// 用真实会话与本地小时区间求交集；不从每日累计量推算小时分布。
-  static List<({DateTime date, int seconds})> hourlyDistribution(
-    DateTime date,
-    List<ReadRecordSession> sessions,
-  ) {
-    final boundaries = List.generate(
-      25,
-      (hour) => DateTime(date.year, date.month, date.day, hour),
-    );
-    final milliseconds = List.filled(24, 0);
-    final dayStart = boundaries.first.millisecondsSinceEpoch;
-    final dayEnd = boundaries.last.millisecondsSinceEpoch;
-    for (final session in sessions) {
-      if (session.endTime <= session.startTime ||
-          session.endTime <= dayStart ||
-          session.startTime >= dayEnd) {
-        continue;
-      }
-      for (var hour = 0; hour < 24; hour++) {
-        final start = session.startTime.clamp(
-          boundaries[hour].millisecondsSinceEpoch,
-          boundaries[hour + 1].millisecondsSinceEpoch,
-        );
-        final end = session.endTime.clamp(
-          boundaries[hour].millisecondsSinceEpoch,
-          boundaries[hour + 1].millisecondsSinceEpoch,
-        );
-        milliseconds[hour] += end - start;
-      }
-    }
-    return List.generate(
-      24,
-      (hour) => (date: boundaries[hour], seconds: milliseconds[hour] ~/ 1000),
-    );
-  }
+  /// 使用平台本地日历生成边界，保留夏令时的跳时和重复小时。
+  static List<DateTime> hourBoundaries(DateTime date) => List.generate(
+    25,
+    (hour) => DateTime(date.year, date.month, date.day, hour),
+  );
 }

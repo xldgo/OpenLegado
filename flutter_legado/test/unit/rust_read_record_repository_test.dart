@@ -14,11 +14,45 @@ void main() {
   final repository = RustReadRecordRepository();
   late _Bridge bridge;
 
+  setUpAll(() => registerFallbackValue(Int64List.fromList([])));
+
   setUp(() {
     bridge = _Bridge();
     RustLib.initMock(api: bridge);
   });
   tearDown(RustLib.dispose);
+
+  test('小时查询原样传递本地边界，仅映射秒数并保留错误', () async {
+    final boundaries = List.generate(
+      25,
+      (hour) => 1779235200000 + hour * 3600000,
+    );
+    final seconds = List.generate(24, (hour) => hour + 1);
+    when(
+      () => bridge.crateFfiFfiReadRecordHourly(
+        boundaries: any(named: 'boundaries'),
+      ),
+    ).thenAnswer((_) async => Int64List.fromList(seconds));
+    expect(await repository.getReadRecordHourly(boundaries), seconds);
+    final captured =
+        verify(
+              () => bridge.crateFfiFfiReadRecordHourly(
+                boundaries: captureAny(named: 'boundaries'),
+              ),
+            ).captured.single
+            as Int64List;
+    expect(captured.map((value) => value.toInt()).toList(), boundaries);
+    final failure = StateError('小时查询失败');
+    when(
+      () => bridge.crateFfiFfiReadRecordHourly(
+        boundaries: any(named: 'boundaries'),
+      ),
+    ).thenAnswer((_) async => throw failure);
+    await expectLater(
+      repository.getReadRecordHourly(boundaries),
+      throwsA(same(failure)),
+    );
+  });
 
   test('周期与日期只传查询参数，统计图与日历投影直接映射，明细查询错误上抛', () async {
     const book = statistics.ReadBookRankingDto(

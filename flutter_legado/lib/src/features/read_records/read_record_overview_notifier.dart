@@ -4,7 +4,6 @@ import '../../domain/contracts/read_record_changes.dart';
 import '../../domain/models/read_record_statistics.dart';
 import '../bookshelf/bookshelf.dart';
 import 'read_record_repository_provider.dart';
-import 'read_record_dataset.dart';
 import 'read_record_overview_calculator.dart';
 import 'read_record_overview_state.dart';
 
@@ -39,6 +38,27 @@ final readRecordStatisticsProvider = FutureProvider.autoDispose
       return repository.getReadRecordOverview(query.$1, query.$2);
     });
 
+/// 只传本地日历边界，不把全量原始会话带回Flutter。— Codex + UI
+final readRecordHourlyProvider = FutureProvider.autoDispose
+    .family<List<({DateTime date, int seconds})>, DateTime>((ref, date) async {
+      final repository = ref.watch(readRecordRepositoryProvider);
+      if (repository is ReadRecordChangeSource) {
+        final subscription = (repository as ReadRecordChangeSource).changes
+            .listen((_) {
+              if (ref.mounted) ref.invalidateSelf();
+            });
+        ref.onDispose(subscription.cancel);
+      }
+      final boundaries = ReadRecordOverviewCalculator.hourBoundaries(date);
+      final seconds = await repository.getReadRecordHourly(
+        boundaries.map((date) => date.millisecondsSinceEpoch).toList(),
+      );
+      return List.generate(
+        24,
+        (hour) => (date: boundaries[hour], seconds: seconds[hour]),
+      );
+    });
+
 ReadRecordOverviewState _overviewState(
   ReadPeriod period,
   DateTime date,
@@ -70,14 +90,11 @@ class ReadRecordOverviewNotifier extends Notifier<ReadRecordOverviewState> {
     final result = ref.watch(readRecordStatisticsProvider(query));
     final value = _overviewState(query.$1, query.$2, result);
     if (query.$1 != ReadPeriod.day) return value;
-    final sessions = ref.watch(readRecordSessionsProvider);
+    final hourly = ref.watch(readRecordHourlyProvider(query.$2));
     return value.copyWith(
-      dailyTimeData: ReadRecordOverviewCalculator.hourlyDistribution(
-        query.$2,
-        sessions.asData?.value ?? const [],
-      ),
-      isLoading: result.isLoading || sessions.isLoading,
-      error: result.error?.toString() ?? sessions.error?.toString(),
+      dailyTimeData: hourly.asData?.value ?? const [],
+      isLoading: result.isLoading || hourly.isLoading,
+      error: result.error?.toString() ?? hourly.error?.toString(),
     );
   }
 
@@ -105,7 +122,7 @@ class ReadRecordOverviewNotifier extends Notifier<ReadRecordOverviewState> {
     final requests = <Future<Object?>>[
       ref.refresh(readRecordStatisticsProvider(query).future),
       if (query.$1 == ReadPeriod.day)
-        ref.refresh(readRecordSessionsProvider.future),
+        ref.refresh(readRecordHourlyProvider(query.$2).future),
     ];
     // 错误由当前查询的AsyncValue呈现，不将旧查询的失败写到新页面选择。
     await Future.wait(requests)

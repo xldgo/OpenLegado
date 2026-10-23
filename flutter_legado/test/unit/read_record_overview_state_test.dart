@@ -13,6 +13,15 @@ class AuditRepo extends MockReadRecordRepository {
   ReadRecordStatistics result = const ReadRecordStatistics(totalTimeMs: 60000);
   Future<ReadRecordStatistics> Function(ReadPeriod, DateTime)? loader;
   final queries = <(ReadPeriod, DateTime)>[];
+  List<int> hours = List.filled(24, 0);
+  Future<List<int>> Function(List<int>)? hoursLoader;
+  final hourQueries = <List<int>>[];
+  @override
+  Future<List<int>> getReadRecordHourly(List<int> boundaries) {
+    hourQueries.add(List.of(boundaries));
+    return hoursLoader?.call(boundaries) ?? Future.value(hours);
+  }
+
   @override
   Future<ReadRecordStatistics> getReadRecordOverview(
     ReadPeriod period,
@@ -61,26 +70,49 @@ void main() {
       DateTime(2025, 2, 28),
     );
   });
-  test('成功写入与强制刷新重新查询，查询失败展示且可恢复', () async {
-    final repo = AuditRepo();
+  test('成功写入重查时长与小时图，小时查询失败展示且可恢复', () async {
+    final repo = AuditRepo()..hours = List.filled(24, 10);
     final c = containerFor(repo);
     addTearDown(c.dispose);
     final sub = c.listen(readRecordOverviewNotifierProvider, (_, _) {});
     addTearDown(sub.close);
     await flush();
     expect(c.read(readRecordOverviewNotifierProvider).totalTimeMs, 60000);
+    final date = c.read(readRecordOverviewNotifierProvider).referenceDate;
+    final boundaries = repo.hourQueries.single;
+    expect(
+      boundaries,
+      List.generate(
+        25,
+        (hour) => DateTime(
+          date.year,
+          date.month,
+          date.day,
+          hour,
+        ).millisecondsSinceEpoch,
+      ),
+    );
+    expect(c.read(readRecordOverviewNotifierProvider).dailyTimeData[3], (
+      date: DateTime(date.year, date.month, date.day, 3),
+      seconds: 10,
+    ));
     repo.result = const ReadRecordStatistics(totalTimeMs: 120000);
+    repo.hours = List.filled(24, 20);
     await repo.clearReadRecords();
     await flush();
     expect(c.read(readRecordOverviewNotifierProvider).totalTimeMs, 120000);
-    repo.loader = (_, _) => Future.error(StateError('统计查询失败'));
+    expect(
+      c.read(readRecordOverviewNotifierProvider).dailyTimeData[3].seconds,
+      20,
+    );
+    repo.hoursLoader = (_) => Future.error(StateError('小时查询失败'));
     await c.read(readRecordOverviewNotifierProvider.notifier).refresh();
     await flush();
     expect(
       c.read(readRecordOverviewNotifierProvider).error,
-      contains('统计查询失败'),
+      contains('小时查询失败'),
     );
-    repo.loader = null;
+    repo.hoursLoader = null;
     repo.result = const ReadRecordStatistics(totalTimeMs: 180000);
     await c.read(readRecordOverviewNotifierProvider.notifier).refresh();
     await flush();
@@ -89,10 +121,12 @@ void main() {
   });
   test('请求中导航与仓储替换后旧查询不能覆盖当前周期', () async {
     final pending = Completer<ReadRecordStatistics>();
-    final repo = AuditRepo()
-      ..loader = (period, date) => period == ReadPeriod.day
-          ? pending.future
-          : Future.value(const ReadRecordStatistics(totalTimeMs: 200));
+    final pendingHours = Completer<List<int>>();
+    final repo = AuditRepo();
+    repo.hoursLoader = (_) => pendingHours.future;
+    repo.loader = (period, date) => period == ReadPeriod.day
+        ? pending.future
+        : Future.value(const ReadRecordStatistics(totalTimeMs: 200));
     final c = containerFor(repo);
     addTearDown(c.dispose);
     final sub = c.listen(readRecordOverviewNotifierProvider, (_, _) {});
@@ -111,9 +145,12 @@ void main() {
     ]);
     await flush();
     pending.complete(const ReadRecordStatistics(totalTimeMs: 999));
+    pendingHours.complete(List.filled(24, 999));
     await flush();
     expect(c.read(readRecordOverviewNotifierProvider).period, ReadPeriod.year);
     expect(c.read(readRecordOverviewNotifierProvider).totalTimeMs, 300);
+    expect(c.read(readRecordOverviewNotifierProvider).dailyTimeData, isEmpty);
+    expect(replacement.hourQueries, isEmpty);
   });
   test('首页固定总查询，不跟随总览导航和记录搜索', () async {
     final repo = AuditRepo()
