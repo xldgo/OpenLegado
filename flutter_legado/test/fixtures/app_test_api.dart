@@ -1,3 +1,7 @@
+import 'package:flutter_legado/src/providers/backup_provider.dart'
+    show backupPasswordStoreProvider;
+import 'package:flutter_legado/src/platform/backup/backup_password_store.dart';
+
 export 'read_aloud_planner_stub.dart';
 import 'search_aggregation.dart';
 import 'read_aloud_planner.dart';
@@ -191,6 +195,9 @@ extension TestApiOverrides on TestApi {
     appLogRepositoryProvider.overrideWith((ref) => appLogRepository),
     webDavServiceProvider.overrideWith((ref) => webDavService),
     backupRepositoryProvider.overrideWith((ref) => backupRepository),
+    backupPasswordStoreProvider.overrideWith(
+      (ref) => MemoryBackupPasswordStore(),
+    ),
     localBookServiceProvider.overrideWith((ref) => localBookService),
     bookArchiveServiceProvider.overrideWith((ref) => bookArchiveService),
     bookExportServiceProvider.overrideWith((ref) => bookExportService),

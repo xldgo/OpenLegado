@@ -256,10 +256,19 @@ void main() {
     final bookCount = (await const RustBookshelfRepository().getBooks()).length;
     final ruleCount =
         (await const RustReplaceRuleRepository().getReplaceRules()).length;
-    final path = '${root.absolute.path}/backup.json';
-    expect(await bridge.backupCreate(path: path), path);
+    final path = '${root.absolute.path}/backup.zip';
+    expect(
+      await bridge.backupCreate(
+        path: path,
+        preferencesJson: '{}',
+        filesJson: '{}',
+        sensitiveJson: '{}',
+        password: null,
+      ),
+      path,
+    );
     final files = await bridge.backupList(dir: root.absolute.path);
-    expect(files.single.name, 'backup.json');
+    expect(files.single.name, 'backup.zip');
     expect(
       File(files.single.path).resolveSymbolicLinksSync(),
       File(path).resolveSymbolicLinksSync(),
@@ -270,7 +279,12 @@ void main() {
       await rss.deleteRssSource(source.sourceUrl);
     }
     expect(await rss.getRssSources(), isEmpty);
-    final stats = await bridge.backupRestore(path: path);
+    final restoredPackage = await bridge.backupRestore(
+      path: path,
+      password: null,
+      ignoreJson: '[]',
+    );
+    final stats = restoredPackage.stats;
     expect(stats.books, BigInt.from(bookCount));
     expect(stats.replaceRules, BigInt.from(ruleCount));
     expect(stats.additional['readRecordDaily'], BigInt.zero);

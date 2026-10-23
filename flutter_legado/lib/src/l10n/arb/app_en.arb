@@ -1415,5 +1415,7 @@
         "type": "int"
       }
     }
-  }
+  },
+  "backupSelectRemote": "Select remote backup",
+  "backupNoRemote": "No remote backups available"
 }

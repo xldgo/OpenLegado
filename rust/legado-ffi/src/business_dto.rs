@@ -459,6 +459,13 @@ impl From<crate::api::rule_sub_api::ApplyUpdateResponse> for SubscriptionApplyDt
     }
 }
 #[derive(Debug, Clone)]
+pub struct BackupRestoreResultDto {
+    pub stats: RestoreStatsDto,
+    pub preferences_json: String,
+    pub sensitive_json: String,
+    pub warnings: Vec<String>,
+}
+#[derive(Debug, Clone)]
 pub struct RestoreStatsDto {
     pub books: usize,
     pub bookmarks: usize,

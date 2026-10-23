@@ -4633,5 +4633,7 @@
         "type": "int"
       }
     }
-  }
+  },
+  "backupSelectRemote": "选择云端备份",
+  "backupNoRemote": "云端没有可用备份"
 }

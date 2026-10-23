@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import '../../domain/models/backup_restore_result.dart';
 import '../bridge/rust_errors.dart';
 import '../../domain/models/old_data_import_result.dart';
 import '../../domain/models/backup_restore_stats.dart';
@@ -17,23 +20,39 @@ final class RustBackupRepository implements BackupRepository {
   ///
   /// 在 [dirPath] 下生成时间戳命名的备份文件，返回实际备份文件路径。
   @override
-  Future<String> backup(String dirPath) async {
+  Future<String> backup(
+    String dirPath, {
+    Map<String, dynamic> preferences = const {},
+    Map<String, String> files = const {},
+    Map<String, dynamic> sensitive = const {},
+    String? password,
+  }) async {
     final dir = Directory(dirPath);
     if (!await dir.exists()) {
       await dir.create(recursive: true);
     }
     final fileName =
-        'legado_backup_${DateTime.now().millisecondsSinceEpoch}.json';
+        'legado_backup_${DateTime.now().microsecondsSinceEpoch}.zip';
     final filePath = '$dirPath${Platform.pathSeparator}$fileName';
     return rustFuture(
-      () => bridge.backupCreate(path: filePath),
+      () => bridge.backupCreate(
+        path: filePath,
+        preferencesJson: jsonEncode(preferences),
+        filesJson: jsonEncode(files),
+        sensitiveJson: jsonEncode(sensitive),
+        password: password,
+      ),
       operation: 'backupCreate',
     );
   }
 
   /// 恢复数据（委托 Rust backup_restore：从备份文件导入）
   @override
-  Future<BackupRestoreStats> restore(String backupPath) async {
+  Future<BackupRestoreResult> restore(
+    String backupPath, {
+    String? password,
+    Set<String> ignore = const {},
+  }) async {
     final file = File(backupPath);
     if (!await file.exists()) {
       throw AppException(
@@ -41,20 +60,34 @@ final class RustBackupRepository implements BackupRepository {
         operation: 'restore',
       );
     }
-    final stats = await rustFuture(
-      () => bridge.backupRestore(path: backupPath),
+    final result = await rustFuture(
+      () => bridge.backupRestore(
+        path: backupPath,
+        password: password,
+        ignoreJson: jsonEncode(ignore.toList()..sort()),
+      ),
       operation: 'backupRestore',
     );
-    return BackupRestoreStats(
-      books: stats.books.toInt(),
-      bookmarks: stats.bookmarks.toInt(),
-      replaceRules: stats.replaceRules.toInt(),
-      bookSources: stats.bookSources.toInt(),
-      rssSources: stats.rssSources.toInt(),
-      readRecords: stats.readRecords.toInt(),
-      additional: Map.unmodifiable(
-        stats.additional.map((key, value) => MapEntry(key, value.toInt())),
+    final stats = result.stats;
+    return BackupRestoreResult(
+      stats: BackupRestoreStats(
+        books: stats.books.toInt(),
+        bookmarks: stats.bookmarks.toInt(),
+        replaceRules: stats.replaceRules.toInt(),
+        bookSources: stats.bookSources.toInt(),
+        rssSources: stats.rssSources.toInt(),
+        readRecords: stats.readRecords.toInt(),
+        additional: Map.unmodifiable(
+          stats.additional.map((key, value) => MapEntry(key, value.toInt())),
+        ),
       ),
+      preferences: Map.unmodifiable(
+        jsonDecode(result.preferencesJson) as Map<String, dynamic>,
+      ),
+      sensitive: Map.unmodifiable(
+        jsonDecode(result.sensitiveJson) as Map<String, dynamic>,
+      ),
+      warnings: List.unmodifiable(result.warnings),
     );
   }
 

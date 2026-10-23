@@ -1,15 +1,13 @@
+import 'dart:io';
+
+import '../../domain/models/reader_font.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../constants/pref_keys.dart';
 import '../../services/settings_write_queue.dart';
 
-/// 备份 JSON 中偏好字段名（Flutter 单文件备份扩展，对齐原版 config.xml）
-const kBackupAppPrefsKey = 'appPrefs';
-
-/// 恢复忽略项的偏好备份/恢复（对齐 [BackupConfig.keyIsNotIgnore] + Restore 写 prefs）
-///
-/// 原版 ZIP 含 SharedPreferences `config`；重构版 JSON 仅有业务表时，
-/// 由本助手在备份后注入 / 恢复前应用 `appPrefs`，使 ignore 键除 localBook 外亦可生效。
+/// 平台普通偏好的快照及恢复忽略规则；ZIP读写由Rust统一处理。
 class BackupPreferencesService {
   BackupPreferencesService({
     Future<SharedPreferences> Function()? loadPreferences,
@@ -19,6 +17,9 @@ class BackupPreferencesService {
 
   /// 始终不备份/不恢复（对齐 BackupConfig.ignorePrefKeys）
   static const alwaysIgnoreKeys = <String>{
+    'sync_webdav_password',
+    'app_backup_path',
+    'sync_webdav_device_name',
     PrefKeys.webServiceWakeLock,
     PrefKeys.defaultBookTreeUri,
     PrefKeys.bitmapCacheSize,
@@ -224,6 +225,32 @@ class BackupPreferencesService {
       out[key] = value;
     }
     return out;
+  }
+
+  /// 只收集已配置的用户文件；网络图片和可重建缓存不进入资源包。
+  Map<String, String> collectFiles(Map<String, dynamic> preferences) {
+    final files = <String, String>{};
+    void add(String value) {
+      if (value.isEmpty) return;
+      final uri = Uri.tryParse(value);
+      final path = uri?.scheme == 'file' ? uri!.toFilePath() : value;
+      if (File(path).isAbsolute) files[value] = path;
+    }
+
+    final fonts = preferences['reader_custom_fonts'];
+    if (fonts is List) {
+      for (final entry in fonts) {
+        if (entry is String) {
+          final font = ReaderFont.decode(entry);
+          if (font != null) add(font.path);
+        }
+      }
+    }
+    for (final key in [PrefKeys.bgImage, PrefKeys.bgImageN]) {
+      final value = preferences[key];
+      if (value is String) add(value);
+    }
+    return files;
   }
 
   /// 将备份中的 appPrefs 写入 SharedPreferences（按 ignore 过滤）

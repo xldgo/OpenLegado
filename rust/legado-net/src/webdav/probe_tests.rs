@@ -133,3 +133,29 @@ async fn probe_distinguishes_invalid_address_from_transport_failure() {
     );
     server.await.unwrap();
 }
+
+#[tokio::test]
+async fn mkdir_checks_http_failures_and_accepts_existing_collection() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let client = WebDavClient::new(config(format!("http://{}", listener.local_addr().unwrap())));
+    let server = tokio::spawn(async move {
+        for code in [201, 405, 401, 500] {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let request = request_headers(&mut socket).await;
+            assert!(request.starts_with("MKCOL "));
+            socket
+                .write_all(
+                    format!(
+                        "HTTP/1.1 {code} Test\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                    )
+                    .as_bytes(),
+                )
+                .await
+                .unwrap();
+        }
+    });
+    for expected in [true, true, false, false] {
+        assert_eq!(client.mkdir("nested").await.is_ok(), expected);
+    }
+    server.await.unwrap();
+}

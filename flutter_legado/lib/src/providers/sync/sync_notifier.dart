@@ -233,28 +233,32 @@ class SyncNotifier extends Notifier<SyncState> {
 
   // ===== 同步操作（领域服务调用） =====
 
-  /// 备份到 WebDAV（上传本地书架 + 书源）
-  ///
-  /// 调用真实 webdavFullSync，对齐原版 web_dav_backup。
-  Future<void> backupToWebDav() async {
+  /// 上传与本地相同的完整备份包；有localPath时不重新生成。
+  Future<void> backupToWebDav({
+    String? localPath,
+    bool includeCloudCredentials = false,
+  }) async {
     if (!state.isConfigured) {
       _setError('请先配置 WebDAV 服务器信息');
       return;
     }
     _setStatus(SyncStatus.syncing);
     try {
-      await ref.read(backupServiceProvider).backupToWebDav(connection);
+      await ref
+          .read(backupServiceProvider)
+          .backupToWebDav(
+            connection,
+            localPath: localPath,
+            includeCloudCredentials: includeCloudCredentials,
+          );
       await _markSyncSuccess();
     } catch (e) {
       _setError('备份失败: $e');
     }
   }
 
-  /// 只下载并恢复远端书架、书源，不上传本地数据。— Codex + UI
-  ///
-  /// 两份载荷先完成结构校验，再沿用各仓储的导入规则；不清空本地数据。
-  /// 返回实际完成情况，部分回写失败不记录为完整同步成功。
-  Future<String> restoreFromWebDav() async {
+  /// 下载选定ZIP并共用本地恢复入口，恢复绝不调用上传。
+  Future<String> restoreFromWebDav({String? fileName}) async {
     if (!state.isConfigured) {
       _setError('请先配置 WebDAV 服务器信息');
       return '请先配置 WebDAV 服务器信息';
@@ -263,9 +267,31 @@ class SyncNotifier extends Notifier<SyncState> {
     try {
       final restored = await ref
           .read(backupServiceProvider)
-          .restoreFromWebDav(connection);
+          .restoreFromWebDav(connection, fileName: fileName);
+      final stats = restored.stats;
+      final total =
+          stats.books +
+          stats.bookmarks +
+          stats.replaceRules +
+          stats.bookSources +
+          stats.rssSources +
+          stats.readRecords +
+          stats.additional.values.fold<int>(0, (a, b) => a + b);
+      if (restored.preferencesError != null) {
+        final message = '已恢复$total条业务记录，设置或凭据恢复失败：${restored.preferencesError}';
+        _setError(message);
+        return message;
+      }
       await _markSyncSuccess();
-      return '恢复完成，回写 ${restored.books} 本书籍、${restored.sources} 条书源';
+      if (restored.warnings.isNotEmpty && ref.mounted) {
+        state = state.copyWith(
+          error: [
+            if (state.error != null) state.error!,
+            ...restored.warnings,
+          ].join('\n'),
+        );
+      }
+      return '已恢复$total条业务记录${state.error == null ? '' : '\n${state.error}'}';
     } catch (error) {
       final message = '$error';
       _setError(message);

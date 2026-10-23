@@ -81,6 +81,37 @@ class BackupFileDto {
           modified == other.modified;
 }
 
+class BackupRestoreResultDto {
+  final RestoreStatsDto stats;
+  final String preferencesJson;
+  final String sensitiveJson;
+  final List<String> warnings;
+
+  const BackupRestoreResultDto({
+    required this.stats,
+    required this.preferencesJson,
+    required this.sensitiveJson,
+    required this.warnings,
+  });
+
+  @override
+  int get hashCode =>
+      stats.hashCode ^
+      preferencesJson.hashCode ^
+      sensitiveJson.hashCode ^
+      warnings.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is BackupRestoreResultDto &&
+          runtimeType == other.runtimeType &&
+          stats == other.stats &&
+          preferencesJson == other.preferencesJson &&
+          sensitiveJson == other.sensitiveJson &&
+          warnings == other.warnings;
+}
+
 class BookOrderDto {
   final String bookUrl;
   final int order;

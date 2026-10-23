@@ -1,4 +1,6 @@
-import 'package:flutter_legado/src/domain/models/webdav_sync_result.dart';
+import 'package:flutter_legado/src/data/services/backup_service.dart';
+import 'package:flutter_legado/src/providers/backup_provider.dart';
+import 'package:flutter_legado/src/domain/models/backup_restore_stats.dart';
 
 import '../fixtures/app_test_api.dart';
 
@@ -10,7 +12,6 @@ import 'package:flutter_legado/src/data/services/rust_webdav_service.dart';
 // 初始状态/配置管理（saveConfig/loadConfig/toggle/setter）/真实同步操作
 // （backupToWebDav/restoreFromWebDav）/lastSyncTimeLabel/SyncStatus 枚举。
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_legado/src/domain/contracts/webdav_connection_repository.dart';
@@ -23,9 +24,10 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/providers/sync/sync_notifier.dart';
-import 'package:flutter_legado/src/models/models.dart';
 
 import '../mocks/mocks.dart';
+
+class _BackupWorkflow extends Mock implements BackupService {}
 
 class _ConnectionRepository extends Fake implements WebDavConnectionRepository {
   WebDavConnection saved = const WebDavConnection();
@@ -66,6 +68,7 @@ class _MetadataRepository implements SyncMetadataRepository {
 void main() {
   late MockRustApi mockApi;
   late ProviderContainer container;
+  late _BackupWorkflow workflow;
 
   setUpAll(() {
     registerFallbacks();
@@ -74,37 +77,41 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
+    workflow = _BackupWorkflow();
+    when(
+      () => workflow.backupToWebDav(
+        any(),
+        localPath: any(named: 'localPath'),
+        includeCloudCredentials: any(named: 'includeCloudCredentials'),
+      ),
+    ).thenAnswer((_) async {});
+    when(
+      () => workflow.restoreFromWebDav(any(), fileName: any(named: 'fileName')),
+    ).thenAnswer(
+      (_) async => (
+        stats: const BackupRestoreStats(
+          books: 1,
+          bookmarks: 0,
+          replaceRules: 0,
+          bookSources: 1,
+          rssSources: 0,
+          readRecords: 0,
+        ),
+        preferencesError: null,
+        warnings: <String>[],
+      ),
+    );
     container = ProviderContainer(
-      overrides: mergeTestOverrides([...mockApi.overrides]),
+      overrides: mergeTestOverrides([
+        ...mockApi.overrides,
+        backupServiceProvider.overrideWithValue(workflow),
+      ]),
     );
     addTearDown(container.dispose);
   });
 
   SyncState readState() => container.read(syncNotifierProvider);
   SyncNotifier readNotifier() => container.read(syncNotifierProvider.notifier);
-
-  /// 桩入真实同步所需的 TestApi 调用
-  void stubSyncApis({String remoteBooks = '[]', String remoteSources = '[]'}) {
-    when(() => mockApi.bookshelfRepository.getBooks())
-        .thenAnswer((_) async => [const Book(bookUrl: 'b1', name: '书1')]);
-    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer(
-      (_) async => [
-        const BookSource(bookSourceUrl: 'https://a.com', bookSourceName: '源A'),
-      ],
-    );
-    when(() => mockApi.webDavService.webdavFullSync(any(), any(), any()))
-        .thenAnswer(
-          (_) async => WebDavSyncResult(books: '[]', sources: remoteSources),
-        );
-    when(() => mockApi.webDavService.webdavDownload(any(), 'bookshelf.json'))
-        .thenAnswer((_) async => remoteBooks);
-    when(() => mockApi.webDavService.webdavDownload(any(), 'sources.json'))
-        .thenAnswer((_) async => remoteSources);
-    when(() => mockApi.bookshelfRepository.importBooks(any()))
-        .thenAnswer((_) async => 1);
-    when(() => mockApi.bookSourceRepository.importBookSources(any()))
-        .thenAnswer((_) async => 1);
-  }
 
   group('SyncNotifier 初始状态', () {
     test('初始状态为 idle', () {
@@ -297,405 +304,168 @@ void main() {
     });
   });
 
-  group('SyncNotifier 真实同步操作', () {
-    test('云端恢复只下载远端书架和书源，不读取或上传本地快照', () async {
-      const remoteBooks = '[{"bookUrl":"remote-book","name":"云端书籍"}]';
-      const remoteSources = '[{"bookSourceUrl":"https://remote.example"}]';
-      when(() => mockApi.bookshelfRepository.getBooks())
-          .thenAnswer((_) async => const []);
-      when(() => mockApi.bookSourceRepository.getBookSources())
-          .thenAnswer((_) async => const []);
-      when(() => mockApi.webDavService.webdavFullSync(any(), any(), any()))
-          .thenAnswer(
-            (_) async => const WebDavSyncResult(books: '[]', sources: '[]'),
-          );
-      when(() => mockApi.webDavService.webdavDownload(any(), 'bookshelf.json'))
-          .thenAnswer((_) async => remoteBooks);
-      when(() => mockApi.webDavService.webdavDownload(any(), 'sources.json'))
-          .thenAnswer((_) async => remoteSources);
-      when(() => mockApi.bookshelfRepository.importBooks(remoteBooks))
-          .thenAnswer((_) async => 1);
-      when(() => mockApi.bookSourceRepository.importBookSources(remoteSources))
-          .thenAnswer((_) async => 1);
-      await readNotifier().saveConfig('https://dav.example', 'u', 'p', '/dir');
-
-      final message = await readNotifier().restoreFromWebDav();
-
-      verifyNever(
-        () => mockApi.webDavService.webdavFullSync(any(), any(), any()),
+  group('SyncNotifier完整包操作', () {
+    test('恢复消费整包结果而不上传，成功后记录时间', () async {
+      await readNotifier().saveConfig(
+        'https://dav.test',
+        'user',
+        'password',
+        'legado',
       );
+      final message = await readNotifier().restoreFromWebDav(
+        fileName: 'selected.zip',
+      );
+      expect(message, contains('2条业务记录'));
       expect(readState().status, SyncStatus.success);
-      expect(message, '恢复完成，回写 1 本书籍、1 条书源');
-      final configs = verify(
-        () => mockApi.webDavService.webdavDownload(captureAny(), any()),
-      ).captured.cast<WebDavConnection>();
-      expect(configs, hasLength(2));
-      expect(
-        configs.map((connection) => jsonDecode(encodeWebDavConfig(connection))),
-        everyElement({
-          'url': 'https://dav.example',
-          'username': 'u',
-          'password': 'p',
-          'remote_dir': '/dir/',
-        }),
-      );
-      verify(() => mockApi.bookshelfRepository.importBooks(remoteBooks))
+      expect(readState().lastSyncTime, isNotNull);
+      verify(() => workflow.restoreFromWebDav(any(), fileName: 'selected.zip'))
           .called(1);
-      verify(
-        () => mockApi.bookSourceRepository.importBookSources(remoteSources),
-      ).called(1);
       verifyNever(
-        () => mockApi.webDavService.webdavUpload(any(), any(), any()),
+        () => workflow.backupToWebDav(
+          any(),
+          localPath: any(named: 'localPath'),
+          includeCloudCredentials: any(named: 'includeCloudCredentials'),
+        ),
       );
-      verifyNever(
-        () => mockApi.webDavService.webdavUploadFile(any(), any(), any()),
+    });
+    test('业务已提交但设置失败保留部分结果，不更新时间或重复恢复', () async {
+      await readNotifier().saveConfig(
+        'https://dav.test',
+        'user',
+        'password',
+        'legado',
       );
-      verifyNever(() => mockApi.webDavService.webdavDelete(any(), any()));
-      verifyNever(() => mockApi.bookshelfRepository.getBooks());
-      verifyNever(() => mockApi.bookSourceRepository.getBookSources());
-    });
-
-    test('两份载荷下载完成前不开始任何导入', () async {
-      const books = '[{"bookUrl":"remote-book"}]';
-      const sources = '[{"bookSourceUrl":"remote-source"}]';
-      stubSyncApis(remoteBooks: books, remoteSources: sources);
-      final download = Completer<String>();
-      when(() => mockApi.webDavService.webdavDownload(any(), 'sources.json'))
-          .thenAnswer((_) => download.future);
-      await readNotifier().saveConfig('https://dav.example', 'u', 'p', '/dir/');
-
-      final restoring = readNotifier().restoreFromWebDav();
-      await Future<void>.delayed(Duration.zero);
-
-      expect(readState().status, SyncStatus.syncing);
-      verifyNever(() => mockApi.bookshelfRepository.importBooks(any()));
-      verifyNever(() => mockApi.bookSourceRepository.importBookSources(any()));
-      download.complete(sources);
-      await restoring;
-      expect(readState().status, SyncStatus.success);
-      verifyInOrder([
-        () => mockApi.webDavService.webdavDownload(any(), 'bookshelf.json'),
-        () => mockApi.webDavService.webdavDownload(any(), 'sources.json'),
-        () => mockApi.bookshelfRepository.importBooks(books),
-        () => mockApi.bookSourceRepository.importBookSources(sources),
-      ]);
-    });
-
-    for (final file in ['bookshelf.json', 'sources.json']) {
-      test('$file下载失败不回写本地，也不更新上次同步时间', () async {
-        SharedPreferences.setMockInitialValues({'sync_last_time': 1234});
-        stubSyncApis(
-          remoteBooks: '[{"bookUrl":"remote-book"}]',
-          remoteSources: '[{"bookSourceUrl":"remote-source"}]',
-        );
-        when(() => mockApi.webDavService.webdavDownload(any(), file))
-            .thenThrow(StateError('远端文件不存在或网络失败'));
-        await readNotifier().saveConfig(
-          'https://dav.example',
-          'u',
-          'p',
-          '/dir/',
-        );
-        await readNotifier().loadConfig();
-
-        final message = await readNotifier().restoreFromWebDav();
-
-        expect(readState().status, SyncStatus.error);
-        expect(message, contains('恢复失败'));
-        expect(message, contains('远端文件不存在或网络失败'));
-        expect(readState().lastSyncTime?.millisecondsSinceEpoch, 1234);
-        expect(
-          (await SharedPreferences.getInstance()).getInt('sync_last_time'),
-          1234,
-        );
-        verifyNever(() => mockApi.bookshelfRepository.importBooks(any()));
-        verifyNever(
-          () => mockApi.bookSourceRepository.importBookSources(any()),
-        );
-        verifyNever(
-          () => mockApi.webDavService.webdavFullSync(any(), any(), any()),
-        );
-      });
-
-      for (final (label, payload) in [
-        ('空响应', ''),
-        ('损坏JSON', '[{'),
-        ('null', 'null'),
-        ('对象代替数组', '{}'),
-        ('非对象条目', '[1]'),
-        ('缺少标识', '[{}]'),
-        ('空标识', '[{"bookUrl":" ","bookSourceUrl":" "}]'),
-        ('非字符串标识', '[{"bookUrl":1,"bookSourceUrl":1}]'),
-      ]) {
-        test('$file$label在任何导入前被拒绝', () async {
-          stubSyncApis(
-            remoteBooks: '[{"bookUrl":"remote-book"}]',
-            remoteSources: '[{"bookSourceUrl":"remote-source"}]',
-          );
-          when(() => mockApi.webDavService.webdavDownload(any(), file))
-              .thenAnswer((_) async => payload);
-          await readNotifier().saveConfig(
-            'https://dav.example',
-            'u',
-            'p',
-            '/dir/',
-          );
-
-          final message = await readNotifier().restoreFromWebDav();
-
-          expect(readState().status, SyncStatus.error);
-          expect(readState().lastSyncTime, isNull);
-          expect(message, contains(file));
-          verifyNever(() => mockApi.bookshelfRepository.importBooks(any()));
-          verifyNever(
-            () => mockApi.bookSourceRepository.importBookSources(any()),
-          );
-          verifyNever(
-            () => mockApi.webDavService.webdavFullSync(any(), any(), any()),
-          );
-        });
-      }
-    }
-
-    test('恢复原样保留扩展字段，不按Dart模型重编码载荷', () async {
-      const books = '[ {"bookUrl":"remote-book", "extra":{"flag":true}} ]';
-      const sources = '[ {"bookSourceUrl":"remote-source", "extra":[1,2]} ]';
-      stubSyncApis(remoteBooks: books, remoteSources: sources);
-      await readNotifier().saveConfig('https://dav.example', 'u', 'p', '/dir/');
-
-      expect(await readNotifier().restoreFromWebDav(), '恢复完成，回写 1 本书籍、1 条书源');
-
-      verify(() => mockApi.bookshelfRepository.importBooks(books)).called(1);
-      verify(() => mockApi.bookSourceRepository.importBookSources(sources))
-          .called(1);
-    });
-
-    test('书籍导入失败不继续书源导入，不覆盖原同步时间', () async {
-      SharedPreferences.setMockInitialValues({'sync_last_time': 1234});
-      stubSyncApis(
-        remoteBooks: '[{"bookUrl":"remote-book"}]',
-        remoteSources: '[{"bookSourceUrl":"remote-source"}]',
+      when(
+        () =>
+            workflow.restoreFromWebDav(any(), fileName: any(named: 'fileName')),
+      ).thenAnswer(
+        (_) async => (
+          stats: const BackupRestoreStats(
+            books: 1,
+            bookmarks: 0,
+            replaceRules: 0,
+            bookSources: 0,
+            rssSources: 0,
+            readRecords: 0,
+          ),
+          preferencesError: StateError('设置失败'),
+          warnings: <String>[],
+        ),
       );
-      when(() => mockApi.bookshelfRepository.importBooks(any()))
-          .thenThrow(StateError('书籍导入失败'));
-      await readNotifier().saveConfig('https://dav.example', 'u', 'p', '/dir/');
-      await readNotifier().loadConfig();
-
       final message = await readNotifier().restoreFromWebDav();
-
+      expect(message, contains('已恢复1条业务记录'));
+      expect(message, contains('设置失败'));
       expect(readState().status, SyncStatus.error);
-      expect(message, contains('书籍导入失败'));
-      expect(readState().lastSyncTime?.millisecondsSinceEpoch, 1234);
-      expect(
-        (await SharedPreferences.getInstance()).getInt('sync_last_time'),
-        1234,
-      );
-      verify(() => mockApi.bookshelfRepository.importBooks(any())).called(1);
-      verifyNever(() => mockApi.bookSourceRepository.importBookSources(any()));
+      expect(readState().lastSyncTime, isNull);
+      verify(() => workflow.restoreFromWebDav(any(), fileName: null)).called(1);
     });
-
-    test('书籍已导入但书源失败报告部分完成，不重做导入或更新时间', () async {
-      SharedPreferences.setMockInitialValues({'sync_last_time': 1234});
-      stubSyncApis(
-        remoteBooks: '[{"bookUrl":"remote-book"}]',
-        remoteSources: '[{"bookSourceUrl":"remote-source"}]',
-      );
-      when(() => mockApi.bookshelfRepository.importBooks(any()))
-          .thenAnswer((_) async => 1);
-      when(() => mockApi.bookSourceRepository.importBookSources(any()))
-          .thenThrow(StateError('书源写入失败'));
-      await readNotifier().saveConfig('https://dav.example', 'u', 'p', '/dir/');
-      await readNotifier().loadConfig();
-
-      final message = await readNotifier().restoreFromWebDav();
-
-      expect(readState().status, SyncStatus.error);
-      expect(message, contains('恢复未完成，已回写 1 本书籍；书源恢复失败'));
-      expect(message, contains('书源写入失败'));
-      expect(readState().error, message);
-      expect(readState().lastSyncTime?.millisecondsSinceEpoch, 1234);
-      expect(
-        (await SharedPreferences.getInstance()).getInt('sync_last_time'),
-        1234,
-      );
-      verify(() => mockApi.bookshelfRepository.importBooks(any())).called(1);
-      verify(() => mockApi.bookSourceRepository.importBookSources(any()))
-          .called(1);
-      verify(
-        () => mockApi.webDavService.webdavDownload(any(), 'bookshelf.json'),
-      ).called(1);
-      verify(() => mockApi.webDavService.webdavDownload(any(), 'sources.json'))
-          .called(1);
-      verifyNever(
-        () => mockApi.webDavService.webdavFullSync(any(), any(), any()),
-      );
-    });
-
-    for (final restore in [false, true]) {
-      test('云端${restore ? '恢复' : '备份'}完成但时间记录失败保留旧时间和成功，不重做云端', () async {
-        final metadata = _MetadataRepository();
-        container = ProviderContainer(
-          overrides: mergeTestOverrides([
-            ...mockApi.overrides,
-            syncMetadataRepositoryProvider.overrideWithValue(metadata),
-          ]),
-        );
-        addTearDown(container.dispose);
-        stubSyncApis();
-        await readNotifier().saveConfig(
-          'https://dav.example',
-          'u',
-          'p',
-          '/dir/',
-        );
-        await readNotifier().loadConfig();
-        if (restore) {
-          expect(
-            await readNotifier().restoreFromWebDav(),
-            '恢复完成，回写 0 本书籍、0 条书源',
-          );
-        } else {
-          await readNotifier().backupToWebDav();
-        }
-        expect(readState().status, SyncStatus.success);
-        expect(readState().lastSyncTime?.millisecondsSinceEpoch, 1234);
-        expect(readState().error, '云端同步已完成，但本地同步时间未保存');
-        expect(metadata.saveCalls, 1);
-        if (restore) {
-          verify(
-            () => mockApi.webDavService.webdavDownload(any(), 'bookshelf.json'),
-          ).called(1);
-          verify(
-            () => mockApi.webDavService.webdavDownload(any(), 'sources.json'),
-          ).called(1);
-          verifyNever(
-            () => mockApi.webDavService.webdavFullSync(any(), any(), any()),
-          );
-        } else {
-          verify(
-            () => mockApi.webDavService.webdavFullSync(any(), any(), any()),
-          ).called(1);
-        }
-        metadata.failSave = false;
-        await readNotifier().backupToWebDav();
-        expect(readState().status, SyncStatus.success);
-        expect(readState().lastSyncTime, metadata.saved);
-        expect(readState().error, isNull);
-        verify(() => mockApi.webDavService.webdavFullSync(any(), any(), any()))
-            .called(1);
-      });
-    }
-
-    test('时间读取失败向调用方报告，不沿用连接进行云端操作', () async {
-      final metadata = _MetadataRepository()..failLoad = true;
-      container = ProviderContainer(
+    test('云端完成但时间记录失败保留成功和旧时间，不重传文件', () async {
+      final metadata = _MetadataRepository();
+      final scoped = ProviderContainer(
         overrides: mergeTestOverrides([
           ...mockApi.overrides,
+          backupServiceProvider.overrideWithValue(workflow),
           syncMetadataRepositoryProvider.overrideWithValue(metadata),
         ]),
       );
-      addTearDown(container.dispose);
-      await expectLater(readNotifier().loadConfig(), throwsStateError);
-      expect(readState().status, SyncStatus.idle);
+      addTearDown(scoped.dispose);
+      final notifier = scoped.read(syncNotifierProvider.notifier);
+      await notifier.saveConfig(
+        'https://dav.test',
+        'user',
+        'password',
+        'legado',
+      );
+      await notifier.loadConfig();
+      await notifier.backupToWebDav(localPath: 'existing.zip');
+      final state = scoped.read(syncNotifierProvider);
+      expect(state.status, SyncStatus.success);
+      expect(state.lastSyncTime, metadata.saved);
+      expect(state.error, contains('时间未保存'));
+      expect(metadata.saveCalls, 1);
+      verify(
+        () => workflow.backupToWebDav(
+          any(),
+          localPath: 'existing.zip',
+          includeCloudCredentials: false,
+        ),
+      ).called(1);
+    });
+    test('不支持的上游项目作为明确提示保留', () async {
+      await readNotifier().saveConfig(
+        'https://dav.test',
+        'user',
+        'password',
+        'legado',
+      );
+      when(
+        () =>
+            workflow.restoreFromWebDav(any(), fileName: any(named: 'fileName')),
+      ).thenAnswer(
+        (_) async => (
+          stats: const BackupRestoreStats(
+            books: 1,
+            bookmarks: 0,
+            replaceRules: 0,
+            bookSources: 0,
+            rssSources: 0,
+            readRecords: 0,
+          ),
+          preferencesError: null,
+          warnings: ['未恢复Android主题配置'],
+        ),
+      );
+      expect(
+        await readNotifier().restoreFromWebDav(),
+        contains('未恢复Android主题配置'),
+      );
+      expect(readState().error, contains('未恢复Android主题配置'));
+    });
+    test('上传或下载失败不记录成功时间', () async {
+      await readNotifier().saveConfig(
+        'https://dav.test',
+        'user',
+        'password',
+        'legado',
+      );
+      when(
+        () => workflow.backupToWebDav(
+          any(),
+          localPath: any(named: 'localPath'),
+          includeCloudCredentials: any(named: 'includeCloudCredentials'),
+        ),
+      ).thenThrow(StateError('上传失败'));
+      when(
+        () =>
+            workflow.restoreFromWebDav(any(), fileName: any(named: 'fileName')),
+      ).thenThrow(StateError('下载失败'));
+      await readNotifier().backupToWebDav();
+      expect(readState().status, SyncStatus.error);
+      expect(readState().lastSyncTime, isNull);
+      expect(await readNotifier().restoreFromWebDav(), contains('下载失败'));
+      expect(readState().lastSyncTime, isNull);
+    });
+    test('未配置时不触发备份恢复', () async {
+      await readNotifier().backupToWebDav();
+      expect(readState().status, SyncStatus.error);
+      expect(await readNotifier().restoreFromWebDav(), contains('请先配置'));
       verifyNever(
-        () => mockApi.webDavService.webdavFullSync(any(), any(), any()),
+        () =>
+            workflow.restoreFromWebDav(any(), fileName: any(named: 'fileName')),
       );
-    });
-
-    test('backupToWebDav 未配置时设置错误', () async {
-      await readNotifier().backupToWebDav();
-      expect(readState().status, equals(SyncStatus.error));
-      expect(readState().error, equals('请先配置 WebDAV 服务器信息'));
-    });
-
-    test('restoreFromWebDav 未配置时返回提示', () async {
-      final msg = await readNotifier().restoreFromWebDav();
-      expect(readState().status, equals(SyncStatus.error));
-      expect(msg, equals('请先配置 WebDAV 服务器信息'));
-    });
-
-    test('backupToWebDav 配置后调用 webdavFullSync 成功', () async {
-      stubSyncApis();
-      await readNotifier().saveConfig(
-        'https://dav.com',
-        'user',
-        'pass',
-        '/dir/',
-      );
-
-      await readNotifier().backupToWebDav();
-
-      final state = readState();
-      expect(state.status, equals(SyncStatus.success));
-      expect(state.error, isNull);
-      expect(state.lastSyncTime, isNotNull);
-      verify(() => mockApi.webDavService.webdavFullSync(any(), any(), any()))
-          .called(1);
-    });
-
-    test('backupToWebDav 失败时设置错误', () async {
-      when(() => mockApi.bookshelfRepository.getBooks())
-          .thenThrow(Exception('网络错误'));
-      await readNotifier().saveConfig(
-        'https://dav.com',
-        'user',
-        'pass',
-        '/dir/',
-      );
-
-      await readNotifier().backupToWebDav();
-
-      expect(readState().status, equals(SyncStatus.error));
-      expect(readState().error, contains('备份失败'));
-    });
-
-    test('restoreFromWebDav 回写远端书源', () async {
-      stubSyncApis(remoteSources: '[{"bookSourceUrl":"https://a.com"}]');
-      await readNotifier().saveConfig(
-        'https://dav.com',
-        'user',
-        'pass',
-        '/dir/',
-      );
-
-      final msg = await readNotifier().restoreFromWebDav();
-
-      expect(readState().status, equals(SyncStatus.success));
-      expect(msg, '恢复完成，回写 0 本书籍、1 条书源');
-      verify(() => mockApi.bookSourceRepository.importBookSources(any()))
-          .called(1);
-    });
-
-    test('restoreFromWebDav 远端书源为空时不回写', () async {
-      stubSyncApis(remoteSources: '[]');
-      await readNotifier().saveConfig(
-        'https://dav.com',
-        'user',
-        'pass',
-        '/dir/',
-      );
-
-      final msg = await readNotifier().restoreFromWebDav();
-
-      expect(readState().status, equals(SyncStatus.success));
-      expect(msg, '恢复完成，回写 0 本书籍、0 条书源');
-      verifyNever(() => mockApi.bookshelfRepository.importBooks(any()));
-      verifyNever(() => mockApi.bookSourceRepository.importBookSources(any()));
     });
   });
 
   group('SyncNotifier lastSyncTimeLabel', () {
-    test('刚刚同步显示"刚刚"', () async {
-      stubSyncApis();
+    test('刚刚同步显示刚刚', () async {
       await readNotifier().saveConfig(
-        'https://dav.com',
+        'https://dav.test',
         'user',
-        'pass',
-        '/dir/',
+        'password',
+        'legado',
       );
       await readNotifier().backupToWebDav();
-
-      expect(readState().lastSyncTimeLabel, equals('刚刚'));
+      expect(readState().lastSyncTimeLabel, '刚刚');
     });
   });
 

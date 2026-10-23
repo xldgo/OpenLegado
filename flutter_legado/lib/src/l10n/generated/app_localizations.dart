@@ -7809,6 +7809,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'其他业务记录{count}项'**
   String backupRestoreAdditional(int count);
+
+  /// No description provided for @backupSelectRemote.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择云端备份'**
+  String get backupSelectRemote;
+
+  /// No description provided for @backupNoRemote.
+  ///
+  /// In zh, this message translates to:
+  /// **'云端没有可用备份'**
+  String get backupNoRemote;
 }
 
 class _AppLocalizationsDelegate

@@ -1,3 +1,4 @@
+import '../../../widgets/bottom_sheet_widget.dart';
 import '../../../app/routing/app_navigation.dart';
 
 import '../../../providers/backup_provider.dart';
@@ -205,23 +206,17 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
         directory = picked;
         await settings.update(backupPath: directory);
       }
-      final result = await service.backupLocal(directory);
-      if (result.preferencesError != null) {
-        _showResult(
-          '业务备份已生成：${result.path}\n设置备份失败：${result.preferencesError}',
-        );
-        return;
-      }
+      final path = await service.backupLocal(directory);
       String? warning;
       if (hasCloud) {
-        await sync.backupToWebDav();
+        await sync.backupToWebDav(localPath: path);
         final cloud = container.read(syncNotifierProvider);
         warning = cloud.status == SyncStatus.error
             ? '云端备份失败：${cloud.error}'
             : cloud.error;
       }
       _showResult(
-        '${AppStrings.backupSuccess}：${result.path}${warning == null ? '' : '\n$warning'}',
+        '${AppStrings.backupSuccess}：$path${warning == null ? '' : '\n$warning'}',
       );
     });
   }
@@ -233,9 +228,33 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
       return;
     }
     final sync = ref.read(syncNotifierProvider.notifier);
+    final service = ref.read(backupServiceProvider);
     final refresher = ref.read(restoredSettingsRefresherProvider);
+    List<String>? names;
+    await _runWithProgress('读取备份…', () async {
+      names = await service.listRemoteBackups(sync.connection);
+    });
+    if (!mounted) return;
+    final backups = names;
+    if (backups == null) return;
+    if (backups.isEmpty) {
+      _showResult(context.l10n.backupNoRemote);
+      return;
+    }
+    final selected = await AppBottomSheet.show<String>(
+      context: context,
+      title: context.l10n.backupSelectRemote,
+      children: [
+        for (final name in backups)
+          ListTile(
+            title: Text(name),
+            onTap: () => Navigator.pop(context, name),
+          ),
+      ],
+    );
+    if (selected == null || !mounted) return;
     await _runWithProgress('恢复中…', () async {
-      final message = await sync.restoreFromWebDav();
+      final message = await sync.restoreFromWebDav(fileName: selected);
       final failures = await refresher.refresh();
       _showResult(message, failures);
     });
@@ -248,7 +267,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
     await _runWithProgress('恢复中…', () async {
       final file = await FilePicker.pickFile(
         type: FileType.custom,
-        allowedExtensions: ['json'],
+        allowedExtensions: ['zip'],
       );
       final path = file?.path;
       if (path == null) return;
@@ -273,7 +292,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
               : '、${l10n.backupRestoreAdditional(additional)}');
       _showResult(
         result.preferencesError == null
-            ? '${l10n.restoreSuccess}：$summary'
+            ? '${l10n.restoreSuccess}：$summary${result.warnings.isEmpty ? '' : '\n${result.warnings.join('\n')}'}'
             : l10n.backupRestorePreferencesFailed(
                 summary,
                 '${result.preferencesError}',

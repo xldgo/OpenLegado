@@ -14,9 +14,31 @@ use legado_db::{BookRepository, BookSourceRepository, ReplaceRuleRepository};
 
 use crate::StorageContext;
 
+mod crypto;
+mod package;
 mod restore;
+mod upstream;
 
 pub use legado_db::backup::BackupData;
+
+#[derive(Default)]
+pub struct BackupOptions {
+    pub preferences: serde_json::Map<String, serde_json::Value>,
+    pub files: std::collections::BTreeMap<String, String>,
+    pub sensitive: serde_json::Map<String, serde_json::Value>,
+    pub password: Option<String>,
+}
+#[derive(Default)]
+pub struct RestoreOptions {
+    pub password: Option<String>,
+    pub ignore: std::collections::BTreeSet<String>,
+}
+pub struct BackupRestoreResult {
+    pub stats: RestoreStats,
+    pub preferences: serde_json::Map<String, serde_json::Value>,
+    pub sensitive: serde_json::Map<String, serde_json::Value>,
+    pub warnings: Vec<String>,
+}
 
 /// 恢复统计
 #[derive(Debug, Clone, Serialize)]
@@ -72,7 +94,7 @@ impl BackupService {
             .ok_or_else(|| LegadoError::Database("数据库尚未初始化，请先调用 db_open".into()))?
             .with_database(f)
     }
-    pub fn backup_create(&self, path: &str) -> LegadoResult<String> {
+    pub fn backup_create(&self, path: &str, options: &BackupOptions) -> LegadoResult<String> {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
@@ -82,25 +104,18 @@ impl BackupService {
             legado_db::backup::BackupRepository::new(db.connection()).export(now)
         })?;
 
-        // 确保目录存在
-        if let Some(parent) = Path::new(path).parent() {
-            fs::create_dir_all(parent).map_err(|e| {
-                LegadoError::Io(std::io::Error::other(format!("创建备份目录失败: {e}")))
-            })?;
-        }
-
-        // 写入文件
-        let json = serde_json::to_string_pretty(&backup_data)
-            .map_err(|e| LegadoError::Internal(format!("备份序列化失败: {e}")))?;
-        fs::write(path, &json).map_err(|e| {
-            LegadoError::Io(std::io::Error::other(format!("写入备份文件失败: {e}")))
-        })?;
+        let bytes = package::encode(&backup_data, options)?;
+        package::write_atomic(path, &bytes)?;
 
         Ok(path.to_string())
     }
 
-    pub fn restore_backup(&self, path: &str) -> LegadoResult<RestoreStats> {
-        restore::restore(self, path)
+    pub fn restore_backup(
+        &self,
+        path: &str,
+        options: &RestoreOptions,
+    ) -> LegadoResult<BackupRestoreResult> {
+        restore::restore(self, path, options)
     }
 
     pub fn list_backup_files(&self, dir: &str) -> Vec<BackupFile> {
@@ -114,7 +129,7 @@ impl BackupService {
             .filter(|e| {
                 e.path()
                     .extension()
-                    .map(|ext| ext == "json")
+                    .map(|ext| ext == "zip")
                     .unwrap_or(false)
             })
             .filter_map(|e| {

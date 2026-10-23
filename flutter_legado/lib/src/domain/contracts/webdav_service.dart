@@ -25,6 +25,7 @@ abstract interface class WebDavService {
     String path,
     String localFilePath,
   );
+  Future<void> webdavMkdir(WebDavConnection connection, String path);
   Future<void> webdavDelete(WebDavConnection connection, String path);
   Future<WebDavSyncResult> webdavFullSync(
     WebDavConnection connection,

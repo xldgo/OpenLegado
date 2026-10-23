@@ -98,6 +98,16 @@ final class RustWebDavService implements WebDavService {
     operation: 'webdavDownloadFile',
   );
   @override
+  Future<void> webdavMkdir(WebDavConnection connection, String path) =>
+      rustFuture(
+        () => bridge.webdavMkdir(
+          configJson: encodeWebDavConfig(connection),
+          path: path,
+        ),
+        operation: 'webdavMkdir',
+      );
+
+  @override
   Future<void> webdavDelete(WebDavConnection connection, String path) =>
       rustFuture(
         () => bridge.webdavDelete(

@@ -63,6 +63,7 @@ rusqlite = { version = "0.40.2", features = ["bundled"] }
 # 压缩与归档
 flate2 = "1"
 zip = "9.0.1"
+ring = "0.17.14"
 
 # 时间与标识
 chrono = { version = "0.4", default-features = false }

@@ -4390,4 +4390,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String backupRestoreAdditional(int count) {
     return 'Other business records: $count';
   }
+
+  @override
+  String get backupSelectRemote => 'Select remote backup';
+
+  @override
+  String get backupNoRemote => 'No remote backups available';
 }

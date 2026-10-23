@@ -1,219 +1,252 @@
-import 'dart:convert';
 import 'dart:io';
 
 import '../../domain/contracts/backup_repository.dart';
-import '../../domain/contracts/book_source_repository.dart';
-import '../../domain/contracts/bookshelf_repository.dart';
+import '../../domain/contracts/backup_password_store.dart';
 import '../../domain/contracts/restore_ignore_repository.dart';
 import '../../domain/contracts/webdav_service.dart';
+import '../../domain/contracts/webdav_connection_repository.dart';
+import '../../domain/contracts/cloud_tts_repository.dart';
+import '../../domain/contracts/cloud_tts_credential_store.dart';
 import '../../domain/models/webdav_connection.dart';
 import '../../domain/models/backup_restore_stats.dart';
-import '../../models/book.dart';
 import 'backup_preferences_service.dart';
 
-/// 备份恢复编排只依赖注入能力，不持有页面或播放状态。— Codex + Bridge
+/// 文件、远程传输与凭据的应用编排；业务校验、资源重定位和事务由Rust执行。
 class BackupService {
   BackupService({
-    required this._repository,
-    required this._webDav,
-    required this._bookshelf,
-    required this._sources,
-    required this._ignore,
+    required this.repository,
+    required this.webDav,
+    required this.ignore,
+    required this.passwords,
+    required this.connections,
+    required this.cloudTts,
+    required this.cloudCredentials,
     BackupPreferencesService? preferences,
   }) : _preferences = preferences ?? BackupPreferencesService();
-
-  final BackupRepository _repository;
-  final WebDavService _webDav;
-  final BookshelfRepository _bookshelf;
-  final BookSourceRepository _sources;
-  final RestoreIgnoreRepository _ignore;
+  final BackupRepository repository;
+  final WebDavService webDav;
+  final RestoreIgnoreRepository ignore;
+  final BackupPasswordStore passwords;
+  final WebDavConnectionRepository connections;
+  final CloudTtsRepository cloudTts;
+  final CloudTtsCredentialStore cloudCredentials;
   final BackupPreferencesService _preferences;
 
-  Future<({String path, Object? preferencesError})> backupLocal(
-    String directory,
-  ) async {
-    final ignore = await _ignore.load();
-    final path = await _repository.backup(directory);
-    try {
-      if (path.toLowerCase().endsWith('.json')) {
-        final payload = await _readBackup(path);
-        payload[kBackupAppPrefsKey] = await _preferences.collectForBackup(
-          ignore.values,
-        );
-        final temporary = File(
-          '$path.prefs-${DateTime.now().microsecondsSinceEpoch}.tmp',
-        );
-        try {
-          await temporary.writeAsString(
-            const JsonEncoder.withIndent('  ').convert(payload),
-            flush: true,
-          );
-          await temporary.rename(path);
-        } finally {
-          if (await temporary.exists()) {
-            try {
-              await temporary.delete();
-            } catch (_) {
-              // 清理失败不覆盖偏好备份的实际错误。
-            }
+  Future<String> backupLocal(
+    String directory, {
+    bool includeCloudCredentials = false,
+  }) async {
+    final ignore = await this.ignore.load();
+    final preferences = await _preferences.collectForBackup(ignore.values);
+    final password = await passwords.read();
+    final sensitive = <String, dynamic>{};
+    if (includeCloudCredentials && (password == null || password.isEmpty)) {
+      throw StateError('备份云TTS凭据前请先设置本地密码');
+    }
+    if (password != null && password.isNotEmpty) {
+      final connection = await connections.load();
+      if (connection.password.isNotEmpty) {
+        sensitive['webDavPassword'] = connection.password;
+      }
+      if (includeCloudCredentials) {
+        final credentials = <String, String>{};
+        for (final engine in await cloudTts.list()) {
+          if (engine.credentialKey.isEmpty) continue;
+          final value = await cloudCredentials.read(engine.credentialKey);
+          if (value != null && value.isNotEmpty) {
+            credentials[engine.credentialKey] = value;
           }
         }
-      }
-      return (path: path, preferencesError: null);
-    } catch (error) {
-      return (path: path, preferencesError: error);
-    }
-  }
-
-  Future<({BackupRestoreStats stats, Object? preferencesError})> restoreLocal(
-    String path,
-  ) async {
-    if (!path.toLowerCase().endsWith('.json')) {
-      throw const FormatException('暂不支持此备份格式，请选择本项目生成的JSON备份');
-    }
-    final ignore = await _ignore.load();
-    final BackupRestoreStats stats;
-    Map<String, dynamic>? prefs;
-    File? filtered;
-    final payload = await _readBackup(path);
-    final rawPrefs = payload[kBackupAppPrefsKey];
-    if (rawPrefs != null) {
-      if (rawPrefs is! Map<String, dynamic>) {
-        throw const FormatException('备份设置必须为JSON对象');
-      }
-      prefs = rawPrefs;
-    }
-    final collections = payload['collections'];
-    var changed = false;
-    final books = collections is Map<String, dynamic>
-        ? collections['books']
-        : null;
-    if (ignore['localBook'] && books is List) {
-      collections['books'] = books.where((item) {
-        if (item is! Map) return true;
-        final origin = item['origin']?.toString() ?? '';
-        final value = item['type'];
-        final type = value is int ? value : int.tryParse('$value') ?? 0;
-        return !(origin == BookType.localTag ||
-            origin.startsWith(BookType.webDavTag) ||
-            (type & BookType.local) != 0);
-      }).toList();
-      changed = true;
-    }
-    final config = payload['config'];
-    if (ignore['threadCount'] &&
-        config is Map<String, dynamic> &&
-        config.containsKey('threadCount')) {
-      config.remove('threadCount');
-      changed = true;
-    }
-    if (ignore['coverConfig'] && collections is Map<String, dynamic>) {
-      collections['coverRules'] = <dynamic>[];
-      changed = true;
-    }
-    if (changed) {
-      filtered = File(
-        '${Directory.systemTemp.path}${Platform.pathSeparator}legado_restore_${DateTime.now().microsecondsSinceEpoch}.json',
-      );
-      await filtered.writeAsString(jsonEncode(payload));
-    }
-    try {
-      stats = await _repository.restore(filtered?.path ?? path);
-    } finally {
-      if (filtered != null) {
-        try {
-          await filtered.delete();
-        } catch (_) {
-          // 临时文件清理不覆盖业务恢复结果。
+        if (credentials.isNotEmpty) {
+          sensitive['cloudTtsCredentials'] = credentials;
         }
       }
     }
-    try {
-      await _preferences.applyFromBackup(prefs, ignore.values);
-      return (stats: stats, preferencesError: null);
-    } catch (error) {
-      return (stats: stats, preferencesError: error);
-    }
-  }
-
-  Future<void> backupToWebDav(WebDavConnection connection) async {
-    final books = await _bookshelf.getBooks();
-    final sources = await _sources.getBookSources();
-    await _webDav.webdavFullSync(
-      connection,
-      jsonEncode(books.map((book) => book.toJson()).toList()),
-      jsonEncode(sources.map((source) => source.toJson()).toList()),
+    return repository.backup(
+      directory,
+      preferences: preferences,
+      files: _preferences.collectFiles(preferences),
+      sensitive: sensitive,
+      password: password,
     );
   }
 
-  Future<({int books, int sources})> restoreFromWebDav(
-    WebDavConnection connection,
-  ) async {
-    int? restoredBooks;
+  Future<
+    ({
+      BackupRestoreStats stats,
+      Object? preferencesError,
+      List<String> warnings,
+    })
+  >
+  restoreLocal(String path) async {
+    if (!path.toLowerCase().endsWith('.zip')) {
+      throw const FormatException('请选择ZIP备份文件');
+    }
+    final ignore = await this.ignore.load();
+    final result = await repository.restore(
+      path,
+      password: await passwords.read(),
+      ignore: {
+        for (final key in [
+          'localBook',
+          'threadCount',
+          'coverConfig',
+          'readConfig',
+        ])
+          if (ignore[key]) key,
+      },
+    );
     try {
-      final books = await _webDav.webdavDownload(connection, 'bookshelf.json');
-      final sources = await _webDav.webdavDownload(connection, 'sources.json');
-      final hasBooks = _validateRestoreList(books, 'bookshelf.json', 'bookUrl');
-      final hasSources = _validateRestoreList(
-        sources,
-        'sources.json',
-        'bookSourceUrl',
+      await _preferences.applyFromBackup(result.preferences, ignore.values);
+      await _restoreSensitive(result.sensitive);
+      return (
+        stats: result.stats,
+        preferencesError: null,
+        warnings: result.warnings,
       );
-      restoredBooks = hasBooks ? await _bookshelf.importBooks(books) : 0;
-      final restoredSources = hasSources
-          ? await _sources.importBookSources(sources)
-          : 0;
-      return (books: restoredBooks, sources: restoredSources);
     } catch (error) {
-      throw BackupRestoreException(
-        restoredBooks == null
-            ? '恢复失败: $error'
-            : '恢复未完成，已回写 $restoredBooks 本书籍；书源恢复失败: $error',
+      return (
+        stats: result.stats,
+        preferencesError: error,
+        warnings: result.warnings,
       );
+    }
+  }
+
+  Future<void> _restoreSensitive(Map<String, dynamic> sensitive) async {
+    final password = sensitive['webDavPassword'];
+    if (password != null) {
+      if (password is! String) throw const FormatException('备份连接密码格式无效');
+      final c = await connections.load();
+      await connections.save(
+        WebDavConnection(
+          url: c.url,
+          username: c.username,
+          password: password,
+          remoteDir: c.remoteDir,
+          deviceName: c.deviceName,
+        ),
+      );
+    }
+    final credentials = sensitive['cloudTtsCredentials'];
+    if (credentials != null) {
+      if (credentials is! Map<String, dynamic>) {
+        throw const FormatException('云TTS凭据格式无效');
+      }
+      final allowed = {
+        for (final engine in await cloudTts.list()) engine.credentialKey,
+      };
+      for (final entry in credentials.entries) {
+        if (!allowed.contains(entry.key)) {
+          throw const FormatException('备份凭据不属于已恢复的云TTS引擎');
+        }
+        if (entry.value is! String) throw const FormatException('云TTS凭据内容格式无效');
+        await cloudCredentials.write(entry.key, entry.value as String);
+      }
+    }
+  }
+
+  Future<void> uploadBackup(WebDavConnection connection, String path) async {
+    final name = File(path).uri.pathSegments.last;
+    _validateName(name);
+    final parts = connection.remoteDir
+        .split('/')
+        .where((part) => part.isNotEmpty)
+        .toList();
+    if (parts.any((part) => part == '.' || part == '..')) {
+      throw const FormatException('WebDAV子目录不能包含相对路径');
+    }
+    final root = WebDavConnection(
+      url: connection.url,
+      username: connection.username,
+      password: connection.password,
+      remoteDir: '',
+    );
+    var prefix = '';
+    for (final part in parts) {
+      prefix = '$prefix$part/';
+      await webDav.webdavMkdir(root, prefix);
+    }
+    await webDav.webdavUploadFile(connection, name, path);
+  }
+
+  Future<List<String>> listRemoteBackups(WebDavConnection connection) async {
+    final entries = await webDav.webdavListDir(connection, '');
+    final names = <String>[];
+    for (final entry in entries) {
+      final name = entry['name'];
+      if (entry['is_dir'] == true ||
+          name is! String ||
+          !name.toLowerCase().endsWith('.zip') ||
+          name.contains('/') ||
+          name.contains('\\')) {
+        continue;
+      }
+      names.add(name);
+    }
+    names.sort((a, b) => b.compareTo(a));
+    return names;
+  }
+
+  Future<void> backupToWebDav(
+    WebDavConnection connection, {
+    String? localPath,
+    bool includeCloudCredentials = false,
+  }) async {
+    if (localPath != null) {
+      await uploadBackup(connection, localPath);
+      return;
+    }
+    final temp = await Directory.systemTemp.createTemp('legado-backup-upload-');
+    try {
+      final path = await backupLocal(
+        temp.path,
+        includeCloudCredentials: includeCloudCredentials,
+      );
+      await uploadBackup(connection, path);
+    } finally {
+      await temp.delete(recursive: true);
+    }
+  }
+
+  Future<
+    ({
+      BackupRestoreStats stats,
+      Object? preferencesError,
+      List<String> warnings,
+    })
+  >
+  restoreFromWebDav(WebDavConnection connection, {String? fileName}) async {
+    final selected =
+        fileName ?? (await listRemoteBackups(connection)).firstOrNull;
+    if (selected == null) throw StateError('云端没有可用备份');
+    _validateName(selected);
+    final temp = await Directory.systemTemp.createTemp(
+      'legado-backup-download-',
+    );
+    try {
+      final path = '${temp.path}${Platform.pathSeparator}backup.zip';
+      await webDav.webdavDownloadFile(connection, selected, path);
+      return await restoreLocal(path);
+    } finally {
+      await temp.delete(recursive: true);
+    }
+  }
+
+  void _validateName(String name) {
+    if (name.isEmpty ||
+        name.contains('/') ||
+        name.contains('\\') ||
+        name.contains(':') ||
+        !name.toLowerCase().endsWith('.zip')) {
+      throw const FormatException('无效备份文件名');
     }
   }
 
   Future<String> importOldData(String directory) async {
-    final result = await _repository.importOldData(directory);
-    final messages = result.messages;
-    if (messages.isNotEmpty) {
-      return messages.join('\n');
-    }
-    return '书架 ${result.books} · 书源 ${result.bookSources} · 替换规则 ${result.replaceRules}';
+    final result = await repository.importOldData(directory);
+    return result.messages.isNotEmpty
+        ? result.messages.join('\n')
+        : '书架 ${result.books} · 书源 ${result.bookSources} · 替换规则 ${result.replaceRules}';
   }
-
-  Future<Map<String, dynamic>> _readBackup(String path) async {
-    final decoded = jsonDecode(await File(path).readAsString());
-    if (decoded is! Map<String, dynamic>) {
-      throw const FormatException('备份必须为JSON对象');
-    }
-    return decoded;
-  }
-
-  bool _validateRestoreList(String payload, String fileName, String idKey) {
-    final dynamic items;
-    try {
-      items = jsonDecode(payload);
-    } on FormatException {
-      throw FormatException('$fileName不是有效的JSON');
-    }
-    if (items is! List) throw FormatException('$fileName必须为JSON数组');
-    for (final item in items) {
-      if (item is! Map<String, dynamic>) {
-        throw FormatException('$fileName的条目必须为JSON对象');
-      }
-      final id = item[idKey];
-      if (id is! String || id.trim().isEmpty) {
-        throw FormatException('$fileName的条目缺少有效$idKey');
-      }
-    }
-    return items.isNotEmpty;
-  }
-}
-
-final class BackupRestoreException implements Exception {
-  const BackupRestoreException(this.message);
-  final String message;
-  @override
-  String toString() => message;
 }

@@ -83,7 +83,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => -753129236;
+  int get rustContentHash => -1094310322;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -291,11 +291,21 @@ abstract class RustLibApi extends BaseApi {
 
   Future<void> crateFfiFfiAutoTaskUpdateRule({required AutoTaskRuleDto rule});
 
-  Future<String> crateFfiFfiBackupCreate({required String path});
+  Future<String> crateFfiFfiBackupCreate({
+    required String path,
+    required String preferencesJson,
+    required String filesJson,
+    required String sensitiveJson,
+    String? password,
+  });
 
   Future<List<BackupFileDto>> crateFfiFfiBackupList({required String dir});
 
-  Future<RestoreStatsDto> crateFfiFfiBackupRestore({required String path});
+  Future<BackupRestoreResultDto> crateFfiFfiBackupRestore({
+    required String path,
+    String? password,
+    required String ignoreJson,
+  });
 
   Future<BookExportDto> crateFfiFfiBookExport({
     required String bookUrl,
@@ -1362,6 +1372,11 @@ abstract class RustLibApi extends BaseApi {
   });
 
   Future<List<WebDavFileDto>> crateFfiFfiWebdavListDir({
+    required String configJson,
+    required String path,
+  });
+
+  Future<void> crateFfiFfiWebdavMkdir({
     required String configJson,
     required String path,
   });
@@ -3052,12 +3067,22 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<String> crateFfiFfiBackupCreate({required String path}) {
+  Future<String> crateFfiFfiBackupCreate({
+    required String path,
+    required String preferencesJson,
+    required String filesJson,
+    required String sensitiveJson,
+    String? password,
+  }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(path, serializer);
+          sse_encode_String(preferencesJson, serializer);
+          sse_encode_String(filesJson, serializer);
+          sse_encode_String(sensitiveJson, serializer);
+          sse_encode_opt_String(password, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -3070,14 +3095,22 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiBackupCreateConstMeta,
-        argValues: [path],
+        argValues: [path, preferencesJson, filesJson, sensitiveJson, password],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateFfiFfiBackupCreateConstMeta =>
-      const TaskConstMeta(debugName: "backup_create", argNames: ["path"]);
+  TaskConstMeta get kCrateFfiFfiBackupCreateConstMeta => const TaskConstMeta(
+    debugName: "backup_create",
+    argNames: [
+      "path",
+      "preferencesJson",
+      "filesJson",
+      "sensitiveJson",
+      "password",
+    ],
+  );
 
   @override
   Future<List<BackupFileDto>> crateFfiFfiBackupList({required String dir}) {
@@ -3108,12 +3141,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "backup_list", argNames: ["dir"]);
 
   @override
-  Future<RestoreStatsDto> crateFfiFfiBackupRestore({required String path}) {
+  Future<BackupRestoreResultDto> crateFfiFfiBackupRestore({
+    required String path,
+    String? password,
+    required String ignoreJson,
+  }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(path, serializer);
+          sse_encode_opt_String(password, serializer);
+          sse_encode_String(ignoreJson, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -3122,18 +3161,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_restore_stats_dto,
+          decodeSuccessData: sse_decode_backup_restore_result_dto,
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiBackupRestoreConstMeta,
-        argValues: [path],
+        argValues: [path, password, ignoreJson],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateFfiFfiBackupRestoreConstMeta =>
-      const TaskConstMeta(debugName: "backup_restore", argNames: ["path"]);
+  TaskConstMeta get kCrateFfiFfiBackupRestoreConstMeta => const TaskConstMeta(
+    debugName: "backup_restore",
+    argNames: ["path", "password", "ignoreJson"],
+  );
 
   @override
   Future<BookExportDto> crateFfiFfiBookExport({
@@ -12275,6 +12316,40 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   );
 
   @override
+  Future<void> crateFfiFfiWebdavMkdir({
+    required String configJson,
+    required String path,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(configJson, serializer);
+          sse_encode_String(path, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 331,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_bridge_error,
+        ),
+        constMeta: kCrateFfiFfiWebdavMkdirConstMeta,
+        argValues: [configJson, path],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateFfiFfiWebdavMkdirConstMeta => const TaskConstMeta(
+    debugName: "webdav_mkdir",
+    argNames: ["configJson", "path"],
+  );
+
+  @override
   Future<WebDavProbeResultDto> crateFfiFfiWebdavProbe({
     required String configJson,
   }) {
@@ -12286,7 +12361,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 331,
+            funcId: 332,
             port: port_,
           );
         },
@@ -12320,7 +12395,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 332,
+            funcId: 333,
             port: port_,
           );
         },
@@ -12356,7 +12431,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 333,
+            funcId: 334,
             port: port_,
           );
         },
@@ -12387,7 +12462,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 334,
+            funcId: 335,
             port: port_,
           );
         },
@@ -12419,7 +12494,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 335,
+            funcId: 336,
             port: port_,
           );
         },
@@ -12453,7 +12528,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 336,
+            funcId: 337,
             port: port_,
           );
         },
@@ -12482,7 +12557,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 337,
+            funcId: 338,
             port: port_,
           );
         },
@@ -12518,7 +12593,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 338,
+              funcId: 339,
               port: port_,
             );
           },
@@ -12555,7 +12630,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 339,
+            funcId: 340,
             port: port_,
           );
         },
@@ -12591,7 +12666,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 340,
+            funcId: 341,
             port: port_,
           );
         },
@@ -12626,7 +12701,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 341,
+            funcId: 342,
             port: port_,
           );
         },
@@ -13052,6 +13127,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       path: dco_decode_String(arr[1]),
       size: dco_decode_u_64(arr[2]),
       modified: dco_decode_i_64(arr[3]),
+    );
+  }
+
+  @protected
+  BackupRestoreResultDto dco_decode_backup_restore_result_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return BackupRestoreResultDto(
+      stats: dco_decode_restore_stats_dto(arr[0]),
+      preferencesJson: dco_decode_String(arr[1]),
+      sensitiveJson: dco_decode_String(arr[2]),
+      warnings: dco_decode_list_String(arr[3]),
     );
   }
 
@@ -17278,6 +17367,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       path: var_path,
       size: var_size,
       modified: var_modified,
+    );
+  }
+
+  @protected
+  BackupRestoreResultDto sse_decode_backup_restore_result_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_stats = sse_decode_restore_stats_dto(deserializer);
+    var var_preferencesJson = sse_decode_String(deserializer);
+    var var_sensitiveJson = sse_decode_String(deserializer);
+    var var_warnings = sse_decode_list_String(deserializer);
+    return BackupRestoreResultDto(
+      stats: var_stats,
+      preferencesJson: var_preferencesJson,
+      sensitiveJson: var_sensitiveJson,
+      warnings: var_warnings,
     );
   }
 
@@ -23102,6 +23208,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.path, serializer);
     sse_encode_u_64(self.size, serializer);
     sse_encode_i_64(self.modified, serializer);
+  }
+
+  @protected
+  void sse_encode_backup_restore_result_dto(
+    BackupRestoreResultDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_restore_stats_dto(self.stats, serializer);
+    sse_encode_String(self.preferencesJson, serializer);
+    sse_encode_String(self.sensitiveJson, serializer);
+    sse_encode_list_String(self.warnings, serializer);
   }
 
   @protected

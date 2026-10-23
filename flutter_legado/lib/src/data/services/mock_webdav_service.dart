@@ -44,6 +44,9 @@ final class MockWebDavService implements WebDavService {
   }
 
   @override
+  Future<void> webdavMkdir(WebDavConnection connection, String path) async {}
+
+  @override
   Future<void> webdavDelete(WebDavConnection connection, String path) async {}
   @override
   Future<WebDavSyncResult> webdavFullSync(

@@ -41,7 +41,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -753129236;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1094310322;
 
 // Section: executor
 
@@ -1872,10 +1872,20 @@ fn wire__crate__ffi__ffi__backup_create_impl(
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_path = <String>::sse_decode(&mut deserializer);
+            let api_preferences_json = <String>::sse_decode(&mut deserializer);
+            let api_files_json = <String>::sse_decode(&mut deserializer);
+            let api_sensitive_json = <String>::sse_decode(&mut deserializer);
+            let api_password = <Option<String>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::ffi::BridgeError>((move || {
-                    let output_ok = crate::ffi::ffi::backup_create(api_path)?;
+                    let output_ok = crate::ffi::ffi::backup_create(
+                        api_path,
+                        api_preferences_json,
+                        api_files_json,
+                        api_sensitive_json,
+                        api_password,
+                    )?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -1938,10 +1948,13 @@ fn wire__crate__ffi__ffi__backup_restore_impl(
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_path = <String>::sse_decode(&mut deserializer);
+            let api_password = <Option<String>>::sse_decode(&mut deserializer);
+            let api_ignore_json = <String>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::ffi::BridgeError>((move || {
-                    let output_ok = crate::ffi::ffi::backup_restore(api_path)?;
+                    let output_ok =
+                        crate::ffi::ffi::backup_restore(api_path, api_password, api_ignore_json)?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -11916,6 +11929,40 @@ fn wire__crate__ffi__ffi__webdav_list_dir_impl(
         },
     )
 }
+fn wire__crate__ffi__ffi__webdav_mkdir_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "webdav_mkdir",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_config_json = <String>::sse_decode(&mut deserializer);
+            let api_path = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::ffi::BridgeError>((move || {
+                    let output_ok = crate::ffi::ffi::webdav_mkdir(api_config_json, api_path)?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__ffi__ffi__webdav_probe_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -12776,6 +12823,22 @@ impl SseDecode for crate::business_dto::BackupFileDto {
             path: var_path,
             size: var_size,
             modified: var_modified,
+        };
+    }
+}
+
+impl SseDecode for crate::business_dto::BackupRestoreResultDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_stats = <crate::business_dto::RestoreStatsDto>::sse_decode(deserializer);
+        let mut var_preferencesJson = <String>::sse_decode(deserializer);
+        let mut var_sensitiveJson = <String>::sse_decode(deserializer);
+        let mut var_warnings = <Vec<String>>::sse_decode(deserializer);
+        return crate::business_dto::BackupRestoreResultDto {
+            stats: var_stats,
+            preferences_json: var_preferencesJson,
+            sensitive_json: var_sensitiveJson,
+            warnings: var_warnings,
         };
     }
 }
@@ -18472,24 +18535,25 @@ fn pde_ffi_dispatcher_primary_impl(
         328 => wire__crate__ffi__ffi__webdav_download_file_impl(port, ptr, rust_vec_len, data_len),
         329 => wire__crate__ffi__ffi__webdav_full_sync_impl(port, ptr, rust_vec_len, data_len),
         330 => wire__crate__ffi__ffi__webdav_list_dir_impl(port, ptr, rust_vec_len, data_len),
-        331 => wire__crate__ffi__ffi__webdav_probe_impl(port, ptr, rust_vec_len, data_len),
-        332 => wire__crate__ffi__ffi__webdav_upload_impl(port, ptr, rust_vec_len, data_len),
-        333 => wire__crate__ffi__ffi__webdav_upload_file_impl(port, ptr, rust_vec_len, data_len),
-        334 => wire__crate__ffi__ffi__webview_cancel_impl(port, ptr, rust_vec_len, data_len),
-        335 => wire__crate__ffi__ffi__webview_complete_impl(port, ptr, rust_vec_len, data_len),
-        336 => wire__crate__ffi__ffi__webview_page_call_impl(port, ptr, rust_vec_len, data_len),
-        337 => wire__crate__ffi__ffi__webview_pending_impl(port, ptr, rust_vec_len, data_len),
-        338 => {
+        331 => wire__crate__ffi__ffi__webdav_mkdir_impl(port, ptr, rust_vec_len, data_len),
+        332 => wire__crate__ffi__ffi__webdav_probe_impl(port, ptr, rust_vec_len, data_len),
+        333 => wire__crate__ffi__ffi__webdav_upload_impl(port, ptr, rust_vec_len, data_len),
+        334 => wire__crate__ffi__ffi__webdav_upload_file_impl(port, ptr, rust_vec_len, data_len),
+        335 => wire__crate__ffi__ffi__webview_cancel_impl(port, ptr, rust_vec_len, data_len),
+        336 => wire__crate__ffi__ffi__webview_complete_impl(port, ptr, rust_vec_len, data_len),
+        337 => wire__crate__ffi__ffi__webview_page_call_impl(port, ptr, rust_vec_len, data_len),
+        338 => wire__crate__ffi__ffi__webview_pending_impl(port, ptr, rust_vec_len, data_len),
+        339 => {
             wire__crate__ffi__ffi__webview_request_stream_impl(port, ptr, rust_vec_len, data_len)
         }
-        339 => wire__crate__ffi__ffi__webview_submit_impl(port, ptr, rust_vec_len, data_len),
-        340 => wire__crate__ffi__ffi__webview_submit_result_with_cookies_impl(
+        340 => wire__crate__ffi__ffi__webview_submit_impl(port, ptr, rust_vec_len, data_len),
+        341 => wire__crate__ffi__ffi__webview_submit_result_with_cookies_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        341 => wire__crate__ffi__ffi__webview_sync_cookies_impl(port, ptr, rust_vec_len, data_len),
+        342 => wire__crate__ffi__ffi__webview_sync_cookies_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -18799,6 +18863,29 @@ impl flutter_rust_bridge::IntoIntoDart<crate::business_dto::BackupFileDto>
     for crate::business_dto::BackupFileDto
 {
     fn into_into_dart(self) -> crate::business_dto::BackupFileDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::business_dto::BackupRestoreResultDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.stats.into_into_dart().into_dart(),
+            self.preferences_json.into_into_dart().into_dart(),
+            self.sensitive_json.into_into_dart().into_dart(),
+            self.warnings.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::business_dto::BackupRestoreResultDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::business_dto::BackupRestoreResultDto>
+    for crate::business_dto::BackupRestoreResultDto
+{
+    fn into_into_dart(self) -> crate::business_dto::BackupRestoreResultDto {
         self
     }
 }
@@ -23213,6 +23300,16 @@ impl SseEncode for crate::business_dto::BackupFileDto {
         <String>::sse_encode(self.path, serializer);
         <u64>::sse_encode(self.size, serializer);
         <i64>::sse_encode(self.modified, serializer);
+    }
+}
+
+impl SseEncode for crate::business_dto::BackupRestoreResultDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <crate::business_dto::RestoreStatsDto>::sse_encode(self.stats, serializer);
+        <String>::sse_encode(self.preferences_json, serializer);
+        <String>::sse_encode(self.sensitive_json, serializer);
+        <Vec<String>>::sse_encode(self.warnings, serializer);
     }
 }
 

@@ -104,6 +104,7 @@ struct Column {
     kind: String,
     required: bool,
     primary: i32,
+    default_sql: Option<String>,
 }
 fn error(message: impl Into<String>) -> LegadoError {
     LegadoError::Parser(message.into())
@@ -125,6 +126,7 @@ fn columns(conn: &Connection, table: &str) -> LegadoResult<Vec<Column>> {
                 kind: r.get(2)?,
                 required: r.get::<_, i32>(3)? != 0,
                 primary: r.get(5)?,
+                default_sql: r.get(4)?,
             })
         })
         .map_err(db)?
@@ -365,6 +367,173 @@ impl<'a> BackupRepository<'a> {
             .map_err(|e| LegadoError::Database(format!("提交备份恢复事务失败: {e}")))?;
         Ok(counts)
     }
+}
+
+/// 上游ZIP的显式字段映射。先构造独立快照；不在解析阶段写目标数据库。
+pub fn from_upstream(files: &BTreeMap<String, Vec<u8>>) -> LegadoResult<(BackupData, Vec<String>)> {
+    let memory = crate::init_in_memory_database()?;
+    let conn = memory.connection();
+    let mut data = BackupRepository::new(conn).export(0)?;
+    let mut consumed = BTreeSet::new();
+    let mut warnings = BTreeSet::new();
+    if let Some(raw) = files.get("bookshelf.json") {
+        let books: Vec<Book> = serde_json::from_slice(raw)?;
+        data.collections.insert(
+            "books".into(),
+            books
+                .into_iter()
+                .map(|book| match serde_json::to_value(book)? {
+                    Value::Object(v) => Ok(v),
+                    _ => unreachable!(),
+                })
+                .collect::<LegadoResult<Vec<_>>>()?,
+        );
+        consumed.insert("bookshelf.json");
+        warnings.insert("原版书籍中本项目尚未定义的扩展字段不承诺无损保留".into());
+    }
+    if let Some(raw) = files.get("bookSource.json") {
+        let text = std::str::from_utf8(raw).map_err(|_| error("bookSource.json不是UTF-8"))?;
+        let sources = legado_core::models::book_source::parse_source_array(text)?;
+        for source in &sources {
+            crate::BookSourceRepository::new(conn).insert(source)?;
+        }
+        data.collections.insert(
+            "bookSources".into(),
+            collect(conn, "bookSources", "book_sources")?,
+        );
+        consumed.insert("bookSource.json");
+    }
+    for (file, key) in [
+        ("bookGroup.json", "bookGroups"),
+        ("bookmark.json", "bookmarks"),
+        ("replaceRule.json", "replaceRules"),
+        ("rssSources.json", "rssSources"),
+        ("rssStar.json", "rssStars"),
+        ("sourceSub.json", "ruleSubs"),
+        ("txtTocRule.json", "txtTocRules"),
+        ("httpTTS.json", "httpTts"),
+        ("dictRule.json", "dictRules"),
+        ("keyboardAssists.json", "keyboardAssists"),
+        ("searchHistory.json", "searchHistory"),
+        ("readRecord.json", "readRecords"),
+        ("readRecordDetail.json", "readRecordDetails"),
+        ("readRecordSession.json", "readRecordSessions"),
+        ("highlight.json", "highlights"),
+        ("highlightRule.json", "highlightRules"),
+        ("autoTask.json", "autoTasks"),
+    ] {
+        let Some(raw) = files.get(file) else {
+            continue;
+        };
+        let records: Vec<Record> =
+            serde_json::from_slice(raw).map_err(|e| error(format!("{file}结构错误: {e}")))?;
+        let (_, table) = TABLES.iter().find(|(name, _)| *name == key).unwrap();
+        let fields = columns(conn, table)?;
+        let mut rows = Vec::new();
+        for (index, mut input) in records.into_iter().enumerate() {
+            if key == "readRecords" && !input.contains_key("author") {
+                if let Some(value) = input.remove("bookAuthor") {
+                    input.insert("author".into(), value);
+                }
+            }
+            if key == "readRecordDetails" && !input.contains_key("lastRead") {
+                if let Some(value) = input.remove("lastReadTime") {
+                    input.insert("lastRead".into(), value);
+                }
+            }
+            if key == "readRecordSessions" && !input.contains_key("chapterIndex") {
+                if let Some(value) = input.remove("words") {
+                    input.insert("chapterIndex".into(), value);
+                }
+            }
+            if key == "bookmarks" && !input.contains_key("id") {
+                if let Some(time) = input.get("time").cloned() {
+                    input.insert("id".into(), time);
+                }
+            }
+            let unknown = input
+                .keys()
+                .filter(|name| !fields.iter().any(|field| field.name == **name))
+                .cloned()
+                .collect::<Vec<_>>();
+            if !unknown.is_empty() {
+                warnings.insert(format!("{file}未恢复扩展字段：{}", unknown.join("、")));
+            }
+            let mut row = Record::new();
+            for field in &fields {
+                let value = if let Some(value) = input.get(&field.name) {
+                    match (field.kind.as_str(), value) {
+                        ("INTEGER", Value::Bool(v)) => Value::from(i32::from(*v)),
+                        ("TEXT", Value::Null) => Value::Null,
+                        ("TEXT", Value::String(v)) => Value::String(v.clone()),
+                        ("TEXT", v) => Value::String(v.to_string()),
+                        (_, v) => v.clone(),
+                    }
+                } else if let Some(default) = &field.default_sql {
+                    let value: SqlValue = conn
+                        .query_row(&format!("SELECT {default}"), [], |r| r.get(0))
+                        .map_err(db)?;
+                    match value {
+                        SqlValue::Null => Value::Null,
+                        SqlValue::Integer(v) => Value::from(v),
+                        SqlValue::Real(v) => Value::from(v),
+                        SqlValue::Text(v) => Value::String(v),
+                        SqlValue::Blob(_) => return Err(error("不支持的字段默认值")),
+                    }
+                } else if !field.required && field.primary == 0 {
+                    Value::Null
+                } else if field.primary > 0 && field.name == "id" {
+                    warnings.insert(format!(
+                        "{file}无本项目ID，按文件顺序建立标识；冲突时整批拒绝"
+                    ));
+                    Value::from((index + 1) as i64)
+                } else if field.kind == "TEXT" {
+                    Value::String(String::new())
+                } else {
+                    Value::from(0)
+                };
+                sql_value(&value, field)
+                    .map_err(|e| error(format!("{file}第{}项: {e}", index + 1)))?;
+                row.insert(field.name.clone(), value);
+            }
+            rows.push(row);
+        }
+        data.collections.insert(key.into(), rows);
+        consumed.insert(file);
+    }
+    // 日总数是明细的派生投影，单位为秒；不把毫秒直接写入日总表。
+    let mut daily = BTreeMap::<String, i64>::new();
+    for row in &data.collections["readRecordDetails"] {
+        if let (Some(date), Some(time)) = (row["date"].as_str(), row["readTime"].as_i64()) {
+            let total = daily.entry(date.into()).or_default();
+            *total = total
+                .checked_add(time)
+                .ok_or_else(|| error("阅读明细时长溢出"))?;
+        }
+    }
+    data.collections.insert(
+        "readRecordDaily".into(),
+        daily
+            .into_iter()
+            .map(|(date, time)| {
+                Record::from_iter([
+                    ("date".into(), Value::String(date)),
+                    ("durationSeconds".into(), Value::from(time / 1000)),
+                ])
+            })
+            .collect(),
+    );
+    if consumed.is_empty() {
+        return Err(error("ZIP不是可识别的OpenLegado或原版备份"));
+    }
+    for name in files.keys() {
+        if !consumed.contains(name.as_str()) {
+            warnings.insert(format!("未恢复上游成员：{name}"));
+        }
+    }
+    // 上游以作者区分累计记录；目标身份冲突必须拒绝，不能覆盖某一作者。
+    BackupRepository::new(conn).validate(&data)?;
+    Ok((data, warnings.into_iter().collect()))
 }
 
 #[cfg(test)]

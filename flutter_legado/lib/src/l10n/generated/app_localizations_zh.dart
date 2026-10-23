@@ -4157,4 +4157,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String backupRestoreAdditional(int count) {
     return '其他业务记录$count项';
   }
+
+  @override
+  String get backupSelectRemote => '选择云端备份';
+
+  @override
+  String get backupNoRemote => '云端没有可用备份';
 }

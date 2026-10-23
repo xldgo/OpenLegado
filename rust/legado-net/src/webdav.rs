@@ -263,13 +263,21 @@ impl WebDavClient {
     /// MKCOL — 创建目录
     pub async fn mkdir(&self, path: &str) -> LegadoResult<()> {
         let url = self.full_url(path);
-        self.client
+        let response = self
+            .client
             .request(reqwest::Method::from_bytes(b"MKCOL").unwrap(), &url)
             .header("Authorization", self.auth_header())
             .send()
             .await
             .map_err(|e| LegadoError::Network(reqwest_error_chain(&e)))?;
-        Ok(())
+        let status = response.status();
+        if status.is_success() || status == reqwest::StatusCode::METHOD_NOT_ALLOWED {
+            Ok(())
+        } else {
+            Err(LegadoError::Network(format!(
+                "创建WebDAV目录失败（HTTP {status}）"
+            )))
+        }
     }
 
     /// 获取文件 ETag 和 Last-Modified 元数据

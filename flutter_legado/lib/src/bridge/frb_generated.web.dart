@@ -218,6 +218,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BackupFileDto dco_decode_backup_file_dto(dynamic raw);
 
   @protected
+  BackupRestoreResultDto dco_decode_backup_restore_result_dto(dynamic raw);
+
+  @protected
   BookDto dco_decode_book_dto(dynamic raw);
 
   @protected
@@ -1451,6 +1454,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BackupFileDto sse_decode_backup_file_dto(SseDeserializer deserializer);
+
+  @protected
+  BackupRestoreResultDto sse_decode_backup_restore_result_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   BookDto sse_decode_book_dto(SseDeserializer deserializer);
@@ -3081,6 +3089,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_backup_file_dto(BackupFileDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_backup_restore_result_dto(
+    BackupRestoreResultDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_book_dto(BookDto self, SseSerializer serializer);

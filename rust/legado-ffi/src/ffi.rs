@@ -2802,14 +2802,32 @@ pub mod ffi {
     // ─── 备份/恢复 ───────────────────────────────────────
 
     /// 创建备份到指定路径，返回备份文件路径
-    pub fn backup_create(path: String) -> Result<String, BridgeError> {
-        let result = crate::api::backup_api::backup_create(&path)?;
-        Ok(result)
+    pub fn backup_create(
+        path: String,
+        preferences_json: String,
+        files_json: String,
+        sensitive_json: String,
+        password: Option<String>,
+    ) -> Result<String, BridgeError> {
+        Ok(crate::api::backup_api::backup_create(
+            &path,
+            &preferences_json,
+            &files_json,
+            &sensitive_json,
+            password,
+        )?)
     }
-
-    /// 从备份文件恢复，返回恢复统计（类型化）
-    pub fn backup_restore(path: String) -> Result<RestoreStatsDto, BridgeError> {
-        Ok(crate::api::backup_api::restore_backup(&path)?.into())
+    /// 验证完整包并事务恢复业务，再返回待应用的偏好与凭据。
+    pub fn backup_restore(
+        path: String,
+        password: Option<String>,
+        ignore_json: String,
+    ) -> Result<BackupRestoreResultDto, BridgeError> {
+        Ok(crate::api::backup_api::restore_backup(
+            &path,
+            password,
+            &ignore_json,
+        )?)
     }
 
     /// 列出备份文件（类型化列表）
@@ -2905,6 +2923,11 @@ pub mod ffi {
     }
 
     /// 上传文件到 WebDAV
+    pub fn webdav_mkdir(config_json: String, path: String) -> Result<(), BridgeError> {
+        crate::api::webdav_api::webdav_mkdir(&config_json, &path)?;
+        Ok(())
+    }
+
     pub fn webdav_upload(
         config_json: String,
         path: String,

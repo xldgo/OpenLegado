@@ -1990,12 +1990,30 @@ Future<AudioChapterMediaDto> audioGetChapterMedia({
 );
 
 /// 创建备份到指定路径，返回备份文件路径
-Future<String> backupCreate({required String path}) =>
-    RustLib.instance.api.crateFfiFfiBackupCreate(path: path);
+Future<String> backupCreate({
+  required String path,
+  required String preferencesJson,
+  required String filesJson,
+  required String sensitiveJson,
+  String? password,
+}) => RustLib.instance.api.crateFfiFfiBackupCreate(
+  path: path,
+  preferencesJson: preferencesJson,
+  filesJson: filesJson,
+  sensitiveJson: sensitiveJson,
+  password: password,
+);
 
-/// 从备份文件恢复，返回恢复统计（类型化）
-Future<RestoreStatsDto> backupRestore({required String path}) =>
-    RustLib.instance.api.crateFfiFfiBackupRestore(path: path);
+/// 验证完整包并事务恢复业务，再返回待应用的偏好与凭据。
+Future<BackupRestoreResultDto> backupRestore({
+  required String path,
+  String? password,
+  required String ignoreJson,
+}) => RustLib.instance.api.crateFfiFfiBackupRestore(
+  path: path,
+  password: password,
+  ignoreJson: ignoreJson,
+);
 
 /// 列出备份文件（类型化列表）
 Future<List<BackupFileDto>> backupList({required String dir}) =>
@@ -2065,6 +2083,12 @@ Future<List<WebDavFileDto>> webdavListDir({
 );
 
 /// 上传文件到 WebDAV
+Future<void> webdavMkdir({required String configJson, required String path}) =>
+    RustLib.instance.api.crateFfiFfiWebdavMkdir(
+      configJson: configJson,
+      path: path,
+    );
+
 Future<void> webdavUpload({
   required String configJson,
   required String path,

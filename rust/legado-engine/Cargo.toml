@@ -20,6 +20,8 @@ rusqlite = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync", "time"] }
 r2d2 = { workspace = true }
 r2d2_sqlite = { workspace = true }
+zip = { workspace = true }
+ring = { workspace = true }
 
 [features]
 default = []

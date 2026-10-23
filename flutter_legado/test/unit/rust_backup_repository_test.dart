@@ -55,7 +55,7 @@ void main() {
   test('恢复返回已提交统计，原生失败仍上抛', () async {
     final dir = await Directory.systemTemp.createTemp('legado-backup-dto-');
     addTearDown(() => dir.delete(recursive: true));
-    final file = await File('${dir.path}/backup.json').writeAsString('{}');
+    final file = await File('${dir.path}/backup.zip').writeAsString('{}');
     final stats = RestoreStatsDto(
       books: BigInt.from(9007199254740993),
       bookmarks: BigInt.one,
@@ -65,25 +65,50 @@ void main() {
       readRecords: BigInt.from(5),
       additional: {'httpTts': BigInt.from(7)},
     );
-    when(() => bridge.crateFfiFfiBackupRestore(path: file.path))
-        .thenAnswer((_) async => stats);
+    when(
+      () => bridge.crateFfiFfiBackupRestore(
+        path: file.path,
+        password: null,
+        ignoreJson: '[]',
+      ),
+    ).thenAnswer(
+      (_) async => BackupRestoreResultDto(
+        stats: stats,
+        preferencesJson: '{"theme":"dark"}',
+        sensitiveJson: '{}',
+        warnings: ['未支持项'],
+      ),
+    );
     final restored = await repo.restore(file.path);
     expect(
       [
-        restored.books,
-        restored.bookmarks,
-        restored.replaceRules,
-        restored.bookSources,
-        restored.rssSources,
-        restored.readRecords,
+        restored.stats.books,
+        restored.stats.bookmarks,
+        restored.stats.replaceRules,
+        restored.stats.bookSources,
+        restored.stats.rssSources,
+        restored.stats.readRecords,
       ],
       [9007199254740993, 1, 2, 3, 4, 5],
     );
-    expect(restored.additional, {'httpTts': 7});
-    verify(() => bridge.crateFfiFfiBackupRestore(path: file.path)).called(1);
+    expect(restored.stats.additional, {'httpTts': 7});
+    expect(restored.preferences, {'theme': 'dark'});
+    expect(restored.warnings, ['未支持项']);
+    verify(
+      () => bridge.crateFfiFfiBackupRestore(
+        path: file.path,
+        password: null,
+        ignoreJson: '[]',
+      ),
+    ).called(1);
     final failure = StateError('恢复失败');
-    when(() => bridge.crateFfiFfiBackupRestore(path: file.path))
-        .thenThrow(failure);
+    when(
+      () => bridge.crateFfiFfiBackupRestore(
+        path: file.path,
+        password: null,
+        ignoreJson: '[]',
+      ),
+    ).thenThrow(failure);
     await expectLater(repo.restore(file.path), throwsA(same(failure)));
   });
 }

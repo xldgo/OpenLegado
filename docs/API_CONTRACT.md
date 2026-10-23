@@ -2415,40 +2415,37 @@ Rust签名、数据库格式和生成绑定不变，缓存清理及下载任务�
 | `deleteConfig(String key)` | key | `Future<void>` | 删除配置 |
 | `getAllConfigs()` | 无 | `Future<Map<String, String>>` | 获取所有配置 |
 
-### 2.11 备份操作（3 个方法）
+### 2.11 备份操作（BACKUP-RESTORE-20261024，当前契约）
 
-**BACKUP-RESTORE-20261024 B2（实施前冻结）**：当前开发格式改为`format=openlegado`、
-`version=2`、`backupTime`、`collections`及`config`的JSON文档，不增加版本1兼容分支。
-collections为明确白名单业务集合，含书架/分组/书签/规则/订阅/RSS收藏与已读/朗读引擎与音色/
-累计、每日与会话记录，集合项保留原主键及完整数据库字段；书籍使用现有BookRepository实体路径，
-其余仅在DB专用备份仓储内按主键原地upsert，不使用REPLACE删除关联数据。
-库表/列名只来自本机白名单与schema，输入不能选择任意SQL对象；未知集合/字段、缺失集合、
-类型错误或重复主键在写入前拒绝。临时表、目录/音频/网络缓存、日志、下载任务、隐私凭据不导出。
-部分新增类仓储会重分配ID，因此本批不复用其新增API，也不扩展普通CRUD为通用备份接口。
-配置仅收录已确认普通Rust设置键，拒绝任意config缓存和凭据；appPrefs继续由Dart编排。
-RestoreStats/RestoreStatsDto/BackupRestoreStats新增`additional: Map<String, count>`，保留六个主统计，
-新增集合统计由此承载；同步正式/Mock实现、生成绑定。读取/写入/提交失败均保持B1事务语义。
+领域入口由BackupRepository拥有，BackupService编排平台偏好/资源/凭据及WebDAV传输。
+不保留开发阶段JSON版本1或双JSON云端备份兼容分支，旧阶段约定由Git历史追溯。
 
-**BACKUP-RESTORE-20261024 B1（实施前冻结）**：FRB方法、六字段RestoreStatsDto、
-数据库schema与版本1备份格式不变。Dart `BackupRepository.restore`返回
-`BackupRestoreStats`（books/bookmarks/replaceRules/bookSources/rssSources/readRecords），
-正式适配逐字段映射既有DTO，Mock返回明确的零统计；页面消费实际统计。
-累计阅读记录使用既有全字段仓储写回设备、书名、作者、时长和最后阅读时间，不丢弃备份已有字段。
-恢复仅接受版本1、本项目业务集合的JSON文档；ZIP未接通前明确拒绝，不继续声称支持。
-Rust先完成所有条目的类型校验，再在同一数据库事务内写入；任意解析、写入或提交失败
-必须报错，不能跳过失败条目后返回成功，覆盖此前逐条跳过的约定。
-业务事务成功后才应用appPrefs；偏好失败返回业务已恢复的计数和独立错误，
-不承诺SQLite与Preferences跨存储原子性。WebDAV现有双JSON路径本批不改，B3替换。
+- `backup_create(path, preferences_json, files_json, sensitive_json, password?) → String`：
+  产物为版本化ZIP，包含manifest、24个明确业务集合、普通Rust配置及用户选定资源。
+  files是原引用→本地文件路径；不包含可重建缓存、任意config或平台私有凭据。
+  内部业务格式为openlegado/version2，未知集合/列、类型错误、重复主键及缺集合均拒绝。
+  书籍经BookRepository更新，其余按原主键upsert，不用REPLACE删除关联记录。
+- `backup_restore(path,password?,ignore_json) → BackupRestoreResultDto`：
+  stats保留六主统计及additional集合计数，preferences_json/sensitive_json返回平台载荷，
+  warnings报告上游未映射项。只接受localBook/threadCount/coverConfig/readConfig业务忽略项。
+  包、资源、实体完整校验后单事务恢复，解析/写入/提交失败不留部分业务数据；限速在提交后发布。
+  资源只能写入所属实例的资源目录，失败删除本次新建文件，已有文件不删除。
+  Dart在业务提交后按忽略规则应用偏好与凭据，失败独立报告真实已提交统计；不承诺跨存储原子。
+- 有密码时使用PBKDF2-HMAC-SHA256/600000次、随机32字节盐、AES-256-GCM及随机12字节nonce
+  包装ZIP；固定magic/version标识参数。密码不进入包或日志，缺密码/错误密码/认证失败均在写入前拒绝。
+  未加密包不能携带敏感载荷；备份密码由BackupPasswordStore使用平台安全存储持有。
+- 先完成临时文件再发布产物；限制包/成员大小，拒绝路径逃逸、重复或缺失ZIP成员。
+- 原版/HapeLee ZIP只按显式文件/字段映射导入，不能无损恢复项报告warnings；不声称全量兼容。
+- 本地与WebDAV上传同一ZIP，云端选择文件后下载走同一本地恢复入口，恢复不得上传。
+  `webdav_mkdir(config_json,path)`及领域webdavMkdir逐级准备远程目录，成功/已存在才继续，
+  认证及服务器失败必须上抛（本批新增FRB方法1个）。
 
-**Dart归属**：本节三项及既有`backupList`统一由`BackupRepository`及直接FRB/Mock实现承担，
-根BookApi只装配共享实例；备份文件及偏好编排由`BackupService`负责。
-Rust导出、参数、返回和数据库格式保持。
-
-| 方法 | 入参 | 返回 | 说明 |
-|------|------|------|------|
-| `backup(String dirPath)` | dirPath | `Future<String>` | 备份数据，返回备份文件路径。**P2-4（2026-08-13）**：Flutter 在 FFI 写出 JSON 后注入 `appPrefs`（当前 SharedPreferences 快照，已按 restoreIgnore + alwaysIgnore 过滤）；无新 FFI 签名 |
-| `restore(String backupPath)` | backupPath | `Future<BackupRestoreStats>` | B1按上文返回真实统计；BackupService预过滤本地书，业务恢复成功后应用appPrefs；偏好失败独立反馈，应用层集中刷新配置。Rust签名不变 |
-| `importOldData(String dirPath)` | dirPath：含旧版备份文件的目录 | `Future<OldDataImportResult>` | **P2-4（2026-08-13）**：对齐原版 `ImportOldData.importUri`。读取目录下 `myBookShelf.json` / `myBookSource.json` / `myBookReplaceRule.json`（缺文件不致命，计入 `messages`）；书架字段映射（`noteUrl`→`bookUrl`、`bookInfoBean.*` 等）；书源经 `toNewRule`/`toNewUrl`/`toNewUrls`/`uaToHeader` 迁到 3.x 规则结构；替换规则兼容新格式或旧字段（`regex`/`replaceSummary`/`useTo`/`enable`/`serialNumber`）。已存在 `bookUrl` 的书跳过。返回结构化统计：books / bookSources / replaceRules / messages |
+| 领域方法 | 返回 | 说明 |
+|---|---|---|
+| `backup(dirPath,{preferences,files,sensitive,password})` | `Future<String>` | 返回完整包路径 |
+| `restore(path,{password,ignore})` | `Future<BackupRestoreResult>` | 已提交统计、平台数据及未支持项 |
+| `backupList(dirPath)` | `Future<List<String>>` | 现有文件描述文本，不改其他消费者 |
+| `importOldData(String dirPath)` | `Future<OldDataImportResult>` | **P2-4（2026-08-13）**：对齐原版 `ImportOldData.importUri`。读取目录下 `myBookShelf.json` / `myBookSource.json` / `myBookReplaceRule.json`（缺文件不致命，计入 `messages`）；书架字段映射（`noteUrl`→`bookUrl`、`bookInfoBean.*` 等）；书源经 `toNewRule`/`toNewUrl`/`toNewUrls`/`uaToHeader` 迁到 3.x 规则结构；替换规则兼容新格式或旧字段（`regex`/`replaceSummary`/`useTo`/`enable`/`serialNumber`）。已存在 `bookUrl` 的书跳过。返回结构化统计：books / bookSources / replaceRules / messages |
 
 ### 2.12 阅读记录（15 个方法）
 
