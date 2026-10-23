@@ -46,6 +46,9 @@
 
 ### RUST-BOUNDARY-IMPLEMENT-20261023：重复功能收敛与业务边界下沉（P2，分批实施）
 
+- 集成收尾（复核与本地验证通过）：以3ed195b30复核B8～B10端口、资源所有权和取消归属，未发现需新增保护分支的缺陷。B10a临时匹配FFI已随B10b移除，既有公开限制查询保留；更新审计文档第1/3/5/7节及集成证据，51个本地链接均可达。新增boundary_migration_runtime_test.dart三项真实FFI用例全部通过：朗读能力/页面范围/批量分片及错误映射；聚合句柄跨批首条完整元数据；旧HTTP等待期间取消搜索，新订阅在旧响应释放前返回真实正文和UTF-16命中范围。无Dart算法副本，不重复Rust算法矩阵。
+- 集成证据与交付：python scripts/dev.py build ffi windows --profile debug退出0，QuickJS DLL经PE/摘要/源码指纹/FRB元数据校验；定向flutter test --no-pub --tags native test/ffi/boundary_migration_runtime_test.dart为3 passed，目标dart analyze无问题，格式及git diff --check通过。构建与测试日志在build/boundary-integration/{build,native}.log。自查三份变更，无生产代码/契约/依赖/版本变化，无独立审查或Android/iOS/真机/性能/全量CI结果。按用户授权本批本地提交后以ff-only合入主目录dev；合入前主目录fc97503a7已被本分支包含，仅有三份其他任务未跟踪报告，原样保留。不推送、不触发CI、不安装。
+
 - B10b（代码及定向验证完成）：用户授权正文搜索执行下沉，从df524374a开始，单代理；先冻结CONTENT-SEARCH-EXECUTION-20261023，复用B10a匹配器与既有StreamRequest/TaskHandle。Rust拥有章节范围、正式内容读取、净化、流式增量批次与取消；Flutter保留历史/选项/展示/导航，不再逐章请求。修正在线need_fetch JSON被当正文路径，缓存范围非当前章不因清理/空缓存而联网。定向测试后本地提交，版本不变，不推送/安装。
 
 - B10b实现：ReadingService/content_search复用B10a匹配器，按目录顺序选择当前/缓存/全部，执行真实本地或缓存/网络读取并复用净化。修正原在线getChapterContent/raw返回need_fetch JSON而搜索未继续抓取的问题。非当前缓存章在缓存清理/空内容后跳过，不联网；50/200上限只在Rust维护，批次仅新增命中及scanned/total/error/limitReached。单章失败继续，目录/宿主错误为流错误，非法正则不读正文。B10a临时匹配句柄FFI移除，改为一个类型化流入口，Core算法保持。

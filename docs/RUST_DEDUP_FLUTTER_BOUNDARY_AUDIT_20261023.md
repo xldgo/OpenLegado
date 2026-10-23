@@ -5,7 +5,7 @@
 - 审计分支：`feature/rust-boundary-audit`。
 - 基线：`dev / 60ab0885772d49e9545cb753fd5e9dfaf71878c0`。
 - 工作树：`build/worktrees/rust-boundary-audit`。
-- 用户要求先检查；本轮不修改生产代码、FFI 契约、数据库、依赖或版本。
+- 初次审计仅检查，不修改生产代码、FFI 契约、数据库、依赖或版本；后续授权实现见第8节起的批次证据。
 - 排除正在处理的音频跳过规则、书籍状态修改、导出格式与解析清洗，不把这些内容重复立项。
 - 主目录的未提交工作不纳入此基线，不复制、覆盖或提交其他任务的修改。
 - 方法：源码检索、重复片段候选定位、逐项阅读及生产调用追踪。片段相似或函数同名只作为线索。
@@ -20,7 +20,15 @@
 因此原工作树没有未提交内容或分支独有提交，已用普通 `git worktree remove` 移除，没有强制删除。
 原分支引用保留；新分支从上述已提交 HEAD 创建。
 
-## 3. Rust 可以收敛的重复实现
+## 3. Rust 重复实现的初次审计证据
+
+本节描述初次审计基线，原行号及“仍”“建议”等表述不代表当前代码状态。
+后续实现已分别落在云TTS的[公共校验](../rust/legado-core/src/cloud_tts.rs)、
+[SSE分帧](../rust/legado-core/src/cloud_tts/sse.rs)、
+[规则URL组合](../rust/legado-core/src/url_resolution.rs)，以及
+[Engine流式上传](../rust/legado-engine/src/webdav_service/mod.rs)。
+URL入口的原文组合与规范化输出语义仍有区别，没有强行合并全部入口。
+本节保留去重动机和反例，实施状态只查Active计划。
 
 ### R1：云 TTS 的服务地址与共性输入校验
 
@@ -126,24 +134,25 @@ B6将保留部分归位到[speak_cache.rs](../rust/legado-core/src/speak_cache.r
 缓存覆盖保留原四项，旧模板键测试混入的自动任务ID断言移入其已有用例，
 没有因清理模板管线而丢掉其他功能覆盖。
 
-## 5. Flutter 值得下沉的逻辑
+## 5. Flutter 业务下沉后的职责落点
 
-| 项目 | 当前证据 | 建议边界与代价 |
+初次审计的Dart聚合器、正文匹配器及统计计算器已随授权批次移除；
+旧实现可由本文基线提交追溯，不再以已删除文件作为当前入口。
+下表只描述实现边界，进度仍统一见Active计划。
+
+| 项目 | Rust职责及实现落点 | Flutter保留职责 |
 |---|---|---|
-| F1 搜索跨源聚合 | [Dart 聚合器](../flutter_legado/lib/src/domain/services/search_result_aggregator.dart) 第 4 行维护去重、四桶、来源合并及排序；[SearchNotifier](../flutter_legado/lib/src/features/search/search_notifier.dart) 第 317、386 行生产调用；[Rust 聚合器](../rust/legado-core/src/search_aggregate.rs) 第 269 行另有同目标算法 | Rust 持有每次搜索的增量聚合状态，输出批次或快照；Dart 保留展示、选项和页面状态。不要每来一批把全部历史结果传回 Rust 再聚合。书名/作者清洗属于排除项，本轮不另做修改；实际接线需等该部分口径确定。 |
-| F2 阅读统计和会话归并 | [概览计算](../flutter_legado/lib/src/features/read_records/read_record_overview_calculator.dart) 第 102、137 行计算小时交集、跨设备日合计、排行及周期统计；[列表计算](../flutter_legado/lib/src/features/read_records/read_record_list_calculator.dart) 第 76 行含会话去重及 20 分钟合并 | 优先把会话归并和聚合查询放 Rust/DB，按周期取结果，避免每次把完整历史拉到 Flutter。页面周期选择、日历格子、图表坐标、本地化和纯展示排序继续留 Flutter。必须明确本地时区及夏令时边界，不能直接以固定 24 小时替代当前日历语义。 |
-| F3 WebDAV 连接测试 | [设置页](../flutter_legado/lib/src/features/settings/presentation/webdav_settings_screen.dart) 第 363 行自行建立 Dart HTTP 客户端，拼 Basic Auth 并发 PROPFIND；正式传输走 [Rust 服务](../rust/legado-engine/src/webdav_service/mod.rs) | 为同一服务增加只读 probe，复用 Rust 客户端及 CustomHosts，返回认证/超时/HTTP 分类；页面只显示结果。探测是 Depth 0，不能直接拿 Depth 1 的 list_dir 冒充。需新增领域与 FFI 契约。 |
-| F4 正文搜索与命中坐标 | [搜索控制器](../flutter_legado/lib/src/features/search/application/content_search_controller.dart) 第 103 行起逐章取全文、匹配并截摘要；[匹配器](../flutter_legado/lib/src/domain/services/content_search_matcher.dart) 第 2 行运行 Dart 正则/大小写匹配；结果页再次匹配摘要 | 更适合一次提交搜索请求，Rust 负责读取/缓存范围、匹配、取消与结果流，返回摘要和摘要内命中范围；Flutter 直接绘制高亮。现有 [TXT 搜索](../rust/legado-book/src/txt_search.rs) 第 229 行是局部参考，字符计数不是 UTF-16，且只面向 TXT，不能直接复用为全部在线书搜索。正则方言和 Unicode 坐标必须先固定。 |
-| F5 云 TTS 能力元数据和请求分片 | [Dart Provider 表](../flutter_legado/lib/src/domain/contracts/cloud_tts_provider.dart) 第 51 行重复保存格式、默认音色、限制等；[分片算法](../flutter_legado/lib/src/domain/models/read_aloud_content.dart) 第 110 行处理字形簇、UTF-16 和 UTF-8 字节限制；Rust Provider 再次检查限制 | 先让 Rust 提供能力描述，再考虑纯分片算法；UI 文案、表单展示、系统 TTS 回调、播放器和媒体会话保留 Flutter/平台层。Rust 限制同时存在字符、UTF-16 和字节口径，不能把当前 Dart limit 不加区分地搬过去。无需重构播放架构。 |
-| F6 媒体类型识别 | [BookTypePolicy](../flutter_legado/lib/src/domain/services/book_type_policy.dart) 第 18、66、187 行维护类型换算及视频/漫画源启发式；[详情服务](../flutter_legado/lib/src/data/services/book_detail_service.dart) 第 28 行起用于开读准备；Rust 的 [类型映射](../rust/legado-js/src/js_source/js_source_marshaller.rs) 第 13 行另有基础换算 | 后续把“识别为何种媒体”的只读规则集中到 Rust，返回媒体类型；Flutter 决定打开哪个页面。不是把导航搬 Rust，也不在本轮介入书籍状态写入。需覆盖已有误标视频和 HTML 图片源样例，不能只替换基础 switch。 |
+| F1 搜索跨源聚合 | [Core查询聚合](../rust/legado-core/src/search_aggregate.rs)持有去重、四桶、来源合并和排序；[Dart适配](../flutter_legado/lib/src/data/services/rust_search_aggregation_service.dart)消费查询句柄的增量输入与快照 | 保存每组首条完整书籍元数据，管理搜索订阅、150ms快照节流、展示和页面生命周期；不重传全部历史结果 |
+| F2 阅读统计与会话归并 | DB拥有[时间线](../rust/legado-db/src/repository/read_record_timeline.rs)、[概览](../rust/legado-db/src/repository/read_record_statistics.rs)、[小时交集](../rust/legado-db/src/repository/read_record_hourly.rs)及[列表投影](../rust/legado-db/src/repository/read_record_list.rs) | 本地日历边界、周期选择、图表坐标、本地化、选择删除及页面组织；不把固定24小时当作日历日 |
+| F3 WebDAV连接测试 | [Engine](../rust/legado-engine/src/webdav_service/mod.rs)复用Net客户端、CustomHosts和Depth0 PROPFIND，返回稳定分类；[Dart适配](../flutter_legado/lib/src/data/services/rust_webdav_service.dart)映射结果 | 表单、用户触发及结果展示；测试不保存配置、不创建目录，也不证明远端写权限 |
+| F4 正文搜索与坐标 | [Core匹配](../rust/legado-core/src/content_search.rs)与[Engine执行器](../rust/legado-engine/src/reading_service/content_search.rs)负责真实正文读取、范围、匹配、摘要和任务取消 | [Dart适配](../flutter_legado/lib/src/data/services/rust_content_search_service.dart)订阅增量流；Controller管理历史、选项、展示和导航，直接使用返回的UTF-16高亮范围 |
+| F5 云TTS能力与朗读切分 | [能力表](../rust/legado-core/src/cloud_tts/capabilities.rs)与[切分器](../rust/legado-core/src/read_aloud_partition.rs)拥有Provider限制及整段／符号／页面与云请求分片；[Dart规划端口](../flutter_legado/lib/src/data/services/rust_read_aloud_planner.dart)映射原文范围 | Flutter提供真实分页快照，按返回范围截取原文，管理系统TTS、播放器、媒体会话和平台回调；不在Mock复制算法 |
+| F6 媒体类型识别 | [Core媒体规则](../rust/legado-core/src/book_media.rs)统一识别，由只读查询提供结果 | 决定导航目标；不把导航或页面生命周期迁入Rust |
 
-F1 的 Rust JSON 聚合函数位于 [api/search.rs](../rust/legado-ffi/src/api/search.rs) 第 314 行，
-当前 `ffi.rs` 与生成 Dart 接口未发现对应聚合方法，正式 Dart 搜索服务也未接入。
-因此不能将其描述为“已经完整下沉”；它目前提供 Rust 算法和跨端夹具依据。
-
-F5 当前的 [Rust 朗读状态](../rust/legado-core/src/read_aloud.rs) 第 128 行按固定标点分段，
-没有 Dart 的原文偏移与三种划分模式，且主要经 Server 路径使用。
-不能以“Rust 已有分段”直接替换应用朗读算法；Web/MCP 现有能力本轮不扩展。
+F1已使用查询级增量句柄，不再停留于未接线的JSON一次性聚合入口。
+F5使用带UTF-16原文位置的新规划端口；它不是旧Server朗读状态的固定标点分段替代。
+Web/MCP现有能力保持原范围，文字测量、原生选区和播放实现仍由Flutter／平台拥有。
+既有只读`cloud_tts_speech_limits`能力保留，不因正式播放改用批量分片便机械删除公开接口。
 
 ## 6. 不应计作重复问题或强行下沉的内容
 
@@ -157,18 +166,16 @@ F5 当前的 [Rust 朗读状态](../rust/legado-core/src/read_aloud.rs) 第 128 
 8. 列表搜索、排序、日历步进等局部展示逻辑可以留 Dart；下沉目标是统一业务事实和数据处理，不是清空 Dart 逻辑。
 9. 未把 cfg 分支、trait 实现、DTO 字段重复或测试夹具相似直接列为生产重复功能。
 
-## 7. 建议实施次序与验证边界
+## 7. 实施次序与验证边界
 
-1. **小范围复用**：R4 WebDAV 上传复用；R1 云 TTS 公共校验；R2 SSE 分帧。各自小批，不绑成大重构。
-2. **独立网络正确性批次**：R3 统一 URL 组合；先锁定实际入口语义，保护 data/协议相对/纯主机/相对层级/规则 base。
-3. **最小新增边界**：F3 WebDAV probe；契约先行，用本地 HTTP 服务验证状态码、认证、超时与现有 Hosts。
-4. **领域状态下沉**：F1 搜索增量聚合，再 F2 阅读统计；前者等待清洗任务口径落定，后者独立冻结时区/归并规则。
-5. **单独评估收益**：F4 正文搜索、F5 TTS 能力/分片、F6 媒体识别。不存在必须全部搬 Rust 的结论。
-6. C1/C2 仅作为有调用证据的清理候选；用户确认后才删除，不以新增转发层延续旧管线。
+原建议由小范围复用、URL正确性、最小新增端口推进到领域状态下沉。
+后续授权批次分别承接R1～R4、C1/C2和F1～F5；F6随主目录基线同步纳入，
+不在此重复迁移。具体契约和各批证据见后文及Active计划，不从历史建议另开任务。
 
-只运行每批直接受影响的定向测试，复用现有云 TTS、搜索聚合、阅读统计与正文搜索夹具。
-算法以 Rust 行为测试为主，Dart 验证编排、错误和显示；删除原算法后不永久维护两套同义测试。
-初次审计没有运行测试、构建、性能分析或设备验证，没有改动生产代码，也没有证明实际性能提升。
+只运行每批直接受影响的定向测试，复用已有夹具。
+算法以Rust行为测试为主，Dart验证编排、错误和显示；移除算法后不永久维护同义副本。
+原生集成只验证生成绑定、DTO／不透明句柄／流接线和取消归属，避免重跑算法矩阵。
+初次审计未执行测试或构建；后续验证按各批证据区分，不能从职责收敛推导性能收益。
 
 ## 8. B5 连接测试的实现与验证口径
 
@@ -482,5 +489,22 @@ Flutter只订阅增量事件、保存展示快照，重搜/停止/清空/销毁�
 隔离已排队事件。等待旧取消结束不阻塞新查询，界面search返回不等于所有原生线程
 已经停止；真实在途凭据仍由Engine登记到结束。算法语义继续由B10a Rust用例覆盖，
 Dart测试只验证选项传递、事件/错误、取消和高亮，不另写章节选择算法。
+
+编写者：Codex + Rust / UI / Bridge｜2026-10-23
+
+## 22. B8～B10集成复核与宿主验证口径
+
+复核新规划端口、查询聚合句柄及独立正文搜索任务的调用与所有权。
+B10a临时匹配句柄已由B10b执行流替换，无第二套匹配FFI需要清理。
+保留现有公开能力，不因当前页面没有直接调用就当作临时接口删除。
+
+[原生边界用例](../flutter_legado/test/ffi/boundary_migration_runtime_test.dart)只覆盖三条完整接线：
+真实规划／分片返回UTF-16范围和错误；聚合句柄跨批保留首条完整元数据；
+本地HTTP正在等待响应时取消旧搜索，新订阅在旧响应释放前返回真实正文和命中范围。
+取消验证消费独立请求，不使用全局取消，也不以Mock流代替原生执行。
+宿主库由正式Python入口构建QuickJS Debug DLL并核验指纹与元数据。
+
+该验证不包含Android／iOS设备、真实网站、性能或全量回归；
+算法矩阵沿用各批已有Rust证据。运行结果与合入状态只记录在Active计划。
 
 编写者：Codex + Rust / UI / Bridge｜2026-10-23
