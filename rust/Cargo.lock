@@ -1911,6 +1911,7 @@ dependencies = [
 name = "legado-engine"
 version = "0.2.0"
 dependencies = [
+ "base64 0.23.1",
  "futures",
  "legado-book",
  "legado-core",
@@ -1920,6 +1921,7 @@ dependencies = [
  "legado-net",
  "legado-parser",
  "log",
+ "quick-xml",
  "r2d2",
  "r2d2_sqlite",
  "regex",

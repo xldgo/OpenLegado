@@ -7821,6 +7821,66 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'云端没有可用备份'**
   String get backupNoRemote;
+
+  /// No description provided for @backupLocalPassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地密码'**
+  String get backupLocalPassword;
+
+  /// No description provided for @backupPasswordDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'设置后加密备份，并包含 WebDAV 连接密码。其他设备需使用相同密码恢复；两项留空可清除密码。'**
+  String get backupPasswordDescription;
+
+  /// No description provided for @backupNewPassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'新密码（留空清除）'**
+  String get backupNewPassword;
+
+  /// No description provided for @backupConfirmPassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认密码'**
+  String get backupConfirmPassword;
+
+  /// No description provided for @backupPasswordMismatch.
+  ///
+  /// In zh, this message translates to:
+  /// **'两次输入的密码不一致'**
+  String get backupPasswordMismatch;
+
+  /// No description provided for @backupPasswordSaveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地密码保存失败，请重试'**
+  String get backupPasswordSaveFailed;
+
+  /// No description provided for @backupPasswordSet.
+  ///
+  /// In zh, this message translates to:
+  /// **'已设置，备份将加密'**
+  String get backupPasswordSet;
+
+  /// No description provided for @backupPasswordNotSet.
+  ///
+  /// In zh, this message translates to:
+  /// **'未设置，备份不含连接密码'**
+  String get backupPasswordNotSet;
+
+  /// No description provided for @backupCloudCredentials.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份云 TTS 凭据'**
+  String get backupCloudCredentials;
+
+  /// No description provided for @backupCloudCredentialsDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'需要本地密码；关闭时仅备份引擎配置，恢复后需重新填写密钥'**
+  String get backupCloudCredentialsDescription;
 }
 
 class _AppLocalizationsDelegate

@@ -1,7 +1,7 @@
 //! 备份应用服务：文件及事务恢复使用所属实例的存储。
 //!
 //! 提供数据库备份创建、恢复和备份文件列表功能。
-//! 备份格式为 JSON，包含 books/bookmarks/replaceRules/bookSources/rssSources/readRecords。
+//! 使用版本化ZIP集合快照、可选认证加密及用户资源。
 
 use std::fs;
 use std::path::Path;

@@ -1335,13 +1335,29 @@
   "readAloudPlayerInfoUnavailable": "Voice and engine information unavailable",
   "readAloudNoEngine": "No read-aloud engine selected",
   "readAloudSourceProgress": "Text position {current}/{total}",
-  "@readAloudSourceProgress": {"description": "章内原文 UTF-16 位置，与朗读和阅读器使用同一坐标。", "placeholders": {"current": {"type": "int"}, "total": {"type": "int"}}},
+  "@readAloudSourceProgress": {
+    "description": "章内原文 UTF-16 位置，与朗读和阅读器使用同一坐标。",
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "readAloudTimerTimeMode": "Time",
   "readAloudTimerChapterMode": "Chapters",
   "readAloudTimerFinishChapter": "Finish chapter when time is up",
   "readAloudTimerFinishChapterHint": "Continue until the current chapter finishes after the countdown ends.",
   "readAloudChapters": "{chapters} chapters",
-  "@readAloudChapters": {"placeholders": {"chapters": {"type": "int"}}},
+  "@readAloudChapters": {
+    "placeholders": {
+      "chapters": {
+        "type": "int"
+      }
+    }
+  },
   "readAloudCurrentChapter": "Current chapter",
   "readAloudMediaButtons": "Notification and headset previous/next",
   "readAloudMediaByChapter": "Change chapter",
@@ -1353,17 +1369,56 @@
   "selectNewSources": "Select new sources",
   "selectUpdatedSources": "Select updated sources",
   "importFailed": "Import failed: {error}",
-  "@importFailed": {"placeholders": {"error": {"type": "String"}}},
+  "@importFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "deleteReplaceRuleTitle": "Delete rule",
   "confirmDeleteNamedRule": "Delete “{name}”?",
-  "@confirmDeleteNamedRule": {"placeholders": {"name": {"type": "String"}}},
+  "@confirmDeleteNamedRule": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "sourceImportResultTitle": "Book source import results",
   "sourceImportSuccessCount": "Imported {count} book sources",
-  "@sourceImportSuccessCount": {"placeholders": {"count": {"type": "int"}}},
+  "@sourceImportSuccessCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "sourceImportSummary": "{total} book sources: {success} imported, {failed} failed, {skipped} skipped",
-  "@sourceImportSummary": {"placeholders": {"total": {"type": "int"}, "success": {"type": "int"}, "failed": {"type": "int"}, "skipped": {"type": "int"}}},
+  "@sourceImportSummary": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      },
+      "success": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
   "sourceImportRefreshFailed": "Could not refresh the source list: {error}. Import counts are preserved; reload the list to try again.",
-  "@sourceImportRefreshFailed": {"placeholders": {"error": {"type": "String"}}},
+  "@sourceImportRefreshFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "readerBookOpenSpeed": "Book opening speed",
   "readerBookOpenFast": "Fast",
   "readerBookOpenStandard": "Standard",
@@ -1371,7 +1426,13 @@
   "readerBookOpenSpeedSaveFailed": "Could not save the book opening speed. Please try again.",
   "ruleDeleted": "Rule deleted",
   "ruleDeleteFailed": "Failed to delete rule: {error}",
-  "@ruleDeleteFailed": {"placeholders": {"error": {"type": "String"}}},
+  "@ruleDeleteFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "backupRestoreCounts": "Books: {books}, bookmarks: {bookmarks}, replacement rules: {replaceRules}, book sources: {bookSources}, RSS sources: {rssSources}, reading records: {readRecords}",
   "@backupRestoreCounts": {
     "description": "本地备份恢复的真实结果",
@@ -1417,5 +1478,15 @@
     }
   },
   "backupSelectRemote": "Select remote backup",
-  "backupNoRemote": "No remote backups available"
+  "backupNoRemote": "No remote backups available",
+  "backupLocalPassword": "Local password",
+  "backupPasswordDescription": "Encrypt backups and include the WebDAV password. Use the same password on other devices. Leave both fields empty to clear it.",
+  "backupNewPassword": "New password (empty to clear)",
+  "backupConfirmPassword": "Confirm password",
+  "backupPasswordMismatch": "Passwords do not match",
+  "backupPasswordSaveFailed": "Could not save the backup password",
+  "backupPasswordSet": "Set; backups will be encrypted",
+  "backupPasswordNotSet": "Not set; connection passwords excluded",
+  "backupCloudCredentials": "Back up cloud TTS credentials",
+  "backupCloudCredentialsDescription": "Requires a local password. When off, restore engine settings and re-enter API keys."
 }

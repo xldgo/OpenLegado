@@ -1148,9 +1148,18 @@ BookApi只提供共享传输/备份访问引用，不再包含十一项旧方法
 刷新顺序保留，不增加通用注册或调度框架。
 
 原BackupService中的两个现用书源导出操作归BookSourceExportService，其余无生产
-消费者的备用JSON格式与方法移除；不保留旧文件转发层。远端仍使用bookshelf.json
-与sources.json，恢复禁止上传，目录准备及备份上传仍复用现有Rust能力。方法映射
-与调用方向以[API契约](API_CONTRACT.md#228-webdav-云同步7-个方法)为准，验证与
+消费者的备用JSON格式与方法移除；不保留旧文件转发层。远端与本地使用同一ZIP，恢复禁止上传，目录准备及备份上传复用Rust能力。方法映射
+与调用方向以[API契约](API_CONTRACT.md#211-备份操作backup-restore-20261024当前契约)为准，验证与
 平台限制只记录在活动计划，不将本地替身验证等同真实云端或原生调用验收。
 
 编写者：Codex｜2026-10-15
+
+## 备份密码与凭据（2026-10-24）
+
+本地密码入口在备份与恢复页，两次输入确认，空值清除；BackupPasswordStore只使用平台安全存储，
+不写SharedPreferences、不进入普通备份。设置后完整ZIP采用认证加密；不按深浅主题或平台分裂格式。
+WebDAV密码仅在加密包中导出，云TTS凭据额外受BackupSettings.includeCloudCredentials控制，默认关闭。
+恢复先提交Rust业务事务，再应用普通偏好和安全凭据，平台写入失败保留实际统计并独立提示。
+上游Android config.xml仅映射已核对的WebDAV四字段，其余设置报告未映射；AES旧算法只用于导入。
+
+编写者：Codex｜2026-10-24

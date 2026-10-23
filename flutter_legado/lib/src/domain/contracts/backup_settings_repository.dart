@@ -6,5 +6,9 @@ abstract interface class BackupSettingsRepository {
   Stream<BackupSettings> watch();
   Future<BackupSettings> load();
   Future<void> reload();
-  Future<void> update({String? backupPath, bool? syncBookProgress});
+  Future<void> update({
+    String? backupPath,
+    bool? syncBookProgress,
+    bool? includeCloudCredentials,
+  });
 }

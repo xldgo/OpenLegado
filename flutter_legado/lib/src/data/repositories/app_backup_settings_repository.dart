@@ -26,9 +26,20 @@ final class AppBackupSettingsRepository implements BackupSettingsRepository {
     storage: SettingsStorageKind.preferences,
     key: 'sync_book_progress_plus',
   );
-  static const _addresses = {_path, _progress, _autoSync, _progressPlus};
+  static const _cloud = (
+    storage: SettingsStorageKind.preferences,
+    key: 'backup_include_cloud_credentials',
+  );
+  static const _addresses = {
+    _path,
+    _progress,
+    _autoSync,
+    _progressPlus,
+    _cloud,
+  };
 
   BackupSettings _decode(AppSettingsSnapshot snapshot) => BackupSettings(
+    includeCloudCredentials: snapshot[_cloud] == true,
     backupPath: snapshot[_path] is String ? snapshot[_path] as String : '',
     syncBookProgress: snapshot[_progress] is bool
         ? snapshot[_progress] as bool
@@ -62,9 +73,13 @@ final class AppBackupSettingsRepository implements BackupSettingsRepository {
   }
 
   @override
-  Future<void> update({String? backupPath, bool? syncBookProgress}) =>
-      _service.update({
-        if (backupPath != null) _path: backupPath.isEmpty ? null : backupPath,
-        _progress: ?syncBookProgress,
-      });
+  Future<void> update({
+    String? backupPath,
+    bool? syncBookProgress,
+    bool? includeCloudCredentials,
+  }) => _service.update({
+    if (backupPath != null) _path: backupPath.isEmpty ? null : backupPath,
+    _progress: ?syncBookProgress,
+    _cloud: ?includeCloudCredentials,
+  });
 }

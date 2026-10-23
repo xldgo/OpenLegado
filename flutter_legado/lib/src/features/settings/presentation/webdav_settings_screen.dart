@@ -1,3 +1,4 @@
+import 'backup_password_sheet.dart';
 import '../../../widgets/bottom_sheet_widget.dart';
 import '../../../app/routing/app_navigation.dart';
 
@@ -82,6 +83,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
   bool _onlyLatestBackup = true;
   bool _autoCheckNewBackup = true;
   bool _busy = false;
+  bool _hasBackupPassword = false;
   bool _savingConnection = false;
 
   /// 「测试配置」行连接测试状态（差异清单 C7）
@@ -103,6 +105,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
   Future<void> _loadAll() async {
     final notifier = ref.read(syncNotifierProvider.notifier);
     await notifier.loadConfig();
+    final password = await ref.read(backupPasswordStoreProvider).read();
     final onlyLatest = await _settings.getBoolPref(
       PrefKeys.onlyLatestBackup,
       defaultValue: true,
@@ -113,6 +116,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
     );
     if (!mounted) return;
     setState(() {
+      _hasBackupPassword = password != null && password.isNotEmpty;
       _onlyLatestBackup = onlyLatest;
       _autoCheckNewBackup = autoCheck;
     });
@@ -183,6 +187,20 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
     await onSaved(result);
   }
 
+  Future<void> _editBackupPassword() async {
+    final value = await AppBottomSheet.showContent<String>(
+      context: context,
+      builder: (_) => const BackupPasswordSheet(),
+    );
+    if (value == null || !mounted) return;
+    try {
+      await ref.read(backupPasswordStoreProvider).write(value);
+      if (mounted) setState(() => _hasBackupPassword = value.isNotEmpty);
+    } catch (_) {
+      if (mounted) _showResult(context.l10n.backupPasswordSaveFailed);
+    }
+  }
+
   Future<void> _pickBackupPath() async {
     final picked = await FilePicker.getDirectoryPath(dialogTitle: '选择备份路径');
     if (picked == null) return;
@@ -206,7 +224,10 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
         directory = picked;
         await settings.update(backupPath: directory);
       }
-      final path = await service.backupLocal(directory);
+      final path = await service.backupLocal(
+        directory,
+        includeCloudCredentials: settings.current.includeCloudCredentials,
+      );
       String? warning;
       if (hasCloud) {
         await sync.backupToWebDav(localPath: path);
@@ -592,6 +613,28 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
                       ? context.l10n.backupSelectBackupPath
                       : _backupPath,
                   onTap: _busy ? null : _pickBackupPath,
+                ),
+                SettingTile(
+                  title: context.l10n.backupLocalPassword,
+                  subtitle: _hasBackupPassword
+                      ? context.l10n.backupPasswordSet
+                      : context.l10n.backupPasswordNotSet,
+                  onTap: _busy ? null : _editBackupPassword,
+                ),
+                SettingSwitchRow(
+                  title: context.l10n.backupCloudCredentials,
+                  subtitle: context.l10n.backupCloudCredentialsDescription,
+                  value: ref
+                      .read(backupSettingsRepositoryProvider)
+                      .current
+                      .includeCloudCredentials,
+                  onChanged: _busy
+                      ? null
+                      : (value) => _saveBackupPreference(
+                          () => ref
+                              .read(backupSettingsRepositoryProvider)
+                              .update(includeCloudCredentials: value),
+                        ),
                 ),
                 SettingTile(
                   title: context.l10n.backup,

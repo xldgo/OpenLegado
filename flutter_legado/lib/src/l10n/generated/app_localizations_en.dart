@@ -4396,4 +4396,36 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get backupNoRemote => 'No remote backups available';
+
+  @override
+  String get backupLocalPassword => 'Local password';
+
+  @override
+  String get backupPasswordDescription =>
+      'Encrypt backups and include the WebDAV password. Use the same password on other devices. Leave both fields empty to clear it.';
+
+  @override
+  String get backupNewPassword => 'New password (empty to clear)';
+
+  @override
+  String get backupConfirmPassword => 'Confirm password';
+
+  @override
+  String get backupPasswordMismatch => 'Passwords do not match';
+
+  @override
+  String get backupPasswordSaveFailed => 'Could not save the backup password';
+
+  @override
+  String get backupPasswordSet => 'Set; backups will be encrypted';
+
+  @override
+  String get backupPasswordNotSet => 'Not set; connection passwords excluded';
+
+  @override
+  String get backupCloudCredentials => 'Back up cloud TTS credentials';
+
+  @override
+  String get backupCloudCredentialsDescription =>
+      'Requires a local password. When off, restore engine settings and re-enter API keys.';
 }

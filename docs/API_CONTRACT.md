@@ -2447,6 +2447,14 @@ Rust签名、数据库格式和生成绑定不变，缓存清理及下载任务�
 | `backupList(dirPath)` | `Future<List<String>>` | 现有文件描述文本，不改其他消费者 |
 | `importOldData(String dirPath)` | `Future<OldDataImportResult>` | **P2-4（2026-08-13）**：对齐原版 `ImportOldData.importUri`。读取目录下 `myBookShelf.json` / `myBookSource.json` / `myBookReplaceRule.json`（缺文件不致命，计入 `messages`）；书架字段映射（`noteUrl`→`bookUrl`、`bookInfoBean.*` 等）；书源经 `toNewRule`/`toNewUrl`/`toNewUrls`/`uaToHeader` 迁到 3.x 规则结构；替换规则兼容新格式或旧字段（`regex`/`replaceSummary`/`useTo`/`enable`/`serialNumber`）。已存在 `bookUrl` 的书跳过。返回结构化统计：books / bookSources / replaceRules / messages |
 
+B4（实施前冻结）：本地密码只经BackupPasswordStore安全存储读写，空值删除；备份页提供
+两次输入确认及独立的云TTS凭据导出选项（普通策略键backup_include_cloud_credentials，默认false）。
+未设密码不导出WebDAV密码，显式选择云凭据且无密码则拒绝创建。密码不参与普通偏好备份。
+上游config.xml只映射WebDAV地址/账号/目录/加密密码，其余Android设置报告未恢复。
+上游AES-ECB/PKCS7密钥为本地密码小写MD5十六进制前16个ASCII字节，仅用于导入；
+无法解密报错，不把密文误存为密码。其他上游敏感文件保持明确未支持，不增加明文回退。
+既有FRB签名、DTO和数据库schema不变。
+
 ### 2.12 阅读记录（15 个方法）
 
 **记录列表下沉（RUST-BOUNDARY B7d，2026-10-23，实施前冻结）**：新增只读FRB

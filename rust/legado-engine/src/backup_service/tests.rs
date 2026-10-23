@@ -147,16 +147,53 @@ fn upstream_zip_maps_known_entities_and_reports_unsupported_members() {
             r#"[{"bookSourceUrl":"source","bookSourceName":12,"enabled":"0"}]"#,
         ),
         ("readConfig.json", "[]"),
+        (
+            "config.xml",
+            r#"<?xml version="1.0" encoding="utf-8"?><map><string name="web_dav_url">https://dav.example/a&amp;b</string><string name="web_dav_account">fixture-user</string><string name="web_dav_password">CBcKc5LHc50k0EWSbxpzs9BlVcT7+aOpUdL3kLcBu/U=</string><boolean name="androidOnly" value="true"/></map>"#,
+        ),
     ] {
         zip.start_file(name, zip::write::SimpleFileOptions::default())
             .unwrap();
         zip.write_all(content.as_bytes()).unwrap();
     }
     fs::write(&path, zip.finish().unwrap().into_inner()).unwrap();
+    // 固定AES/ECB/PKCS7样例由独立.NET实现生成，与上游BackupAES密钥规则一致。
+    for password in [None, Some("错误".to_owned())] {
+        assert!(
+            service
+                .restore_backup(
+                    path.to_str().unwrap(),
+                    &RestoreOptions {
+                        password,
+                        ..Default::default()
+                    }
+                )
+                .is_err()
+        );
+        target
+            .storage()
+            .with_database(|db| {
+                assert!(BookRepository::new(db.connection()).find_all()?.is_empty());
+                Ok(())
+            })
+            .unwrap();
+    }
     let result = service
-        .restore_backup(path.to_str().unwrap(), &Default::default())
+        .restore_backup(
+            path.to_str().unwrap(),
+            &RestoreOptions {
+                password: Some("local-test".into()),
+                ..Default::default()
+            },
+        )
         .unwrap();
     assert_eq!(result.stats.books, 1);
+    assert_eq!(
+        result.preferences["sync_webdav_url"],
+        "https://dav.example/a&b"
+    );
+    assert_eq!(result.preferences["sync_webdav_username"], "fixture-user");
+    assert_eq!(result.sensitive["webDavPassword"], "fixture-webdav-secret");
     assert_eq!(result.stats.book_sources, 1);
     assert!(
         result

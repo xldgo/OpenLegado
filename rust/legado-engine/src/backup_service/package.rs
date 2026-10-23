@@ -221,19 +221,18 @@ fn rewrite(value: &mut Value, paths: &BTreeMap<String, String>) -> bool {
                 *text = path.clone();
                 return true;
             }
-            if let Some((family, path)) = text.split_once('|') {
-                if let Some(new) = paths.get(path) {
-                    *text = format!("{family}|{new}");
-                    return true;
-                }
+            if let Some((family, path)) = text.split_once('|')
+                && let Some(new) = paths.get(path)
+            {
+                *text = format!("{family}|{new}");
+                return true;
             }
             if let Ok(mut parsed @ (Value::Array(_) | Value::Object(_))) =
                 serde_json::from_str::<Value>(text)
+                && rewrite(&mut parsed, paths)
             {
-                if rewrite(&mut parsed, paths) {
-                    *text = parsed.to_string();
-                    return true;
-                }
+                *text = parsed.to_string();
+                return true;
             }
             false
         }

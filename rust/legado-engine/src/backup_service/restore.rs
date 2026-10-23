@@ -68,7 +68,7 @@ pub(super) fn restore(
     let resources = super::package::restore_resources(&mut decoded, &root)?;
     let data = &decoded.data;
     let mut counts = service.with_database(|db| {
-        legado_db::backup::BackupRepository::new(db.connection()).restore(&data)
+        legado_db::backup::BackupRepository::new(db.connection()).restore(data)
     })?;
     // 只在完整业务事务提交后发布限速配置，不修改仍在运行的旧调用作用域。
     if let Some(registry) = &service.rates {

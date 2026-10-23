@@ -746,16 +746,28 @@
   "webServiceAutoStartDescription": "下次启动应用时生效，不改变当前运行状态",
   "webServiceSettingsSaveFailed": "Web 服务设置保存失败：{error}",
   "@webServiceSettingsSaveFailed": {
-    "placeholders": {"error": {"type": "String"}}
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   },
   "webServiceChecking": "正在读取服务状态",
   "webServiceRunning": "运行中，端口 {port}",
   "@webServiceRunning": {
-    "placeholders": {"port": {"type": "int"}}
+    "placeholders": {
+      "port": {
+        "type": "int"
+      }
+    }
   },
   "webServiceStatusFailed": "Web 服务异常：{error}",
   "@webServiceStatusFailed": {
-    "placeholders": {"error": {"type": "String"}}
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   },
   "webService": "Web 服务",
   "@webService": {
@@ -4328,15 +4340,33 @@
   "bookmarkNoteSaving": "正在保存…",
   "bookmarkNoteSaved": "备注已保存",
   "bookmarkAdded": "已添加书签",
-  "@bookmarkEditNote": {"description": "书签备注编辑面板"},
-  "@bookmarkOriginalText": {"description": "书签备注编辑面板"},
-  "@bookmarkNoteLabel": {"description": "书签备注编辑面板"},
-  "@bookmarkKeepEditing": {"description": "书签备注编辑面板"},
-  "@bookmarkDiscardNote": {"description": "书签备注编辑面板"},
-  "@bookmarkNoteSaveFailed": {"description": "书签备注编辑面板"},
-  "@bookmarkNoteSaving": {"description": "书签备注编辑面板"},
-  "@bookmarkNoteSaved": {"description": "书签备注编辑面板"},
-  "@bookmarkAdded": {"description": "书签备注编辑面板"},
+  "@bookmarkEditNote": {
+    "description": "书签备注编辑面板"
+  },
+  "@bookmarkOriginalText": {
+    "description": "书签备注编辑面板"
+  },
+  "@bookmarkNoteLabel": {
+    "description": "书签备注编辑面板"
+  },
+  "@bookmarkKeepEditing": {
+    "description": "书签备注编辑面板"
+  },
+  "@bookmarkDiscardNote": {
+    "description": "书签备注编辑面板"
+  },
+  "@bookmarkNoteSaveFailed": {
+    "description": "书签备注编辑面板"
+  },
+  "@bookmarkNoteSaving": {
+    "description": "书签备注编辑面板"
+  },
+  "@bookmarkNoteSaved": {
+    "description": "书签备注编辑面板"
+  },
+  "@bookmarkAdded": {
+    "description": "书签备注编辑面板"
+  },
   "readAloudSettingsTitle": "朗读设置",
   "readAloudPlaybackGroup": "播放与控制",
   "readAloudFollowSystem": "语速跟随系统",
@@ -4495,7 +4525,11 @@
   "readRecordSelectionCount": "已选 {count} 项",
   "@readRecordSelectionCount": {
     "description": "阅读记录多选顶栏标题",
-    "placeholders": {"count": {"type": "int"}}
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "readRecordSelectionHint": "点按项目选择，返回退出",
   "readRecordDayDuration": "已读 {duration}",
@@ -4553,13 +4587,29 @@
   "readAloudPlayerInfoUnavailable": "音色与引擎信息暂不可用",
   "readAloudNoEngine": "尚未选择朗读引擎",
   "readAloudSourceProgress": "原文位置 {current}/{total}",
-  "@readAloudSourceProgress": {"description": "章内原文 UTF-16 位置，与朗读和阅读器使用同一坐标。", "placeholders": {"current": {"type": "int"}, "total": {"type": "int"}}},
+  "@readAloudSourceProgress": {
+    "description": "章内原文 UTF-16 位置，与朗读和阅读器使用同一坐标。",
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "readAloudTimerTimeMode": "时间模式",
   "readAloudTimerChapterMode": "章节模式",
   "readAloudTimerFinishChapter": "到时后读完本章",
   "readAloudTimerFinishChapterHint": "倒计时结束后继续播放，到本章结束再停止。",
   "readAloudChapters": "{chapters} 章",
-  "@readAloudChapters": {"placeholders": {"chapters": {"type": "int"}}},
+  "@readAloudChapters": {
+    "placeholders": {
+      "chapters": {
+        "type": "int"
+      }
+    }
+  },
   "readAloudCurrentChapter": "当前章",
   "readAloudMediaButtons": "通知和耳机前后按钮",
   "readAloudMediaByChapter": "切换章节",
@@ -4571,17 +4621,56 @@
   "selectNewSources": "选中新增源",
   "selectUpdatedSources": "选中更新源",
   "importFailed": "导入失败：{error}",
-  "@importFailed": {"placeholders": {"error": {"type": "String"}}},
+  "@importFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "deleteReplaceRuleTitle": "删除规则",
   "confirmDeleteNamedRule": "确定删除「{name}」吗？",
-  "@confirmDeleteNamedRule": {"placeholders": {"name": {"type": "String"}}},
+  "@confirmDeleteNamedRule": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "sourceImportResultTitle": "书源导入结果",
   "sourceImportSuccessCount": "已导入 {count} 个书源",
-  "@sourceImportSuccessCount": {"placeholders": {"count": {"type": "int"}}},
+  "@sourceImportSuccessCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "sourceImportSummary": "共 {total} 个书源：成功 {success}，失败 {failed}，跳过 {skipped}",
-  "@sourceImportSummary": {"placeholders": {"total": {"type": "int"}, "success": {"type": "int"}, "failed": {"type": "int"}, "skipped": {"type": "int"}}},
+  "@sourceImportSummary": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      },
+      "success": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
   "sourceImportRefreshFailed": "书源列表刷新失败：{error}。导入计数已保留，可重新加载列表。",
-  "@sourceImportRefreshFailed": {"placeholders": {"error": {"type": "String"}}},
+  "@sourceImportRefreshFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "readerBookOpenSpeed": "开书动画速度",
   "readerBookOpenFast": "快速",
   "readerBookOpenStandard": "标准",
@@ -4589,7 +4678,13 @@
   "readerBookOpenSpeedSaveFailed": "开书动画速度保存失败，请重试",
   "ruleDeleted": "规则已删除",
   "ruleDeleteFailed": "删除规则失败：{error}",
-  "@ruleDeleteFailed": {"placeholders": {"error": {"type": "String"}}},
+  "@ruleDeleteFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "backupRestoreCounts": "书籍{books}、书签{bookmarks}、替换规则{replaceRules}、书源{bookSources}、RSS源{rssSources}、阅读记录{readRecords}",
   "@backupRestoreCounts": {
     "description": "本地备份恢复的真实结果",
@@ -4635,5 +4730,15 @@
     }
   },
   "backupSelectRemote": "选择云端备份",
-  "backupNoRemote": "云端没有可用备份"
+  "backupNoRemote": "云端没有可用备份",
+  "backupLocalPassword": "本地密码",
+  "backupPasswordDescription": "设置后加密备份，并包含 WebDAV 连接密码。其他设备需使用相同密码恢复；两项留空可清除密码。",
+  "backupNewPassword": "新密码（留空清除）",
+  "backupConfirmPassword": "确认密码",
+  "backupPasswordMismatch": "两次输入的密码不一致",
+  "backupPasswordSaveFailed": "本地密码保存失败，请重试",
+  "backupPasswordSet": "已设置，备份将加密",
+  "backupPasswordNotSet": "未设置，备份不含连接密码",
+  "backupCloudCredentials": "备份云 TTS 凭据",
+  "backupCloudCredentialsDescription": "需要本地密码；关闭时仅备份引擎配置，恢复后需重新填写密钥"
 }
