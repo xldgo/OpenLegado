@@ -1873,6 +1873,7 @@ dependencies = [
  "des",
  "ecb",
  "fancy-regex",
+ "fastrand",
  "hmac 0.13.0",
  "legado-layout",
  "lru",

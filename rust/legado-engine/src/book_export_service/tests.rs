@@ -114,6 +114,48 @@ fn export_reuses_its_own_processing_and_keeps_raw_cache_unchanged() {
 }
 
 #[test]
+fn export_disables_resegment_even_when_book_enables_it() {
+    let engine = EngineContext::in_memory().unwrap();
+    seed(engine.storage(), "甲");
+    engine
+        .storage()
+        .with_database(|db| {
+            let repository = BookRepository::new(db.connection());
+            let mut book = repository.find_by_url(BOOK)?.unwrap();
+            book.read_config = Some(legado_core::models::ReadConfig {
+                re_segment: true,
+                ..Default::default()
+            });
+            repository.update(&book)
+        })
+        .unwrap();
+    let raw = "前半\n后半。\n下一段。";
+    assert!(save_chapter_cache(
+        engine.storage(),
+        BOOK,
+        0,
+        "第一章",
+        "https://same-export.test/one",
+        raw
+    ));
+    let output = text(
+        service(Some(engine.storage().clone()))
+            .export_book(
+                BOOK,
+                "txt",
+                false,
+                &ExportOptions {
+                    start_chapter: Some(0),
+                    end_chapter: Some(0),
+                    ..Default::default()
+                },
+            )
+            .unwrap(),
+    );
+    assert!(output.replace("\r\n", "\n").contains(raw));
+}
+
+#[test]
 fn export_preserves_format_missing_book_and_uninitialized_errors() {
     let unavailable = service(None);
     assert!(unavailable.export_info(BOOK, "txt").is_err());

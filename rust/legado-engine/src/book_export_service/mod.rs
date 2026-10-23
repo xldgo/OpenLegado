@@ -168,7 +168,7 @@ impl BookExportService {
                 };
                 // 导出内容与阅读器显示对齐：应用替换规则 + 内容净化
                 // （含章级「删除重复标题」开关，Task #51）
-                let content = self.content.apply_content_processing_chapter(
+                let content = self.content.apply_content_processing_export(
                     book_url,
                     &raw_content,
                     &ch.title,

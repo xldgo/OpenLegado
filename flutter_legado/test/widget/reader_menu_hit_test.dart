@@ -16,6 +16,9 @@ import 'package:flutter_legado/src/providers/webdav_connection_provider.dart';
 
 import 'dart:async';
 
+import 'package:flutter_legado/src/domain/contracts/bookshelf_repository.dart';
+import 'package:flutter_legado/src/features/bookshelf/bookshelf_repositories.dart';
+
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:flutter_legado/src/theme/app_glass_theme.dart';
 
@@ -109,6 +112,16 @@ class _ConnectionRepository implements WebDavConnectionRepository {
   @override
   Future<WebDavConnection> save(WebDavConnection connection) async =>
       connection;
+}
+
+class _SavingBookshelf extends Fake implements BookshelfRepository {
+  final requests = <Book>[];
+  Completer<void> saving = Completer<void>();
+  @override
+  Future<void> updateBook(Book book) {
+    requests.add(book);
+    return saving.future;
+  }
 }
 
 class _SyncNetworkApi extends MockBookApi {
@@ -231,6 +244,7 @@ Future<(_Reader, _Hits)> _pumpMenu(
   AppSettingsService? settingsService,
   WebDavConnectionRepository? connectionRepository,
   MockBookApi? api,
+  BookshelfRepository? bookshelf,
   bool glassAvailable = false,
   bool reduced = false,
   double textScale = 1,
@@ -241,6 +255,8 @@ Future<(_Reader, _Hits)> _pumpMenu(
     overrides: mergeTestOverrides([
       ...(api ?? MockBookApi()).overrides,
       readerNotifierProvider.overrideWith(() => _Reader(initialState)),
+      if (bookshelf != null)
+        bookshelfRepositoryProvider.overrideWithValue(bookshelf),
       if (connectionRepository != null)
         webDavConnectionRepositoryProvider.overrideWithValue(
           connectionRepository,
@@ -1447,6 +1463,39 @@ void main() {
       expect(tester.takeException(), isNull);
     }
     _expectNoBodyEvents(hits);
+  });
+
+  testWidgets('重新分段等待保存成功才提示和更新书籍，失败保留原值并可重试', (tester) async {
+    final repository = _SavingBookshelf();
+    final (reader, _) = await _pumpMenu(tester, bookshelf: repository);
+    Future<void> toggle() async {
+      await tester.tap(find.byTooltip('更多'));
+      await settleNativeReaderLayout(tester);
+      await tester.ensureVisible(find.text('重新分段'));
+      await tester.tap(find.text('重新分段'));
+      await tester.pumpAndSettle();
+    }
+
+    await toggle();
+    expect(repository.requests.single.readConfig?.reSegment, isTrue);
+    expect(find.text('已开启重新分段'), findsNothing);
+    expect(reader.value.currentBook?.readConfig?.reSegment ?? false, isFalse);
+    repository.saving.completeError(StateError('写入失败'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('设置保存失败'), findsOneWidget);
+    expect(find.text('已开启重新分段'), findsNothing);
+    expect(reader.value.currentBook?.readConfig?.reSegment ?? false, isFalse);
+    ScaffoldMessenger.of(tester.element(find.byType(ReaderMenuPanel)))
+        .removeCurrentSnackBar();
+    repository.saving = Completer<void>();
+    await toggle();
+    repository.saving.complete();
+    await tester.pumpAndSettle();
+    expect(repository.requests, hasLength(2));
+    expect(reader.value.currentBook?.readConfig?.reSegment, isTrue);
+    expect(find.text('已开启重新分段'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
   });
 
   testWidgets('更多弹出菜单打开时，第一次正文点击只关闭弹出菜单', (tester) async {

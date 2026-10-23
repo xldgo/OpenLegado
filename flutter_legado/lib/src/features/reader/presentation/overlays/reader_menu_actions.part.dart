@@ -254,13 +254,15 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
     }
   }
 
-  void _toggleReSegment(BuildContext context, WidgetRef ref) {
+  Future<void> _toggleReSegment(BuildContext context, WidgetRef ref) async {
     final book = ref.read(readerNotifierProvider).currentBook;
     final enabled = book?.readConfig?.reSegment ?? false;
-    unawaited(
-      _updateBookConfig(context, ref, (c) => c.copyWith(reSegment: !enabled)),
+    final saved = await _updateBookConfig(
+      context,
+      ref,
+      (c) => c.copyWith(reSegment: !enabled),
     );
-    if (context.mounted) {
+    if (saved && context.mounted) {
       _snack(context, enabled ? '已关闭重新分段' : '已开启重新分段');
     }
   }
@@ -826,7 +828,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
       case 'sameTitleRemoved':
         unawaited(_toggleSameTitleRemoved(context));
       case 'reSegment':
-        _toggleReSegment(context, ref);
+        unawaited(_toggleReSegment(context, ref));
       case 'delRubyTag':
         _toggleDelTag(context, _rubyTag, '删除 Ruby 标签');
       case 'delHTag':

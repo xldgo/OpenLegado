@@ -64,6 +64,7 @@ impl ReadingService {
                 &chapter.title,
                 apply_replace_rules,
                 Some(chapter_index),
+                apply_replace_rules,
             ))
         } else {
             // 在线书籍：返回章节 URL 信息，由上层配合书源规则获取正文

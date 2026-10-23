@@ -499,7 +499,7 @@ async fn get_book_content_inner(
 /// 正文净化（替换规则 + 去重复标题；`includeTitle=false`）
 ///
 /// 对齐原版 `ContentProcessor.getContent(book, chapter, content, includeTitle=false)`：
-/// 只做正文净化，不重排/不缩进/不去空行（避免改变排版）；简繁转换取默认
+/// 正文按书级开关重新分段，不添加缩进或额外去空行；简繁转换取默认
 /// 关闭（Rust 侧未桥接 `chineseConverterType` 配置，登记差异）。规则作用域
 ///（scope/excludeScope/scopeContent）交由 `ContentProcessor` 内建过滤，
 /// 语义对齐 Kotlin DAO 的 LIKE 判定。
@@ -533,7 +533,10 @@ async fn purify_content(
     let entries = ReplaceRuleEntry::from_replace_rules(&rules);
     let config = ProcessorConfig {
         remove_duplicate_title: true,
-        re_segment: false,
+        re_segment: book
+            .read_config
+            .as_ref()
+            .is_some_and(|config| config.re_segment),
         chinese_convert: None,
         apply_replace_rules: replace_enabled,
         indent_spaces: 0,

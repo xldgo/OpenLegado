@@ -78,6 +78,29 @@ pub fn process_content_with_rules_inner(
     chinese_convert: Option<String>,
     remove_duplicate_title: bool,
 ) -> String {
+    process_content_with_config(
+        raw_content,
+        chapter_title,
+        rules,
+        book_name,
+        ProcessorConfig {
+            remove_duplicate_title,
+            re_segment: false,
+            chinese_convert,
+            apply_replace_rules,
+            indent_spaces: 0,
+            trim_empty_lines: false,
+        },
+    )
+}
+
+fn process_content_with_config(
+    raw_content: &str,
+    chapter_title: &str,
+    rules: &[ReplaceRule],
+    book_name: &str,
+    config: ProcessorConfig,
+) -> String {
     // 2. 按 scope 过滤（与 Android 语义一致，并修复空 book_name 守卫与精确匹配）：
     //    - None → 全局生效
     //    - Some(scope)：scope 为空或 "global" → 全局；
@@ -102,20 +125,7 @@ pub fn process_content_with_rules_inner(
         .map(ReplaceRuleEntry::from_replace_rule)
         .collect();
 
-    // 3. 构造处理器：启用「去重复标题 + 替换规则 + 简繁转换」，与 Android 净化行为对等
-    //    apply_replace_rules 由调用方控制（阅读器/导出=true，内容搜索=false）
-    //    chinese_convert 来自持久化配置 chineseConverterType（0/1/2 → None/t2s/s2t）
-    //    remove_duplicate_title 来自章级开关（Task #51，全局默认 true）
-    let config = ProcessorConfig {
-        remove_duplicate_title,
-        re_segment: false,
-        chinese_convert,
-        apply_replace_rules,
-        indent_spaces: 0,
-        trim_empty_lines: false,
-    };
-    let processor = ContentProcessor::new(config);
-    processor.process(raw_content, chapter_title, &entries)
+    ContentProcessor::new(config).process(raw_content, chapter_title, &entries)
 }
 
 /// 阅读与导出共享的正文配置及处理能力，不携带抓取或运行时资源。
@@ -246,7 +256,7 @@ impl ContentProcessing {
         raw_content: &str,
         chapter_title: &str,
     ) -> String {
-        self.apply_content_processing_inner(book_url, raw_content, chapter_title, true, None)
+        self.apply_content_processing_inner(book_url, raw_content, chapter_title, true, None, true)
     }
     pub fn apply_content_processing_chapter(
         &self,
@@ -261,6 +271,24 @@ impl ContentProcessing {
             chapter_title,
             true,
             Some(chapter_index),
+            true,
+        )
+    }
+    /// 原版导出显式传 reSegment=false，不改变原始段落结构。
+    pub fn apply_content_processing_export(
+        &self,
+        book_url: &str,
+        raw_content: &str,
+        chapter_title: &str,
+        chapter_index: i32,
+    ) -> String {
+        self.apply_content_processing_inner(
+            book_url,
+            raw_content,
+            chapter_title,
+            true,
+            Some(chapter_index),
+            false,
         )
     }
     pub fn apply_content_processing_raw(
@@ -276,6 +304,7 @@ impl ContentProcessing {
             chapter_title,
             false,
             chapter_index,
+            false,
         )
     }
     pub(super) fn apply_content_processing_inner(
@@ -285,6 +314,7 @@ impl ContentProcessing {
         chapter_title: &str,
         apply_replace_rules: bool,
         chapter_index: Option<i32>,
+        allow_resegment: bool,
     ) -> String {
         // 1. 加载启用的替换规则 + 查询书籍名称（用于 scope 过滤）
         let loaded = self.with_database(|db| {
@@ -300,11 +330,15 @@ impl ContentProcessing {
                 .as_ref()
                 .map(|b| b.use_replace_rule(default_enabled))
                 .unwrap_or(default_enabled);
+            let re_segment = book
+                .as_ref()
+                .and_then(|b| b.read_config.as_ref())
+                .is_some_and(|c| c.re_segment);
             let book_name = book.map(|b| b.name).unwrap_or_default();
-            Ok((rules, book_name, replace_enabled))
+            Ok((rules, book_name, replace_enabled, re_segment))
         });
 
-        let (rules, book_name, replace_enabled) = match loaded {
+        let (rules, book_name, replace_enabled, re_segment) = match loaded {
             Ok(v) => v,
             // 数据库不可用或查询失败时，退化为不净化（与无规则时行为一致）
             Err(_) => return raw_content.to_string(),
@@ -327,14 +361,19 @@ impl ContentProcessing {
             .map(|idx| self.is_same_title_removed(book_url, idx))
             .unwrap_or(true);
 
-        process_content_with_rules_inner(
+        process_content_with_config(
             raw_content,
             chapter_title,
             &rules,
             &book_name,
-            apply_replace_rules && replace_enabled,
-            chinese_convert,
-            remove_duplicate_title,
+            ProcessorConfig {
+                remove_duplicate_title,
+                re_segment: allow_resegment && re_segment,
+                chinese_convert,
+                apply_replace_rules: apply_replace_rules && replace_enabled,
+                indent_spaces: 0,
+                trim_empty_lines: false,
+            },
         )
     }
 }
@@ -410,6 +449,7 @@ impl ReadingService {
         chapter_title: &str,
         apply_replace_rules: bool,
         chapter_index: Option<i32>,
+        allow_resegment: bool,
     ) -> String {
         self.content_processing().apply_content_processing_inner(
             book_url,
@@ -417,6 +457,7 @@ impl ReadingService {
             chapter_title,
             apply_replace_rules,
             chapter_index,
+            allow_resegment,
         )
     }
 }
