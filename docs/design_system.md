@@ -392,7 +392,9 @@ AppSettingsSheet共用NavigationToolbar，左右操作不等宽时标题仍居�
 AppBottomSheet（含show/content）和AppSettingsSheet正文默认EdgeInsets.zero，
 设置行铺满正文并用ListTile.contentPadding保留文字留白；共用正文的默认行形状为
 矩形，分组可自行覆盖。弹层由外层Material按Sheet形状裁剪Ink。标题、键盘避让和
-安全区域仍由外壳负责，不计入正文留白。表单编辑器和阅读明细显式声明内容间距；
+安全区域仍由外壳负责，不计入正文留白。纯输入框/芯片表单和阅读明细可显式声明内容间距；
+含开关行、列表项或ExpansionTile的混合表单不对整层设置水平contentPadding，输入区块单独留白，
+交互行铺满正文；卡片分组的外边距属于卡片布局，保留原有归属。
 混合正文中的滑块、分段控件、快捷按钮单独留出16dp，设置行不再套水平Padding。快捷项使用AppSheetPresetGrid
 等宽铺满当前行，窄屏或大字体减少列数，控件保留原有Material交互。
 `AppSettingsForm` 统一12dp控件间距，可选分组标题、说明和错误提示；错误使用当前
