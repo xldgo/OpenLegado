@@ -12,6 +12,8 @@
 
 - 后续整理：按用户确认，将 rusqlite 的 bundled 作为全项目统一 SQLite 构建策略移至 workspace 根声明，DB/Engine/FFI 三处仅继承。Windows 默认及全功能 Cargo metadata 修改前后完整一致，锁文件逐字节不变，diff 检查通过；证据 build/workspace-deps/bundled/verification.json。不新增测试、不构建设备，本地单独提交。
 
+- 共有配置收口：按用户确认，将 serde/derive、uuid/v4、rand_core/getrandom、reqwest 四项公共功能集中到根声明，并统一9个内部 crate 的依赖路径。使用方保留 serde/rc、网络压缩代理、可选性和平台条件，未统一包版本或不同加密版本。Windows 默认/全功能 Cargo 解析图完全一致，展开的成员声明在功能集合和规范化路径下等价，Cargo.lock 逐字节不变；diff 检查通过。证据 build/workspace-deps/common/verification.json 及前后 metadata；未运行全量测试、非 Windows 构建或新增专项用例，单代理复核，仅本地提交。
+
 编写者：Codex + Rust｜2026-10-24
 
 ### FRB-STALE-OUTPUTS-20261023：清理旧绑定与导出（P2，清理及定向验证完成）

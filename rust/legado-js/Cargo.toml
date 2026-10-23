@@ -4,8 +4,8 @@ version = "0.2.0"
 edition.workspace = true
 
 [dependencies]
-legado-core = { path = "../legado-core" }
-legado-parser = { path = "../legado-parser" }
+legado-core = { workspace = true }
+legado-parser = { workspace = true }
 
 # rquickjs 是重型依赖（需编译 QuickJS C 代码），设为可选 feature
 # 启用方式: cargo build --features quickjs
@@ -29,7 +29,7 @@ hex      = { version = "0.4", optional = true }
 # signature 2、rand_core 0.6 是 RSA 0.9 的公共接口约束。
 rsa       = { version = "0.9", features = ["pem", "hazmat"], optional = true }
 signature = { version = "2", optional = true }
-rand_core = { workspace = true, features = ["getrandom"], optional = true }
+rand_core = { workspace = true, optional = true }
 lru = { workspace = true }
 percent-encoding = { version = "2", optional = true }
 
@@ -38,10 +38,10 @@ encoding_rs = { workspace = true, optional = true }
 regex = { workspace = true, optional = true }
 chrono = { workspace = true, optional = true, default-features = true }
 serde_json = { workspace = true }
-serde = { workspace = true, features = ["derive"] }
+serde = { workspace = true }
 # 1.x 移除书源使用的后缀 length()、中缀过滤等语法，需单独迁移方言后再升级。
 jsonpath-rust = { workspace = true, optional = true }
-uuid = { workspace = true, features = ["v4"], optional = true }
+uuid = { workspace = true, optional = true }
 url = { workspace = true, optional = true }
 
 # 解压缩（ZIP / 7z / RAR）
@@ -58,7 +58,7 @@ scraper = { workspace = true, optional = true }
 
 # tokio 运行时桥接（用于在 JS 线程中调用 legado-net 异步 API）
 tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time"], optional = true }
-legado-net    = { path = "../legado-net", optional = true }
+legado-net = { workspace = true, optional = true }
 
 [features]
 default = []
@@ -92,7 +92,7 @@ quickjs = [
 [dev-dependencies]
 # P0-B 集成测试需经 `JsExecutor` trait 调用 `QuickJsExecutor::execute_js`
 # （trait 定义在 legado-parser；普通依赖不对 tests/ 集成目标可见，须显式声明）
-legado-parser = { path = "../legado-parser" }
+legado-parser = { workspace = true }
 
 # 非 Windows 目标生成当前 QuickJS 绑定，需要宿主 libclang 与目标平台头文件。
 [target.'cfg(not(target_os = "windows"))'.dependencies.rquickjs]

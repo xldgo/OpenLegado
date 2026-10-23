@@ -5,17 +5,17 @@ edition.workspace = true
 
 [dependencies]
 futures = { workspace = true }
-legado-book = { path = "../legado-book" }
-legado-parser = { path = "../legado-parser" }
-legado-core = { path = "../legado-core" }
-legado-db = { path = "../legado-db" }
-legado-fetcher = { path = "../legado-fetcher" }
-legado-net = { path = "../legado-net" }
-legado-js = { path = "../legado-js" }
+legado-book = { workspace = true }
+legado-parser = { workspace = true }
+legado-core = { workspace = true }
+legado-db = { workspace = true }
+legado-fetcher = { workspace = true }
+legado-net = { workspace = true }
+legado-js = { workspace = true }
 log = { workspace = true }
 regex = { workspace = true }
 serde_json = { workspace = true }
-serde = { workspace = true, features = ["derive", "rc"] }
+serde = { workspace = true, features = ["rc"] }
 rusqlite = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync", "time"] }
 r2d2 = { workspace = true }

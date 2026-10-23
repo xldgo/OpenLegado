@@ -7,19 +7,19 @@ edition.workspace = true
 crate-type = ["cdylib", "staticlib", "rlib"]
 
 [dependencies]
-legado-layout = { path = "../legado-layout" }
-legado-core = { path = "../legado-core" }
-legado-parser = { path = "../legado-parser" }
-legado-net = { path = "../legado-net" }
-legado-js = { path = "../legado-js" }
+legado-layout = { workspace = true }
+legado-core = { workspace = true }
+legado-parser = { workspace = true }
+legado-net = { workspace = true }
+legado-js = { workspace = true }
 # [P5 子批 2a | 2026-10-01] 书源抓取本体（web_book/js 适配/限流表/book_type）
-legado-fetcher = { path = "../legado-fetcher" }
-legado-book = { path = "../legado-book" }
-legado-db = { path = "../legado-db" }
-legado-engine = { path = "../legado-engine" }
+legado-fetcher = { workspace = true }
+legado-book = { workspace = true }
+legado-db = { workspace = true }
+legado-engine = { workspace = true }
 legado-server = { path = "../legado-server" }
 tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
-serde = { workspace = true, features = ["derive", "rc"] }
+serde = { workspace = true, features = ["rc"] }
 serde_json = { workspace = true }
 base64 = { workspace = true }
 regex = { workspace = true }

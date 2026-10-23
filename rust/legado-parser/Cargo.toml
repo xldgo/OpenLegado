@@ -4,8 +4,8 @@ version = "0.2.0"
 edition.workspace = true
 
 [dependencies]
-legado-core = { path = "../legado-core" }
-serde = { workspace = true, features = ["derive", "rc"] }
+legado-core = { workspace = true }
+serde = { workspace = true, features = ["rc"] }
 serde_json = { workspace = true }
 scraper = { workspace = true }
 ego-tree = "0.11"

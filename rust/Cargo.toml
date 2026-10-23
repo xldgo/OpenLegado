@@ -18,7 +18,7 @@ members = [
 edition = "2024"
 
 [workspace.dependencies]
-# 共用依赖在此维护版本；各 crate 保留自身的 features、optional 与平台条件。
+# 共用依赖在此维护版本、共有功能与构建策略；各 crate 保留差异功能、optional 与平台条件。
 # 实际解析版本由 Cargo.lock 锁定；仅局部使用或不兼容的版本可留在所属 crate。
 aes = "0.9"
 base64 = "0.23"
@@ -36,21 +36,32 @@ md-5 = "0.11"
 quick-xml = "0.42"
 r2d2 = "0.8"
 r2d2_sqlite = "0.35"
-rand_core = "0.6"
+rand_core = { version = "0.6", features = ["getrandom"] }
 regex = "1"
-reqwest = { version = "0.13.5", default-features = false }
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls-no-provider", "http2", "charset"] }
 rquickjs = "0.14"
 rusqlite = { version = "0.40.2", features = ["bundled"] }
 scraper = "0.29"
-serde = "1"
+serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.11"
 thiserror = "2"
 tokio = "1"
 url = "2"
 urlencoding = "2.1"
-uuid = "1"
+uuid = { version = "1", features = ["v4"] }
 zip = "9.0.1"
+
+# 内部依赖路径以工作区根目录为基准，功能开关仍由使用方声明。
+legado-book = { path = "legado-book" }
+legado-core = { path = "legado-core" }
+legado-db = { path = "legado-db" }
+legado-engine = { path = "legado-engine" }
+legado-fetcher = { path = "legado-fetcher" }
+legado-js = { path = "legado-js" }
+legado-layout = { path = "legado-layout" }
+legado-net = { path = "legado-net" }
+legado-parser = { path = "legado-parser" }
 
 # 发布档只显式声明非默认项：opt-level = 3、panic = "unwind"、codegen-units = 16
 # 都是 Cargo 的 release 默认值，不重复写。

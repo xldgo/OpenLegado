@@ -4,13 +4,13 @@ version = "0.2.0"
 edition.workspace = true
 
 [dependencies]
-legado-core = { path = "../legado-core" }
-serde = { workspace = true, features = ["derive", "rc"] }
+legado-core = { workspace = true }
+serde = { workspace = true, features = ["rc"] }
 serde_json = { workspace = true }
 tokio = { workspace = true, features = ["fs", "io-util", "net", "rt", "sync", "time"] }
 # gzip/brotli/deflate：对齐上游 OkHttp 透明解压缩（reqwest 自动设置 Accept-Encoding 并解压）
 # socks：支持 SOCKS5 代理（含 user:pass 凭据，对齐上游 Socks5Proxy.kt）
-reqwest = { workspace = true, features = ["json", "cookies", "rustls-no-provider", "http2", "charset", "gzip", "brotli", "deflate", "socks", "stream"] }
+reqwest = { workspace = true, features = ["cookies", "gzip", "brotli", "deflate", "socks", "stream"] }
 # 保留升级前的 ring 与 Mozilla 根证书，避免 Android FFI 依赖额外的 JVM 证书接线。
 rustls = { version = "0.23.45", default-features = false, features = ["ring", "std", "tls12"] }
 webpki-root-certs = "1.0.11"

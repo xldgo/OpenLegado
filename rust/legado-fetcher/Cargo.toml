@@ -7,12 +7,12 @@ edition.workspace = true
 crate-type = ["rlib"]
 
 [dependencies]
-legado-core = { path = "../legado-core" }
-legado-parser = { path = "../legado-parser" }
-legado-net = { path = "../legado-net" }
-legado-js = { path = "../legado-js" }
+legado-core = { workspace = true }
+legado-parser = { workspace = true }
+legado-net = { workspace = true }
+legado-js = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync", "time"] }
-serde = { workspace = true, features = ["derive", "rc"] }
+serde = { workspace = true, features = ["rc"] }
 serde_json = { workspace = true }
 regex = { workspace = true }
 futures = { workspace = true }
