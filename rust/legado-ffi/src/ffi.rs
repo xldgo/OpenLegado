@@ -1393,6 +1393,12 @@ pub mod ffi {
         Ok(value.into_iter().map(Into::into).collect())
     }
 
+    /// 只读识别开读媒体类型，不改变书籍或书源。
+    pub fn book_resolve_reading_type(book_type: i32, source: Option<BookSourceDto>) -> i32 {
+        let source = source.map(Into::into);
+        legado_core::book_media::resolve_reading_type(book_type, source.as_ref())
+    }
+
     /// 获取书籍详情（返回类型化抓取结果）
     ///
     /// 阻塞线程池执行（非阻塞 FFI，不阻塞 Dart 主 isolate）。

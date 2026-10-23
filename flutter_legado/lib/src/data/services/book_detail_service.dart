@@ -29,10 +29,7 @@ class BookDetailService {
     final source = BookMetadataPolicy.isOnlineBook(book)
         ? await findSource(book.origin)
         : null;
-    final bits = BookTypePolicy.resolveTypeBits(
-      BookTypePolicy.typeBitsOf(book),
-      source,
-    );
+    final bits = await _query.resolveReadingType(book.bookType, source);
     return BookReadingPreparation(
       book: bits != 0 ? book.copyWith(bookType: bits) : book,
       typeBits: bits,

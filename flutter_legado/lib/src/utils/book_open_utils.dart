@@ -51,7 +51,7 @@ class BookOpenUtils {
   /// 流程：
   /// 1. 在线书籍（在线书籍）按 [Book.origin] 在书源列表匹配
   ///    （两侧去尾斜杠归一后比较，兼容存量源 URL 尾斜杠差异），经
-  ///    [BookTypePolicy.resolveTypeBits] 得到最终类型位；匹配失败/异常沿用书籍已有位；
+  ///    BookSourceQueryService.resolveReadingType 得到最终类型位；匹配失败/异常沿用书籍已有位；
   /// 2. [routeForTypeBits] 选路由：文本阅读器先经 `ReaderNotifier.openBook`
   ///    装载再导航（身份及动效来源放入 extra，阅读器状态由 Notifier 持有），
   ///    video/audio/reader-comic 携带 [argumentsForRoute] 参数。

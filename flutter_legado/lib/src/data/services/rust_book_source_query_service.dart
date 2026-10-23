@@ -8,6 +8,17 @@ import '../bridge/content_dto_mapping.dart';
 /// 已解析的书源实体直接进入抓取链，不在查询中写库。— Codex + Bridge
 final class RustBookSourceQueryService implements BookSourceQueryService {
   const RustBookSourceQueryService();
+
+  @override
+  Future<int> resolveReadingType(int bookType, BookSource? source) =>
+      rustFuture(
+        () => bridge.bookResolveReadingType(
+          bookType: bookType,
+          source: source == null ? null : bookSourceToDto(source),
+        ),
+        operation: 'bookResolveReadingType',
+      );
+
   @override
   Future<Book> getBookInfo(
     BookSource source,

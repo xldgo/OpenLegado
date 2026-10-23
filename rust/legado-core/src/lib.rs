@@ -26,6 +26,7 @@ pub mod audio;
 pub mod audio_skip_policy;
 pub mod auto_task;
 pub mod book_help;
+pub mod book_media;
 pub mod bookmark_export;
 pub mod cache_book;
 pub mod chinese_convert;

@@ -1,5 +1,24 @@
 # Legado 后续重构执行计划（Active）
 
+### BOOK-MEDIA-POLICY-20261023：书籍媒体识别职责收敛（P2，代码及定向验证完成）
+
+- 用户授权从dev / 1e39376a6开始，单代理，保留未跟踪审计文档；本地提交，不推送、不触发构建或安装。契约先冻结同名条目，版本保持2.0.439+440。
+- 范围：Core统一既有媒体识别，JS/Fetcher复用基础映射；新增只读FFI并经BookSourceQueryService接入开读编排。保留导航及详情合并位运算，不改播放器/写库/样式。上游基础映射与项目既有视频/HTML扩展区分记录，不借迁移改变用户行为。
+- 验收：现有误标源样例转为Rust行为用例，删除被替代Dart识别测试；Flutter只验证端口传参、失败及返回类型驱动导航，复用必要详情/查询调用方回归，不复制识别算法。仅定向测试、分析、格式与生成/编译检查。
+- 实现：Core/book_media统一声明映射与开读识别；JS及Fetcher直接复用，新增1项只读FFI，经既有查询窄接口装配正式/Mock。删除Dart源识别及不再使用的typeBitsOf；保留掩码/详情合并位运算、书源匹配、写库和导航。删除Dart识别用例及FFI重复映射用例，Rust组合场景承接语义。
+- 验证：Core媒体识别3项、既有JS序列化/转换8项通过；Flutter桥接、详情服务、开读/漫画及查询消费者五文件56项通过。清理无消费者帮助函数后复验本地CBZ开读通过；定向Dart分析、架构门禁、Rust格式及diff检查通过。Core/JS/FFI启用QuickJS的lib/tests Clippy通过，已编译新生成绑定；首次Clippy发现删除重复测试后的残留导入，清理后复验通过。
+- 证据：build/book-media-{bridge,js,ffi-check,clippy}.log、flutter_legado/build/book-media-{flutter,analysis,analysis-final,architecture,open-final}.log；Core定向命令cargo test --locked -p legado-core --lib book_media::tests退出0。FRB 2.13.0隔离生成成功，contentHash=1132526896，锁文件未变。单代理复核，不宣称独立审查或运行时FFI验收；无原生库重编、真源/设备、全量、推送或CI验证。版本不变，纯职责整理不改用户更新日志，本批本地提交。
+
+编写者：Codex + Rust / UI / Bridge｜2026-10-23
+
+### JS-TEST-ORDER-20261023：QuickJS测试模块顺序修复（P1，代码及定向验证完成）
+
+- 用户提供CI错误：engine.rs的source_call_lifetime_tests后还有JsEngine实现，触发items_after_test_module；仅将该测试模块原样移至quickjs_engine模块末尾，不改运行行为、不增加lint豁免或测试。无契约、依赖、版本及用户可见变化。
+- 验收：定向运行legado-js的QuickJS全目标Clippy与既有作用域回收用例；不跑全仓或平台构建，不推送。
+- 结果：cargo clippy --locked -p legado-js --features quickjs --all-targets -- -D warnings退出0；cargo test --locked -p legado-js --features quickjs --lib source_call_lifetime_tests的1项既有回归通过；rustfmt --edition 2024 --check legado-js/src/engine.rs与git diff --check通过。单代理diff复核确认测试内容原样、仅位置变化；本地提交，不推送，无用户可见变化故不改应用更新日志。
+
+编写者：Codex + Rust｜2026-10-23
+
 ### RULE-TEXT-BOUNDARY-20261023：规则文本误删与元信息判断去重（P1/P2，代码及定向验证完成）
 
 - 授权/基线：用户同意开始元信息职责核查，dev / 934e20965；单代理复核，定向验证后本地提交，默认不添加skip ci；不创建分支、不推送CI或安装，版本不变，保护未跟踪审计文档。

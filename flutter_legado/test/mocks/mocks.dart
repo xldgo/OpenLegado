@@ -352,6 +352,13 @@ class MockRustApi extends Mock implements TestApi {
   @override
   final WebDavService webDavService = WebDavServiceMock();
   MockRustApi() {
+    // 默认夹具只返回既有媒体位，源识别结果由对应场景显式配置。
+    when(() => bookSourceQueryService.resolveReadingType(any(), any()))
+        .thenAnswer(
+          (call) async =>
+              (call.positionalArguments[0] as int) & (4 | 8 | 32 | 64 | 128),
+        );
+
     // 阅读会话显式装配记录仓储；具体记录行为仍由各测试独立配置。
     when(() => readRecordRepository).thenReturn(ReadRecordRepositoryMock());
     // 普通夹具给出默认跟随配置，避免无关播放测试进入旧Preferences迁移。

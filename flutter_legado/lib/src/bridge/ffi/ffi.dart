@@ -988,6 +988,15 @@ Future<List<WebSearchResultDto>> webbookSearch({
   page: page,
 );
 
+/// 只读识别开读媒体类型，不改变书籍或书源。
+Future<int> bookResolveReadingType({
+  required int bookType,
+  BookSourceDto? source,
+}) => RustLib.instance.api.crateFfiFfiBookResolveReadingType(
+  bookType: bookType,
+  source: source,
+);
+
 /// 获取书籍详情（返回类型化抓取结果）
 ///
 /// 阻塞线程池执行（非阻塞 FFI，不阻塞 Dart 主 isolate）。

@@ -68,7 +68,19 @@ void main() {
       source.copyWith(bookSourceType: BookSourceType.audio),
     ];
     when(() => fixture.bookshelf.addBook(any())).thenAnswer((_) async => book);
+    when(
+      () => fixture.query.resolveReadingType(
+        book.bookType,
+        fixture.availableSources.single,
+      ),
+    ).thenAnswer((_) async => BookType.audio);
     final result = await fixture.service.prepareReading(book, 3);
+    verify(
+      () => fixture.query.resolveReadingType(
+        book.bookType,
+        fixture.availableSources.single,
+      ),
+    ).called(1);
     expect(result.typeBits, BookType.audio);
     expect(result.book.durChapterIndex, 3);
     final stored =
@@ -85,6 +97,12 @@ void main() {
     fixture.availableSources = [
       source.copyWith(bookSourceType: BookSourceType.image),
     ];
+    when(
+      () => fixture.query.resolveReadingType(
+        book.bookType,
+        fixture.availableSources.single,
+      ),
+    ).thenAnswer((_) async => BookType.image);
     final result = await fixture.service.prepareReading(book, 1);
     expect(result.typeBits, BookType.image);
     final stored =
@@ -104,6 +122,17 @@ void main() {
     expect(result.book.durChapterIndex, 2);
     expect(result.typeBits, BookType.video);
     expect(fixture.logs, hasLength(2));
+  });
+
+  test('媒体识别失败上抛且不开始持久化', () async {
+    final error = StateError('识别失败');
+    when(() => fixture.query.resolveReadingType(any(), any())).thenThrow(error);
+    await expectLater(
+      fixture.service.prepareReading(book, 1),
+      throwsA(same(error)),
+    );
+    verifyZeroInteractions(fixture.bookshelf);
+    verifyZeroInteractions(fixture.reading);
   });
 
   test('本地首屏先读存储，路由补全保留稳定主键和数据库抓取地址', () async {

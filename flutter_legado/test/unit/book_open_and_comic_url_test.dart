@@ -8,17 +8,6 @@ import 'package:flutter_legado/src/utils/comic_image_utils.dart';
 
 void main() {
   group('BookOpenUtils 类型分流（对齐 startActivityForBook）', () {
-    test('typeBitsForSource 映射书源类型', () {
-      expect(BookTypePolicy.typeBitsForSource(0), BookType.text);
-      expect(BookTypePolicy.typeBitsForSource(1), BookType.audio);
-      expect(BookTypePolicy.typeBitsForSource(2), BookType.image);
-      expect(
-        BookTypePolicy.typeBitsForSource(3),
-        BookType.text | BookType.webFile,
-      );
-      expect(BookTypePolicy.typeBitsForSource(4), BookType.video);
-    });
-
     test('routeForTypeBits 按位标记选路由', () {
       expect(BookOpenUtils.routeForTypeBits(BookType.video), AppRoutes.video);
       expect(BookOpenUtils.routeForTypeBits(BookType.audio), AppRoutes.audio);
@@ -28,153 +17,6 @@ void main() {
       );
       expect(BookOpenUtils.routeForTypeBits(BookType.text), AppRoutes.reader);
       expect(BookOpenUtils.routeForTypeBits(0), AppRoutes.reader);
-    });
-
-    test('必应漫画类 type=0 抽图规则提升为 image → comic 路由', () {
-      const source = BookSource(
-        bookSourceUrl: 'https://www.biyingmh.com',
-        bookSourceName: '必应漫画',
-        bookSourceType: 0,
-        ruleContent: ContentRule(content: '.img@img@html', imageStyle: 'FULL'),
-      );
-      expect(
-        BookTypePolicy.looksLikeImageHtmlContentRule('.img@img@html'),
-        isTrue,
-      );
-      expect(BookTypePolicy.isImageHtmlContentSource(source), isTrue);
-      final bits = BookTypePolicy.promoteImageContentSource(
-        BookTypePolicy.typeBitsForSource(0),
-        source,
-      );
-      expect(bits, BookType.image);
-      expect(BookOpenUtils.routeForTypeBits(bits), AppRoutes.readerComic);
-    });
-
-    test('长 JS 小说正文规则不误提升为漫画', () {
-      final longJs = 'a' * 200 + '@html img';
-      expect(BookTypePolicy.looksLikeImageHtmlContentRule(longJs), isFalse);
-      const novel = BookSource(
-        bookSourceUrl: 'https://example.com',
-        bookSourceName: '小说',
-        bookSourceType: 0,
-        ruleContent: ContentRule(
-          content: 'id.content@html',
-          imageStyle: 'FULL',
-        ),
-      );
-      expect(BookTypePolicy.isImageHtmlContentSource(novel), isFalse);
-    });
-
-    test('非凡等 type=0 MacCMS 影视频源 → video，不被抽图启发式升漫画', () {
-      const ffzy = BookSource(
-        bookSourceUrl: 'http://23.225.142.42',
-        bookSourceName: '非凡资源网-www.ffzy.tv',
-        bookSourceGroup: '影视频源',
-        bookSourceType: 0,
-        searchUrl: '/api.php/provide/vod/?ac=detail&wd={{key}}&pg={{page}}',
-        ruleToc: TocRule(
-          chapterList: r'@js:var data=JSON.parse(src);var vod=data.list[0];var playUrl=vod.vod_play_url;',
-          chapterName: 'text',
-          chapterUrl: 'href',
-        ),
-        ruleContent: ContentRule(
-          content: r'''@js:java.startBrowser(baseUrl, book.name);result = baseUrl;''',
-        ),
-      );
-      expect(BookTypePolicy.looksLikeVideoSource(ffzy), isTrue);
-      expect(BookTypePolicy.isImageHtmlContentSource(ffzy), isFalse);
-      // 旧库误标 image / text 也应被纠正为 video
-      expect(
-        BookTypePolicy.resolveTypeBits(BookType.image, ffzy),
-        BookType.video,
-      );
-      expect(
-        BookTypePolicy.resolveTypeBits(BookType.text, ffzy),
-        BookType.video,
-      );
-      expect(
-        BookOpenUtils.routeForTypeBits(BookTypePolicy.resolveTypeBits(0, ffzy)),
-        AppRoutes.video,
-      );
-    });
-
-    test('红牛等 type=2 误标图片 + 影视频源 + m3u8 → video，不进 comic', () {
-      // 设备导出：bookSourceType=2，group=影视频源，正文规则抽 m3u8
-      const hongniu = BookSource(
-        bookSourceUrl: 'https://hongniuziyuan.com',
-        bookSourceName: '红牛资源',
-        bookSourceGroup: '影视频源',
-        bookSourceType: 2,
-        searchUrl: 'https://hongniuziyuan.com/index.php/vod/search.html?wd={{key}}&submit=search',
-        ruleToc: TocRule(
-          chapterList: r'@css:.vodplayinfo>div>div>ul>li',
-          chapterName: r'@css:a@text##(.+)\$(.+)##$1',
-          chapterUrl: r'@css:a@text##(.+)\$(.+)##$2',
-        ),
-        ruleContent: ContentRule(
-          content: r'''<js>
-var url="";
-if(/.*\.m3u8.*/.test(baseUrl)){url=baseUrl}
-else{
-jm=java.htmlFormat(result).match(/.*(\{.*\}).*/)[1];
-url=baseUrl.match(/(.*)\/share.*/)[1]+jm.match(/.*url\":\"(.*)\".*/)[1];
-}
-url
-</js>''',
-        ),
-      );
-      expect(BookTypePolicy.looksLikeVideoSource(hongniu), isTrue);
-      expect(BookTypePolicy.isImageHtmlContentSource(hongniu), isFalse);
-      // 关键：不得因 type=2 直接走 typeBitsForSource → image/comic
-      expect(
-        BookTypePolicy.resolveTypeBits(BookType.image, hongniu),
-        BookType.video,
-      );
-      expect(
-        BookOpenUtils.routeForTypeBits(
-          BookTypePolicy.resolveTypeBits(BookType.image, hongniu),
-        ),
-        AppRoutes.video,
-      );
-    });
-
-    test('U酷 type=2 影视频源 + m3u8 → video', () {
-      const uku = BookSource(
-        bookSourceUrl: 'https://ukuzy.com/',
-        bookSourceName: 'U酷资源',
-        bookSourceGroup: '影视频源',
-        bookSourceType: 2,
-        ruleContent: ContentRule(
-          content: r'@js:result=/.*\.m3u8.*/.test(baseUrl)?baseUrl:"";',
-        ),
-      );
-      expect(BookTypePolicy.resolveTypeBits(0, uku), BookType.video);
-    });
-
-    test('显式 bookSourceType=4 优先于书籍旧 image 位', () {
-      const qmao = BookSource(
-        bookSourceUrl: 'https://www.qmao.net',
-        bookSourceName: '伪七猫影视',
-        bookSourceType: 4,
-        ruleContent: ContentRule(
-          content: r'@js:result=data.url',
-          sourceRegex: r'.*\.(m3u8|mp4|flv).*',
-        ),
-      );
-      expect(
-        BookTypePolicy.resolveTypeBits(BookType.image | BookType.text, qmao),
-        BookType.video,
-      );
-    });
-
-    test('必应漫画抽图提升仍生效（非视频）', () {
-      const source = BookSource(
-        bookSourceUrl: 'https://www.biyingmh.com',
-        bookSourceName: '必应漫画',
-        bookSourceType: 0,
-        ruleContent: ContentRule(content: '.img@img@html', imageStyle: 'FULL'),
-      );
-      expect(BookTypePolicy.resolveTypeBits(0, source), BookType.image);
     });
 
     test('argumentsForRoute 漫画传 bookUrl，音视频传 Book', () {
@@ -236,15 +78,8 @@ url
         const Book(name: '二合一书', bookType: 64),
       );
       expect(merged.bookType & BookTypePolicy.typeMask, BookType.image);
-      const source = BookSource(
-        bookSourceUrl: 'https://ex.com',
-        bookSourceName: '二合一书源',
-        bookSourceType: 0,
-      );
       expect(
-        BookOpenUtils.routeForTypeBits(
-          BookTypePolicy.resolveTypeBits(merged.bookType, source),
-        ),
+        BookOpenUtils.routeForTypeBits(merged.bookType),
         AppRoutes.readerComic,
       );
     });
