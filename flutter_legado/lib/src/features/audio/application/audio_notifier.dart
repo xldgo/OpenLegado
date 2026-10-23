@@ -312,6 +312,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         stop: stop,
         notifyPaused: _media.notifyPaused,
       ),
+      planner: ref.read(readAloudPlannerProvider),
       content: ref.read(chapterContentServiceProvider),
       settings: ref.read(readAloudSettingsRepositoryProvider),
       httpTts: _httpTts,

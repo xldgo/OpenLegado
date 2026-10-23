@@ -6,8 +6,11 @@
 import 'frb_generated.dart';
 import 'layout_bridge.dart';
 import 'layout_dto.dart';
+import 'media_dto.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
+
+import 'read_aloud_dto.dart';
 
 // These functions are ignored because they are not marked as `pub`: `run_webbook_blocking`, `to_json`, `wait_cancelled`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`, `fmt`, `from`, `from`
@@ -15,6 +18,28 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 /// 创建独立排版句柄；配置按结构传递。
 Future<LayoutSession> readerLayoutBegin({required LayoutConfigDto config}) =>
     RustLib.instance.api.crateFfiReaderLayoutBegin(config: config);
+
+/// 复用原文与真实页界生成朗读范围，不访问数据库或播放状态。
+Future<List<ReadAloudUnitDto>> readAloudPlan({
+  required String content,
+  required ReadAloudSplitModeDto mode,
+  required String symbols,
+  required List<ReadAloudRangeDto> pages,
+}) => RustLib.instance.api.crateFfiReadAloudPlan(
+  content: content,
+  mode: mode,
+  symbols: symbols,
+  pages: pages,
+);
+
+/// 批量请求分片按输入顺序返回；限制只从Rust Provider描述读取。
+Future<List<SpeechPartitionDto>> cloudTtsPartition({
+  required CloudTtsProviderDto provider,
+  required List<String> texts,
+}) => RustLib.instance.api.crateFfiCloudTtsPartition(
+  provider: provider,
+  texts: texts,
+);
 
 TtsRequest ttsRequestNew() => RustLib.instance.api.crateFfiTtsRequestNew();
 

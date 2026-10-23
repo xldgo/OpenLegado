@@ -3020,6 +3020,16 @@ Depth为0，不拼接remote_dir；账号或密码非空才携带Basic Auth。5�
 
 ### 朗读扩展：缓存、音色目录与云端（§2.42 补充）
 
+**TTS-RUST-PARTITION-20261023（B8d，实施前冻结）**：统一迁移整段/符号/页面切分与云请求长度分片至Core纯计算模块。新增两个异步只读FRB方法，无数据库、网络或全局会话：
+- `readAloudPlan(content: String, mode: ReadAloudSplitModeDto, symbols: String, pages: List<ReadAloudRangeDto>) → List<ReadAloudUnitDto>`；范围为原文UTF-16半开区间，unit含start/end/sourceParagraphIndex/isParagraphEnd，不重复返回文本。整段/符号忽略pages；页面仅消费既有真实完整分页范围，保留既有范围错误，先段落再页切片，不合并同页多段。
+- `cloudTtsPartition(provider: CloudTtsProviderDto, texts: List<String>) → List<SpeechPartitionDto>`；结果与输入同序，每项含ranges（输入文本内UTF-16半开范围），不重复传inputIndex。Provider在Rust内决定上限，沿用现有句末/词界/字形簇断点、UTF-16/UTF-8限制和错误，不新增引号吸收等算法优化。
+- Dart经ReadAloudPlanner窄端口，正式实现仅DTO映射及substring，不保留算法；Flutter提供原文、设置和真实页界，保留播放器/后台窗口/媒体/定位编排。页界登记仍为同步快照更新，生成计划时Rust核验，不在界面登记时重复调用FFI。
+- 新增await后复用既有token/generation与预合成窗口身份检查，拒绝迟到结果启动旧会话。暂停恢复对剩余文本分片，保留原文基点、播放单元与原段落编号、缓存身份和停顿粒度。
+- 无持久章节句柄，不查询布局finish后的已释放状态，不在分页时绑定Provider。Mock仅显式夹具/不支持错误，不复制算法；迁移前行为快照作为Rust组合用例，Dart只验证传参与调度。
+- Core复用锁文件已有unicode-segmentation 1.13.3，仅增加Core直接依赖关系，不升级包。版本保持2.0.439+440，无DB/设置迁移，Server旧朗读模块与符号引号暂缓保持。
+
+编写者：Codex + Rust / UI / Bridge｜2026-10-23
+
 **TTS-PAGE-PARAGRAPH-20261023（实施前冻结，Dart内部模型）**：按本地上游
 ReaderReadAloudChapter对齐页面模式：先生成原文段落，再以真实页起点切开段落；
 同页多个段落不合并。继续使用现有完整分页范围及既有一致性验证，不猜测分页。

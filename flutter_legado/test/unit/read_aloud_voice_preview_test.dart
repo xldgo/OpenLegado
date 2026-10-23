@@ -1,3 +1,5 @@
+import '../fixtures/read_aloud_planner.dart';
+
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -130,6 +132,7 @@ void main() {
       ),
     );
     preview = ReadAloudVoicePreview(
+      planner: FixtureReadAloudPlanner(),
       audioSession: AppAudioSession(audioBackend),
       player: player,
       system: system,

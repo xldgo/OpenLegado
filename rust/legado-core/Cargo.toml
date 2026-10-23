@@ -25,6 +25,8 @@ sha2 = "0.11"
 hmac = "0.13"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 regex = "1"
+# 复用锁文件已有版本，朗读请求按完整字形簇切分。
+unicode-segmentation = "=1.13.3"
 # 安全正则编译缓存的 LRU 淘汰（任务 #60 ④，与 legado-js 同版本）
 lru = "0.18.5"
 # Java 正则方言支持（lookbehind / backreference / 原子组等 regex crate 不支持的语法）

@@ -1,3 +1,4 @@
+import 'read_aloud_planner.dart';
 import 'preview_normalize_stub.dart';
 
 import 'package:flutter_legado/src/app/bootstrap/source_import_factory.dart';
@@ -288,6 +289,7 @@ extension TestApiOverrides on TestApi {
 /// 组合夹具先提供缺省依赖，单个用例后声明的替身优先。
 List<Override> mergeTestOverrides(List<Override> values) => {
   for (final value in [
+    readAloudPlannerProvider.overrideWithValue(FixtureReadAloudPlanner()),
     mediaArtworkLoaderProvider.overrideWithValue(FakeMediaArtworkLoader()),
     audioServiceProvider.overrideWith((ref) {
       final audio = TestMediaAudioService();

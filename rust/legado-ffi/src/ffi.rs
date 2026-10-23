@@ -17,6 +17,39 @@ pub fn reader_layout_begin(config: LayoutConfigDto) -> Result<LayoutSession, Bri
     LayoutSession::begin(config)
 }
 
+/// 复用原文与真实页界生成朗读范围，不访问数据库或播放状态。
+pub fn read_aloud_plan(
+    content: String,
+    mode: crate::read_aloud_dto::ReadAloudSplitModeDto,
+    symbols: String,
+    pages: Vec<crate::read_aloud_dto::ReadAloudRangeDto>,
+) -> Result<Vec<crate::read_aloud_dto::ReadAloudUnitDto>, BridgeError> {
+    Ok(legado_core::read_aloud_partition::plan(
+        &content,
+        mode.into(),
+        &symbols,
+        &pages.into_iter().map(Into::into).collect::<Vec<_>>(),
+    )?
+    .into_iter()
+    .map(Into::into)
+    .collect())
+}
+
+/// 批量请求分片按输入顺序返回；限制只从Rust Provider描述读取。
+pub fn cloud_tts_partition(
+    provider: crate::media_dto::CloudTtsProviderDto,
+    texts: Vec<String>,
+) -> Result<Vec<crate::read_aloud_dto::SpeechPartitionDto>, BridgeError> {
+    Ok(
+        legado_core::read_aloud_partition::partition(provider.into(), &texts)?
+            .into_iter()
+            .map(|ranges| crate::read_aloud_dto::SpeechPartitionDto {
+                ranges: ranges.into_iter().map(Into::into).collect(),
+            })
+            .collect(),
+    )
+}
+
 /// 单次 TTS 请求的取消句柄；同步取消不排在耗时合成线程之后。
 #[flutter_rust_bridge::frb(opaque)]
 pub struct TtsRequest {

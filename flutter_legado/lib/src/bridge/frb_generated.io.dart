@@ -21,6 +21,7 @@ import 'media_dto.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart';
 
+import 'read_aloud_dto.dart';
 import 'source_tools_dto.dart';
 import 'statistics_dto.dart';
 import 'task_dto.dart';
@@ -705,6 +706,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
 
   @protected
+  List<ReadAloudRangeDto> dco_decode_list_read_aloud_range_dto(dynamic raw);
+
+  @protected
+  List<ReadAloudUnitDto> dco_decode_list_read_aloud_unit_dto(dynamic raw);
+
+  @protected
   List<ReadAloudVoiceDto> dco_decode_list_read_aloud_voice_dto(dynamic raw);
 
   @protected
@@ -787,6 +794,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<SourceMatchDto> dco_decode_list_source_match_dto(dynamic raw);
+
+  @protected
+  List<SpeechPartitionDto> dco_decode_list_speech_partition_dto(dynamic raw);
 
   @protected
   List<SystemVoiceEntryDto> dco_decode_list_system_voice_entry_dto(dynamic raw);
@@ -940,6 +950,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformActionKind dco_decode_platform_action_kind(dynamic raw);
 
   @protected
+  ReadAloudRangeDto dco_decode_read_aloud_range_dto(dynamic raw);
+
+  @protected
+  ReadAloudSplitModeDto dco_decode_read_aloud_split_mode_dto(dynamic raw);
+
+  @protected
+  ReadAloudUnitDto dco_decode_read_aloud_unit_dto(dynamic raw);
+
+  @protected
   ReadAloudVoiceDto dco_decode_read_aloud_voice_dto(dynamic raw);
 
   @protected
@@ -1070,6 +1089,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   SourceSyntaxDto dco_decode_source_syntax_dto(dynamic raw);
+
+  @protected
+  SpeechPartitionDto dco_decode_speech_partition_dto(dynamic raw);
 
   @protected
   SubscriptionApplyDto dco_decode_subscription_apply_dto(dynamic raw);
@@ -2005,6 +2027,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
 
   @protected
+  List<ReadAloudRangeDto> sse_decode_list_read_aloud_range_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<ReadAloudUnitDto> sse_decode_list_read_aloud_unit_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<ReadAloudVoiceDto> sse_decode_list_read_aloud_voice_dto(
     SseDeserializer deserializer,
   );
@@ -2127,6 +2159,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<SourceMatchDto> sse_decode_list_source_match_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<SpeechPartitionDto> sse_decode_list_speech_partition_dto(
     SseDeserializer deserializer,
   );
 
@@ -2332,6 +2369,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  ReadAloudRangeDto sse_decode_read_aloud_range_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReadAloudSplitModeDto sse_decode_read_aloud_split_mode_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReadAloudUnitDto sse_decode_read_aloud_unit_dto(SseDeserializer deserializer);
+
+  @protected
   ReadAloudVoiceDto sse_decode_read_aloud_voice_dto(
     SseDeserializer deserializer,
   );
@@ -2504,6 +2554,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   SourceSyntaxDto sse_decode_source_syntax_dto(SseDeserializer deserializer);
+
+  @protected
+  SpeechPartitionDto sse_decode_speech_partition_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   SubscriptionApplyDto sse_decode_subscription_apply_dto(
@@ -3703,6 +3758,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_read_aloud_range_dto(
+    List<ReadAloudRangeDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_read_aloud_unit_dto(
+    List<ReadAloudUnitDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_read_aloud_voice_dto(
     List<ReadAloudVoiceDto> self,
     SseSerializer serializer,
@@ -3849,6 +3916,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_source_match_dto(
     List<SourceMatchDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_speech_partition_dto(
+    List<SpeechPartitionDto> self,
     SseSerializer serializer,
   );
 
@@ -4099,6 +4172,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_read_aloud_range_dto(
+    ReadAloudRangeDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_read_aloud_split_mode_dto(
+    ReadAloudSplitModeDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_read_aloud_unit_dto(
+    ReadAloudUnitDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_read_aloud_voice_dto(
     ReadAloudVoiceDto self,
     SseSerializer serializer,
@@ -4326,6 +4417,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_source_syntax_dto(
     SourceSyntaxDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_speech_partition_dto(
+    SpeechPartitionDto self,
     SseSerializer serializer,
   );
 

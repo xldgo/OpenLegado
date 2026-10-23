@@ -1,3 +1,5 @@
+import '../../../domain/contracts/read_aloud_planner.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -35,6 +37,7 @@ class ReadAloudController {
     required this._host,
     required ChapterContentService content,
     required this._settings,
+    required this._planner,
     required this._httpTts,
     required this._cloudTts,
     required this._voices,
@@ -65,12 +68,14 @@ class ReadAloudController {
     _cloudEngine = CloudReadAloudEngine(
       queue: _synthesisQueue,
       repository: () => _cloudTts,
+      planner: _planner,
       synthesizer: () => cloudSynthesizer,
       player: player,
       cache: () => _ttsCache,
     );
   }
 
+  final ReadAloudPlanner _planner;
   final ReadAloudHost _host;
   final ChapterContentService _chapterContent;
   final ReadAloudSettingsRepository _settings;
@@ -215,7 +220,8 @@ class ReadAloudController {
       if (token != _playToken || _disposed) return;
       final content = await _ensureChapterContent(_state.currentIndex);
       if (token != _playToken || _disposed) return;
-      final units = _contentUnits(content, _state.currentIndex);
+      final units = await _contentUnits(content, _state.currentIndex);
+      if (token != _playToken || _disposed) return;
       final paragraphs = units.map((p) => p.text).toList();
       if (paragraphs.isEmpty && content.trim().isNotEmpty) {
         paragraphs.add(content.trim());
@@ -366,14 +372,13 @@ class ReadAloudController {
         );
       }
       CloudTtsEngine? cloud;
-      CloudTtsSpeechLimits? cloudLimits;
+      String? cloudProvider;
       String? cloudVersion;
       if (isCloudTts(engineUrl)) {
         cloud = await _cloudTts.get(cloudTtsId(engineUrl));
         if (isStale(token, gen)) return;
         if (cloud == null || !cloud.enabled) throw StateError('云端引擎不存在或已停用');
-        cloudLimits = await _cloudTts.speechLimits(cloud.provider);
-        if (isStale(token, gen)) return;
+        cloudProvider = cloud.provider;
         final voices = await _voices.list();
         if (isStale(token, gen)) return;
         cloudVersion = jsonEncode([
@@ -421,10 +426,15 @@ class ReadAloudController {
         ReadAloudPlaylistEngine candidate => candidate,
         _ => null,
       };
+      final cues =
+          playlist?.supportsPlaylist == true && _ttsCache.supportsAudioFiles
+          ? await _filePlaybackCues(request, cloudProvider)
+          : null;
+      if (isStale(token, gen)) return;
       final result =
           playlist?.supportsPlaylist == true && _ttsCache.supportsAudioFiles
           ? await playlist!.speakPlaylist(
-              _filePlaybackCues(request, cloudLimits),
+              cues!,
               session,
               onCueStarted: (cue) {
                 // 暂停续播替换段落会话，队列自身检查新会话；此处只核对书章身份。
@@ -458,7 +468,7 @@ class ReadAloudController {
           _state = _state.copyWith(errorMessage: voice.warning);
         }
         if (cloud != null && _ttsCache.supportsAudioFiles) {
-          _startCloudPrefetch(request, cloudLimits!);
+          _startCloudPrefetch(request, cloudProvider!);
         }
         if (source != null) {
           _startHttpPrefetch(request, source.synthesisThreadCount);
@@ -485,49 +495,49 @@ class ReadAloudController {
   }
 
   /// 原生队列只预先起播当前章；段间停顿不作用于同段内部的长度分片。
-  List<ReadAloudPlaylistCue> _filePlaybackCues(
+  Future<List<ReadAloudPlaylistCue>> _filePlaybackCues(
     ReadAloudRequest request,
-    CloudTtsSpeechLimits? limits,
-  ) {
+    String? provider,
+  ) async {
     final end = _settings.current.paragraphIntervalMs > 0
         ? _paragraphIndex + 1
         : _paragraphUnits.length;
-    final cues = <ReadAloudPlaylistCue>[];
-    for (var index = _paragraphIndex; index < end; index++) {
-      final unit = _paragraphUnits[index];
-      final offset = index == _paragraphIndex ? _paragraphStartOffset : 0;
-      final text = unit.text.substring(offset);
-      final List<SpeechRequestPart> parts = limits == null
-          ? [(text: text, start: 0)]
-          : splitSpeechRequests(
-              text,
-              limit: limits.maxUtf16Units,
-              maxUtf8Bytes: limits.maxUtf8Bytes,
-            );
-      for (final part in parts) {
-        cues.add(
+    final base = <ReadAloudPlaylistCue>[
+      for (var index = _paragraphIndex; index < end; index++)
+        ReadAloudPlaylistCue(
+          request: request,
+          unit: _paragraphUnits[index].slice(
+            index == _paragraphIndex ? _paragraphStartOffset : 0,
+            _paragraphUnits[index].text.length,
+          ),
+          unitIndex: index,
+        ),
+    ];
+    final texts = [for (final cue in base) cue.unit.text];
+    final parts = provider == null
+        ? [
+            for (final text in texts) [(start: 0, text: text)],
+          ]
+        : await _planner.partition(provider, texts);
+    return [
+      for (var i = 0; i < base.length; i++)
+        for (final part in parts[i])
           ReadAloudPlaylistCue(
             request: request.copyWith(
               text: part.text,
               cacheContext: TtsCacheContext(
-                bookUrl: _state.bookUrl,
-                bookName: _state.bookName,
-                chapterIndex: _state.currentIndex,
-                chapterTitle: _state.currentChapter?.title ?? '',
-                paragraphIndex: index,
+                bookUrl: request.cacheContext!.bookUrl,
+                bookName: request.cacheContext!.bookName,
+                chapterIndex: request.cacheContext!.chapterIndex,
+                chapterTitle: request.cacheContext!.chapterTitle,
+                paragraphIndex: base[i].unitIndex,
                 text: part.text,
               ),
             ),
-            unit: unit.slice(
-              offset + part.start,
-              offset + part.start + part.text.length,
-            ),
-            unitIndex: index,
+            unit: base[i].unit.slice(part.start, part.start + part.text.length),
+            unitIndex: base[i].unitIndex,
           ),
-        );
-      }
-    }
-    return cues;
+    ];
   }
 
   void registerPages(
@@ -541,11 +551,6 @@ class ReadAloudController {
     final unchanged =
         old != null && old.content == content && listEquals(old.ranges, ranges);
     if (unchanged) return;
-    splitReadAloudContent(
-      content,
-      mode: ReadAloudSplitMode.page,
-      pages: ranges,
-    );
     _pageRanges[key] = (content: content, ranges: List.unmodifiable(ranges));
     if (_pageRanges.length > 6) _pageRanges.remove(_pageRanges.keys.first);
     if (old != null &&
@@ -561,14 +566,14 @@ class ReadAloudController {
     }
   }
 
-  List<ReadAloudUnit> _contentUnits(String text, int chapter) {
+  Future<List<ReadAloudUnit>> _contentUnits(String text, int chapter) {
     final prefs = _settings.current;
     final pages = _pageRanges[(_state.bookUrl, chapter)];
-    return splitReadAloudContent(
+    return _planner.plan(
       text,
       mode: prefs.splitMode,
       symbols: prefs.splitSymbols,
-      pages: pages?.content == text ? pages?.ranges : null,
+      pages: pages?.content == text ? pages!.ranges : const [],
     );
   }
 
@@ -588,10 +593,7 @@ class ReadAloudController {
     await play(startPlaying: playing);
   }
 
-  void _startCloudPrefetch(
-    ReadAloudRequest request,
-    CloudTtsSpeechLimits limits,
-  ) {
+  void _startCloudPrefetch(ReadAloudRequest request, String provider) {
     final prefs = _settings.current;
     _cacheRetentionMinutes = prefs.audioCacheCleanTime;
     if (prefs.audioPreDownloadNum <= 0) {
@@ -613,30 +615,37 @@ class ReadAloudController {
       prefs.splitMode.name,
       prefs.splitSymbols,
     ]);
-    List<ReadAloudRequest> cues(String text, int chapter, int unit) => [
-      for (final part in splitSpeechRequests(
-        text,
-        limit: limits.maxUtf16Units,
-        maxUtf8Bytes: limits.maxUtf8Bytes,
-      ))
-        request.copyWith(
-          text: part.text,
-          cacheContext: TtsCacheContext(
-            bookUrl: bookUrl,
-            bookName: bookName,
-            chapterIndex: chapter,
-            chapterTitle: chapters[chapter].title,
-            paragraphIndex: unit,
-            text: part.text,
-          ),
-        ),
-    ];
-    Stream<List<ReadAloudRequest>> window() async* {
-      yield [
-        ...remaining,
-        for (var p = paragraph + 1; p < units.length; p++)
-          ...cues(units[p], index, p),
+    Future<List<ReadAloudRequest>> cues(
+      List<String> texts,
+      int chapter,
+      int firstUnit,
+    ) async {
+      final parts = await _planner.partition(provider, texts);
+      return [
+        for (var u = 0; u < parts.length; u++)
+          for (final part in parts[u])
+            request.copyWith(
+              text: part.text,
+              cacheContext: TtsCacheContext(
+                bookUrl: bookUrl,
+                bookName: bookName,
+                chapterIndex: chapter,
+                chapterTitle: chapters[chapter].title,
+                paragraphIndex: firstUnit + u,
+                text: part.text,
+              ),
+            ),
       ];
+    }
+
+    Stream<List<ReadAloudRequest>> window() async* {
+      final next = await cues(
+        units.skip(paragraph + 1).toList(),
+        index,
+        paragraph + 1,
+      );
+      if (!_synthesisQueue.isWindowCurrent(key)) return;
+      yield [...remaining, ...next];
       if (prefs.splitMode == ReadAloudSplitMode.page) return;
       for (
         var i = index + 1;
@@ -648,15 +657,19 @@ class ReadAloudController {
             ? chapters[i].text
             : await contentService.read(bookUrl, i);
         if (!_synthesisQueue.isWindowCurrent(key)) return;
-        final nextUnits = splitReadAloudContent(
+        final nextUnits = await _planner.plan(
           text,
           mode: prefs.splitMode,
           symbols: prefs.splitSymbols,
         );
-        yield [
-          for (var p = 0; p < nextUnits.length; p++)
-            ...cues(nextUnits[p].text, i, p),
-        ];
+        if (!_synthesisQueue.isWindowCurrent(key)) return;
+        final next = await cues(
+          [for (final unit in nextUnits) unit.text],
+          i,
+          0,
+        );
+        if (!_synthesisQueue.isWindowCurrent(key)) return;
+        yield next;
       }
     }
 
@@ -730,7 +743,12 @@ class ReadAloudController {
             ? chapter.text
             : await contentService.read(bookUrl, i);
         if (!_synthesisQueue.isWindowCurrent(key)) return;
-        final units = _contentUnits(text, i);
+        final units = await _planner.plan(
+          text,
+          mode: preferences.splitMode,
+          symbols: preferences.splitSymbols,
+        );
+        if (!_synthesisQueue.isWindowCurrent(key)) return;
         yield [for (var p = 0; p < units.length; p++) cue(units[p].text, i, p)];
       }
     }
@@ -754,10 +772,8 @@ class ReadAloudController {
       if (isStale(token, gen)) return;
       final request = _cloudEngine.currentRequest;
       if (cloud != null && request != null && _ttsCache.supportsAudioFiles) {
-        final limits = await _cloudTts.speechLimits(cloud.provider);
-        if (isStale(token, gen)) return;
         _synthesisQueue.cancelBackground();
-        _startCloudPrefetch(request, limits);
+        _startCloudPrefetch(request, cloud.provider);
       }
       return;
     }
@@ -1132,7 +1148,9 @@ class ReadAloudController {
       if (_pendingChapterPos == null &&
           paraText != null &&
           paraText.isNotEmpty) {
-        for (final paragraph in splitReadAloudParagraphs(content)) {
+        final units = await _planner.plan(content);
+        if (_disposed || token != _playToken) return;
+        for (final paragraph in units) {
           if (paragraph.text == paraText) {
             _pendingChapterPos = paragraph.start;
             break;

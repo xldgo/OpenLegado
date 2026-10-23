@@ -25,6 +25,7 @@ pub mod js_executor;
 mod layout_bridge;
 pub mod layout_dto;
 pub mod media_dto;
+pub mod read_aloud_dto;
 pub mod runtime;
 mod service_host;
 mod source_action_host;

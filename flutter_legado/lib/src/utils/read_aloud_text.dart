@@ -2,10 +2,6 @@ import 'package:characters/characters.dart';
 
 import '../domain/models/read_aloud_content.dart';
 
-/// 朗读单元保留章节原文的 UTF-16 起点，不使用裁剪后文本累加偏移。
-List<ReadAloudUnit> splitReadAloudParagraphs(String content) =>
-    splitReadAloudContent(content);
-
 /// 空白间隙从后一个单元开始；有效正文位置保留段内起点。
 ({int paragraph, int offset}) readAloudStartAt(
   List<ReadAloudUnit> paragraphs,

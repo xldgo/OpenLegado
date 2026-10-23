@@ -1,3 +1,7 @@
+import 'package:flutter_legado/src/domain/contracts/read_aloud_planner.dart';
+
+import 'read_aloud_planner.dart';
+
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -137,7 +141,10 @@ class ReadAloudControllerFixture {
   int nextCalls = 0, previousCalls = 0, stopCalls = 0;
   bool disposed = false, stopAtBoundary = false;
 
-  ReadAloudControllerFixture({String bookUrl = 'controller-book'}) {
+  ReadAloudControllerFixture({
+    String bookUrl = 'controller-book',
+    ReadAloudPlanner? planner,
+  }) {
     state = AudioState(
       config: TtsConfig(),
       bookUrl: bookUrl,
@@ -185,6 +192,7 @@ class ReadAloudControllerFixture {
         stop: stop,
         notifyPaused: () async {},
       ),
+      planner: planner ?? FixtureReadAloudPlanner(),
       content: ChapterContentService(
         reading: api.readingRepository,
         cache: api.chapterCacheRepository,

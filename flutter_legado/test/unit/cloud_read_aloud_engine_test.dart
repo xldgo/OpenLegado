@@ -1,3 +1,7 @@
+import 'package:flutter_legado/src/domain/models/read_aloud_content.dart';
+
+import '../fixtures/read_aloud_planner.dart';
+
 import 'package:flutter_legado/src/domain/contracts/cloud_tts_provider.dart';
 
 import 'dart:convert';
@@ -34,15 +38,20 @@ class _Synth implements CloudTtsSynthesizer {
   }
 }
 
+class _OpenAiRepository extends Fake implements CloudTtsRepository {
+  @override
+  Future<CloudTtsEngine?> get(String id) async =>
+      CloudTtsEngine(id: id, name: '夹具引擎', provider: 'openai_speech');
+}
+
 class _DelayedRepository implements CloudTtsRepository {
   @override
   Future<Map<String, CloudTtsCapabilities>> providerCapabilities() =>
       MockCloudTtsRepository().providerCapabilities();
 
-  Completer<CloudTtsSpeechLimits>? limits;
   @override
   Future<CloudTtsSpeechLimits> speechLimits(String provider) =>
-      limits?.future ?? MockCloudTtsRepository().speechLimits(provider);
+      MockCloudTtsRepository().speechLimits(provider);
 
   @override
   Future<CloudTtsEngine?> get(String id) async =>
@@ -56,6 +65,15 @@ class _DelayedRepository implements CloudTtsRepository {
   final pending = Completer<List<CloudTtsEngine>>();
   @override
   Future<List<CloudTtsEngine>> list() => pending.future;
+}
+
+class _DelayedPlanner extends FixtureReadAloudPlanner {
+  Completer<List<List<SpeechRequestPart>>>? pending;
+  @override
+  Future<List<List<SpeechRequestPart>>> partition(
+    String provider,
+    List<String> texts,
+  ) => pending?.future ?? super.partition(provider, texts);
 }
 
 Future<void> flush() async {
@@ -81,6 +99,7 @@ void main() {
     final player = FakeStreamAudioPlayer()
       ..loadedDuration = const Duration(seconds: 10);
     final engine = CloudReadAloudEngine(
+      planner: FixtureReadAloudPlanner(),
       synthesizer: () => synth,
       player: player,
       cache: () => const MockTtsCacheRepository(),
@@ -115,19 +134,13 @@ void main() {
     await engine.stop();
   });
 
-  test('分片不拆 emoji/组合字符，拼回完整原文且限宽正常退出', () {
-    const text = '甲😀é👨‍👩‍👧‍👦乙';
-    final parts = splitCloudSpeechText(text, limit: 12);
-    expect(parts.join(), text);
-    expect(parts.every((p) => p.length <= 12), true);
-    expect(() => splitCloudSpeechText(text, limit: 0), throwsArgumentError);
-    expect(() => splitCloudSpeechText('e\u0301', limit: 1), throwsStateError);
-  });
   test('超长段逐片播放，原位暂停续播不重合成，整段只完成一次', () async {
     final synth = _Synth();
     final player = FakeStreamAudioPlayer()
       ..loadedDuration = const Duration(seconds: 10);
     final engine = CloudReadAloudEngine(
+      repository: () => _OpenAiRepository(),
+      planner: FixtureReadAloudPlanner(),
       synthesizer: () => synth,
       player: player,
       cache: () => const MockTtsCacheRepository(),
@@ -180,6 +193,8 @@ void main() {
     final synth = _Synth()..pending = Completer();
     final player = FakeStreamAudioPlayer();
     final engine = CloudReadAloudEngine(
+      repository: () => _OpenAiRepository(),
+      planner: FixtureReadAloudPlanner(),
       synthesizer: () => synth,
       player: player,
       cache: () => const MockTtsCacheRepository(),
@@ -217,6 +232,7 @@ void main() {
     final player = FakeStreamAudioPlayer()
       ..loadedDuration = const Duration(seconds: 10);
     final engine = CloudReadAloudEngine(
+      planner: FixtureReadAloudPlanner(),
       synthesizer: () => synth,
       player: player,
       cache: () => const MockTtsCacheRepository(),
@@ -260,13 +276,17 @@ void main() {
     expect(finished, 1);
     await engine.stop();
   });
-  for (final waitForLimits in [false, true]) {
-    test('等待${waitForLimits ? '分片限制' : '服务商配置'}时停止，迟到结果不启动播放', () async {
+  for (final waitForPartition in [false, true]) {
+    test('等待${waitForPartition ? '请求分片' : '服务商配置'}时停止，迟到结果不启动播放', () async {
       final repo = _DelayedRepository();
-      if (waitForLimits) repo.limits = Completer<CloudTtsSpeechLimits>();
+      final planner = _DelayedPlanner();
+      if (waitForPartition) {
+        planner.pending = Completer<List<List<SpeechRequestPart>>>();
+      }
       final synth = _Synth();
       final player = FakeStreamAudioPlayer();
       final engine = CloudReadAloudEngine(
+        planner: planner,
         synthesizer: () => synth,
         player: player,
         cache: () => const MockTtsCacheRepository(),
@@ -284,13 +304,15 @@ void main() {
       const engines = [
         CloudTtsEngine(id: 'ali', name: '百炼', provider: 'alibaba_cloud'),
       ];
-      if (waitForLimits) {
+      if (waitForPartition) {
         repo.pending.complete(engines);
         await flush();
       }
       await engine.stop();
-      if (waitForLimits) {
-        repo.limits!.complete(const CloudTtsSpeechLimits(maxUtf16Units: 600));
+      if (waitForPartition) {
+        planner.pending!.complete([
+          [(start: 0, text: '原文')],
+        ]);
       } else {
         repo.pending.complete(engines);
       }
@@ -300,15 +322,17 @@ void main() {
       expect(engine.canResume, false);
     });
   }
-  test('限制查询失败上抛，不回退合成', () async {
-    final repo = _DelayedRepository()
-      ..limits = Completer<CloudTtsSpeechLimits>();
+  test('请求分片失败上抛，不回退合成', () async {
+    final repo = _DelayedRepository();
+    final planner = _DelayedPlanner()
+      ..pending = Completer<List<List<SpeechRequestPart>>>();
     repo.pending.complete([
       const CloudTtsEngine(id: 'ali', name: '百炼', provider: 'alibaba_cloud'),
     ]);
     final synth = _Synth();
     final player = FakeStreamAudioPlayer();
     final engine = CloudReadAloudEngine(
+      planner: planner,
       synthesizer: () => synth,
       player: player,
       cache: () => const MockTtsCacheRepository(),
@@ -324,7 +348,7 @@ void main() {
       ),
     );
     final failed = expectLater(result, throwsStateError);
-    repo.limits!.completeError(StateError('查询失败'));
+    planner.pending!.completeError(StateError('查询失败'));
     await failed;
     expect(synth.texts, isEmpty);
     expect(player.playedLocalFiles, isEmpty);

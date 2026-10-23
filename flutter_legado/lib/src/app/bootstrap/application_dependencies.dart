@@ -1,3 +1,6 @@
+import '../../domain/contracts/read_aloud_planner.dart';
+import '../../data/services/rust_read_aloud_planner.dart';
+import '../../data/services/mock_read_aloud_planner.dart';
 import 'mock_dependencies.dart';
 import '../../domain/contracts/bookmark_export_service.dart';
 import '../../data/services/rust_bookmark_export_service.dart';
@@ -457,6 +460,11 @@ final sourceLoginRepositoryProvider = Provider<SourceLoginRepository>(
   (ref) => ref.watch(mockModeProvider)
       ? ref.watch(mockSourceLoginRepositoryProvider)
       : const RustSourceLoginRepository(),
+);
+final readAloudPlannerProvider = Provider<ReadAloudPlanner>(
+  (ref) => ref.watch(mockModeProvider)
+      ? const MockReadAloudPlanner()
+      : const RustReadAloudPlanner(),
 );
 final cloudTtsRepositoryProvider = Provider<CloudTtsRepository>(
   (ref) => ref.watch(mockModeProvider)

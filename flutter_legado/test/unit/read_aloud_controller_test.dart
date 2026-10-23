@@ -1,3 +1,5 @@
+import '../fixtures/read_aloud_planner.dart';
+
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -8,6 +10,17 @@ import 'package:flutter_legado/src/features/audio/application/audio_state.dart';
 
 import '../fixtures/read_aloud_controller_fixture.dart';
 import '../mocks/mocks.dart';
+
+class _PendingPlan extends FixtureReadAloudPlanner {
+  final pending = Completer<List<ReadAloudUnit>>();
+  @override
+  Future<List<ReadAloudUnit>> plan(
+    String content, {
+    ReadAloudSplitMode mode = ReadAloudSplitMode.paragraph,
+    String symbols = defaultReadAloudSplitSymbols,
+    List<ReadAloudPageRange> pages = const [],
+  }) => pending.future;
+}
 
 void main() {
   setUpAll(registerFallbacks);
@@ -29,6 +42,22 @@ void main() {
     expect(fixture.controller.readAloudPosition.value!.offset, 1);
     expect(fixture.controller.readAloudPosition.value!.paragraphEnd, 4);
     expect(fixture.mediaStarts, 1);
+  });
+
+  test('等待Rust内容计划时停止，迟到范围不恢复队列或播放', () async {
+    final planner = _PendingPlan();
+    final other = ReadAloudControllerFixture(planner: planner);
+    addTearDown(other.dispose);
+    final pending = other.controller.play();
+    await flushReadAloud();
+    other.stop();
+    planner.pending.complete(
+      await FixtureReadAloudPlanner().plan(ReadAloudControllerFixture.first),
+    );
+    await pending;
+    expect(other.state.state, PlayerState.idle);
+    expect(other.system.texts, isEmpty);
+    expect(other.controller.currentParagraphs, isEmpty);
   });
 
   test('自然完成依次切段切章，末章完成交回宿主停止', () async {

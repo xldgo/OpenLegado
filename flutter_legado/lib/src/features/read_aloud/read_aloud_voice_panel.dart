@@ -1,3 +1,5 @@
+import '../../app/bootstrap/application_dependencies.dart'
+    show readAloudPlannerProvider;
 import '../../providers/domain_config_provider.dart';
 
 import 'dart:async';
@@ -41,6 +43,7 @@ class ReadAloudVoicePanelState extends ConsumerState<ReadAloudVoicePanel> {
     super.initState();
     _preview = ReadAloudVoicePreview(
       player: ref.read(cloudTtsPreviewPlayerProvider),
+      planner: ref.read(readAloudPlannerProvider),
       system: ref.read(systemTtsServiceProvider),
       cloud: () => ref.read(cloudTtsSynthesizerProvider),
       engines: () => ref.read(cloudTtsRepositoryProvider),

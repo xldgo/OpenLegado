@@ -1,3 +1,5 @@
+import '../../domain/contracts/read_aloud_planner.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -18,6 +20,7 @@ import 'http_tts_voice_selection.dart';
 final class ReadAloudVoicePreview {
   ReadAloudVoicePreview({
     required this.player,
+    required ReadAloudPlanner planner,
     required this.system,
     required CloudTtsSynthesizer Function() cloud,
     required CloudTtsRepository Function() engines,
@@ -37,6 +40,7 @@ final class ReadAloudVoicePreview {
     });
     _cloud = CloudReadAloudEngine(
       synthesizer: cloud,
+      planner: planner,
       repository: engines,
       player: player,
       cache: cache,

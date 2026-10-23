@@ -1,3 +1,5 @@
+import '../fixtures/read_aloud_planner.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/domain/models/read_aloud_media_timeline.dart';
 import 'package:flutter_legado/src/utils/read_aloud_text.dart';
@@ -29,9 +31,9 @@ void main() {
     expect(step(6000, 8000, true), 6000);
     expect(step(6000, 20000, true), 10000);
   });
-  test('重置允许向后定位，原文定位不会切开emoji和组合字符', () {
+  test('重置允许向后定位，原文定位不会切开emoji和组合字符', () async {
     const text = '甲👨‍👩‍👧‍👦é乙';
-    final units = splitReadAloudParagraphs(text);
+    final units = await FixtureReadAloudPlanner().plan(text);
     final requested = readAloudMediaOffset(750, text.length, 1);
     expect(readAloudStartAt(units, requested), (paragraph: 0, offset: 1));
     final clock = ReadAloudMediaClock();

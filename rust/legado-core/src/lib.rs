@@ -54,6 +54,7 @@ pub mod manga_state;
 pub mod models;
 pub mod passphrase;
 pub mod read_aloud;
+pub mod read_aloud_partition;
 pub mod read_state;
 pub mod reader_state;
 /// 统一安全正则编译入口（1KB 长度上限 + nest_limit 嵌套防御 + 失败负缓存）

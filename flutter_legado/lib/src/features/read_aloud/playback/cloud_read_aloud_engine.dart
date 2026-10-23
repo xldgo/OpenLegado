@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import '../../../domain/models/read_aloud_content.dart';
+import '../../../domain/contracts/read_aloud_planner.dart';
 
 import '../../../domain/contracts/cloud_tts_repository.dart';
 import '../../../domain/contracts/cloud_tts_synthesizer.dart';
@@ -18,7 +18,8 @@ final class CloudReadAloudEngine
     required CloudTtsSynthesizer Function() synthesizer,
     required StreamAudioPlayer player,
     required TtsCacheRepository Function() cache,
-    this.repository,
+    required this.repository,
+    required this.planner,
     ReadAloudSynthesisQueue? queue,
   }) : _file = FileReadAloudEngine(
          player: player,
@@ -44,7 +45,8 @@ final class CloudReadAloudEngine
        );
   final FileReadAloudEngine _file;
   ReadAloudRequest? get currentRequest => _request;
-  final CloudTtsRepository Function()? repository;
+  final CloudTtsRepository Function() repository;
+  final ReadAloudPlanner planner;
   bool _playlistActive = false;
   @override
   bool get supportsPlaylist => _file.supportsPlaylist;
@@ -140,29 +142,16 @@ final class CloudReadAloudEngine
     if (!session.isCurrent) return ReadAloudStart.cancelled;
     _parent = session;
     _request = request;
-    var limit = 4000;
-    int? maxUtf8Bytes;
-    final resolveRepository = repository;
-    if (resolveRepository != null) {
-      final engine = await resolveRepository().get(
-        cloudTtsId(request.engineUrl),
-      );
-      if (!identical(_parent, session) || !session.isCurrent) {
-        return ReadAloudStart.cancelled;
-      }
-      if (engine == null || !engine.enabled) throw StateError('云端引擎不存在或已停用');
-      final limits = await resolveRepository().speechLimits(engine.provider);
-      if (!identical(_parent, session) || !session.isCurrent) {
-        return ReadAloudStart.cancelled;
-      }
-      limit = limits.maxUtf16Units;
-      maxUtf8Bytes = limits.maxUtf8Bytes;
+    final engine = await repository().get(cloudTtsId(request.engineUrl));
+    if (!identical(_parent, session) || !session.isCurrent) {
+      return ReadAloudStart.cancelled;
     }
-    _parts = splitCloudSpeechText(
-      request.text,
-      limit: limit,
-      maxUtf8Bytes: maxUtf8Bytes,
-    );
+    if (engine == null || !engine.enabled) throw StateError('云端引擎不存在或已停用');
+    final partition = await planner.partition(engine.provider, [request.text]);
+    if (!identical(_parent, session) || !session.isCurrent) {
+      return ReadAloudStart.cancelled;
+    }
+    _parts = partition.single.map((p) => p.text).toList();
     _index = 0;
     if (_parts.isEmpty) return ReadAloudStart.noAudio;
     return _speakPart(session);
@@ -198,14 +187,3 @@ final class CloudReadAloudEngine
     return _file.resume(_playlistActive ? session : _child(session));
   }
 }
-
-/// 4000 UTF-16 上限比远端字符上限保守；不拆代理对、组合音标或 ZWJ 字形簇。
-List<String> splitCloudSpeechText(
-  String text, {
-  int limit = 4000,
-  int? maxUtf8Bytes,
-}) => splitSpeechRequests(
-  text,
-  limit: limit,
-  maxUtf8Bytes: maxUtf8Bytes,
-).map((part) => part.text).toList();
