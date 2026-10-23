@@ -3,13 +3,27 @@ import '../../models/book_chapter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/reading_provider.dart';
-import 'read_record_dataset.dart';
+import '../../domain/models/read_record_list.dart';
 import 'read_record_notifier.dart';
 import 'read_record_state.dart';
 import 'read_record_list_calculator.dart';
 import 'read_record_repository_provider.dart';
 import '../../domain/contracts/read_record_changes.dart';
 import '../../domain/models/read_record_timeline_entry.dart';
+
+/// 列表和摘要共用查询，不再拉取全量明细在界面归并。— Codex + UI
+final readRecordListDataProvider = FutureProvider.autoDispose
+    .family<ReadRecordListData, String>((ref, query) {
+      final repository = ref.watch(readRecordRepositoryProvider);
+      if (repository is ReadRecordChangeSource) {
+        final subscription = (repository as ReadRecordChangeSource).changes
+            .listen((_) {
+              if (ref.mounted) ref.invalidateSelf();
+            });
+        ref.onDispose(subscription.cancel);
+      }
+      return repository.getReadRecordList(query);
+    });
 
 /// 直接查询Rust时间线，成功写入后失效；Riverpod负责查询参数与实例的异步归属。
 final readRecordTimelineProvider = FutureProvider.autoDispose
@@ -51,14 +65,23 @@ final readRecordListProvider =
             );
       }
       return ref
-          .watch(readRecordDatasetProvider)
+          .watch(readRecordListDataProvider(controls.searchQuery))
           .whenData(
-            (data) => ReadRecordListCalculator.build(
-              mode: controls.displayMode,
-              records: data.records,
-              details: data.details,
-              query: controls.searchQuery,
-            ),
+            (data) =>
+                (controls.displayMode == ReadRecordDisplayMode.aggregate
+                        ? data.aggregate
+                        : data.latest)
+                    .map(
+                      (row) => ReadRecordListEntry(
+                        bookName: row.bookName,
+                        author: row.author,
+                        date: row.date,
+                        key: 'detail:${(row.bookName, row.author, row.date)}',
+                        durationMs: row.durationMs,
+                        lastRead: row.lastRead,
+                      ),
+                    )
+                    .toList(),
           );
     });
 

@@ -22,6 +22,44 @@ void main() {
   });
   tearDown(RustLib.dispose);
 
+  test('列表透传搜索并映射两种视图和全量合计，错误不降为空列表', () async {
+    const row = statistics.ReadRecordListRowDto(
+      bookName: '书',
+      author: '作者',
+      date: '2026-10-13',
+      durationMs: 5000,
+      lastRead: 3000,
+    );
+    when(() => bridge.crateFfiFfiReadRecordViews(query: '作者')).thenAnswer(
+      (_) async => const statistics.ReadRecordListDto(
+        aggregate: [row],
+        latest: [],
+        totalTimeMs: 9000,
+      ),
+    );
+    final result = await repository.getReadRecordList('作者');
+    final entry = result.aggregate.single;
+    expect(
+      (
+        entry.bookName,
+        entry.author,
+        entry.date,
+        entry.durationMs,
+        entry.lastRead,
+      ),
+      ('书', '作者', '2026-10-13', 5000, 3000),
+    );
+    expect(result.latest, isEmpty);
+    expect(result.totalTimeMs, 9000);
+    final failure = StateError('列表失败');
+    when(() => bridge.crateFfiFfiReadRecordViews(query: '作者'))
+        .thenAnswer((_) async => throw failure);
+    await expectLater(
+      repository.getReadRecordList('作者'),
+      throwsA(same(failure)),
+    );
+  });
+
   test('小时查询原样传递本地边界，仅映射秒数并保留错误', () async {
     final boundaries = List.generate(
       25,

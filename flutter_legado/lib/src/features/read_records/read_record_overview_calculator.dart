@@ -3,21 +3,6 @@ import 'read_record_overview_state.dart';
 
 /// 统计页面的日历导航与平台小时边界；聚合由Rust负责。— Codex + UI
 class ReadRecordOverviewCalculator {
-  static DateTime? parseDate(String value) {
-    final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(value);
-    if (match == null) return null;
-    final year = int.parse(match[1]!);
-    final month = int.parse(match[2]!);
-    final day = int.parse(match[3]!);
-    final date = DateTime(year, month, day);
-    return date.year == year && date.month == month && date.day == day
-        ? date
-        : null;
-  }
-
-  static String dateKey(DateTime date) =>
-      '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-
   static (DateTime, DateTime) getPeriodRange(
     ReadPeriod period,
     DateTime refDate,

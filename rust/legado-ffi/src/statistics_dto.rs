@@ -1,4 +1,39 @@
 //! 阅读统计的类型化投影，不在桥接层重复聚合。— Codex + Bridge
+#[derive(Debug, Clone)]
+pub struct ReadRecordListRowDto {
+    pub book_name: String,
+    pub author: String,
+    pub date: Option<String>,
+    pub duration_ms: i64,
+    pub last_read: i64,
+}
+impl From<legado_db::repository::read_record_list::ReadRecordListRow> for ReadRecordListRowDto {
+    fn from(value: legado_db::repository::read_record_list::ReadRecordListRow) -> Self {
+        Self {
+            book_name: value.book_name,
+            author: value.author,
+            date: value.date,
+            duration_ms: value.duration_ms,
+            last_read: value.last_read,
+        }
+    }
+}
+#[derive(Debug, Clone)]
+pub struct ReadRecordListDto {
+    pub aggregate: Vec<ReadRecordListRowDto>,
+    pub latest: Vec<ReadRecordListRowDto>,
+    pub total_time_ms: i64,
+}
+impl From<legado_db::repository::read_record_list::ReadRecordList> for ReadRecordListDto {
+    fn from(value: legado_db::repository::read_record_list::ReadRecordList) -> Self {
+        Self {
+            aggregate: value.aggregate.into_iter().map(Into::into).collect(),
+            latest: value.latest.into_iter().map(Into::into).collect(),
+            total_time_ms: value.total_time_ms,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum ReadRecordPeriodDto {
     Day,

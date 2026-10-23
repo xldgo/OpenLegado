@@ -151,6 +151,15 @@ pub fn clear_read_records() -> LegadoResult<bool> {
     })
 }
 
+/// 列表与摘要共用只读投影。
+pub fn get_read_record_list(
+    query: &str,
+) -> LegadoResult<legado_db::repository::read_record_list::ReadRecordList> {
+    with_database(|db| {
+        legado_db::repository::read_record_list::query_read_list(db.connection(), query)
+    })
+}
+
 /// 按平台给定的小时边界汇总真实会话。
 pub fn get_read_record_hourly(boundaries: &[i64]) -> LegadoResult<Vec<i64>> {
     with_database(|db| {

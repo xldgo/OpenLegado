@@ -20,7 +20,7 @@ import '../../widgets/custom_refresh_indicator.dart';
 import 'read_record_repository_provider.dart';
 import 'read_record_notifier.dart';
 import 'read_record_state.dart';
-import 'read_record_dataset.dart';
+import '../../domain/models/read_record_list.dart';
 import 'read_record_list_provider.dart';
 import 'read_record_list_calculator.dart';
 
@@ -60,14 +60,11 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
   Future<void> _refresh() async {
     final controls = ref.read(readRecordNotifierProvider);
     final notifier = ref.read(readRecordNotifierProvider.notifier);
-    ref.invalidate(readRecordRecordsProvider);
-    ref.invalidate(readRecordDatasetProvider);
-    ref.invalidate(readRecordTimelineProvider);
     await Future.wait<Object?>([
       notifier.load(),
-      ref.read(readRecordDatasetProvider.future),
+      ref.refresh(readRecordListDataProvider(controls.searchQuery).future),
       if (controls.displayMode == ReadRecordDisplayMode.timeline)
-        ref.read(readRecordTimelineProvider(controls.searchQuery).future),
+        ref.refresh(readRecordTimelineProvider(controls.searchQuery).future),
     ]);
   }
 
@@ -189,14 +186,10 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
   Widget build(BuildContext context) {
     final controls = ref.watch(readRecordNotifierProvider);
     final rows = ref.watch(readRecordListProvider);
-    final data = ref.watch(readRecordDatasetProvider);
-    final summary = data.asData == null
-        ? null
-        : ReadRecordListCalculator.summary(
-            records: data.asData!.value.records,
-            details: data.asData!.value.details,
-            query: controls.searchQuery,
-          );
+    final summary = ref
+        .watch(readRecordListDataProvider(controls.searchQuery))
+        .asData
+        ?.value;
     final selection = _selected.isNotEmpty;
     return PopScope(
       canPop: !selection,
@@ -338,13 +331,13 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
                       child: CustomScrollView(
                         controller: scrollController,
                         slivers: [
-                          if (summary != null && summary.books.isNotEmpty)
+                          if (summary != null && summary.latest.isNotEmpty)
                             SliverToBoxAdapter(
                               child: Padding(
                                 padding: const EdgeInsets.all(16),
                                 child: _summaryCard(
-                                  summary.books,
-                                  summary.durationMs,
+                                  summary.latest,
+                                  summary.totalTimeMs,
                                 ),
                               ),
                             ),
@@ -473,7 +466,7 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
     );
   }
 
-  Widget _summaryCard(List<ReadRecordListEntry> entries, int duration) {
+  Widget _summaryCard(List<ReadRecordBookEntry> entries, int duration) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final books = ref.watch(bookshelfNotifierProvider.select((s) => s.books));

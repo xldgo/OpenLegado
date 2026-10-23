@@ -1867,6 +1867,11 @@ pub mod ffi {
         Ok(rt)
     }
 
+    /// 只读查询按日汇总、最后阅读及未过滤累计时长。
+    pub fn read_record_views(query: String) -> Result<ReadRecordListDto, BridgeError> {
+        Ok(crate::api::read_record_api::get_read_record_list(&query)?.into())
+    }
+
     /// 按平台本地小时边界只读汇总真实会话，返回24个槽的秒数。
     pub fn read_record_hourly(boundaries: Vec<i64>) -> Result<Vec<i64>, BridgeError> {
         Ok(crate::api::read_record_api::get_read_record_hourly(

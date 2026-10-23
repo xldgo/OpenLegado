@@ -4,6 +4,7 @@ import '../fixtures/app_test_api.dart';
 import 'package:flutter_legado/src/domain/contracts/read_record_repository.dart';
 import 'package:flutter_legado/src/features/read_records/read_records.dart';
 import 'package:flutter_legado/src/models/models.dart';
+import 'package:flutter_legado/src/domain/models/read_record_list.dart';
 import 'package:flutter_legado/src/app/routing/route_names.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,6 +31,19 @@ void main() {
       (_) async => [const ReadRecord(bookName: '测试书籍', readTime: 120000)],
     );
     when(() => mockRepo.getAllReadRecordDetails()).thenAnswer((_) async => []);
+    when(() => mockRepo.getReadRecordList(any())).thenAnswer(
+      (_) async => const ReadRecordListData(
+        latest: [
+          ReadRecordBookEntry(
+            bookName: '测试书籍',
+            author: '',
+            durationMs: 120000,
+            lastRead: 0,
+          ),
+        ],
+        totalTimeMs: 120000,
+      ),
+    );
     when(() => mockRepo.readRecordDailyList(any())).thenAnswer(
       (_) async => [
         {'date': '2026-05-20', 'seconds': 120},

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import '../../domain/contracts/read_record_repository.dart';
 import '../../domain/models/read_record_timeline_entry.dart';
 import '../../domain/models/read_record_statistics.dart';
+import '../../domain/models/read_record_list.dart';
 import '../../domain/contracts/read_record_changes.dart';
 import '../../models/models.dart';
 import '../../models/read_record_identity.dart';
@@ -149,6 +150,10 @@ class MockReadRecordRepository
   @override
   Future<List<int>> getReadRecordHourly(List<int> boundaries) =>
       Future.error(UnsupportedError('Mock未提供小时统计，请注入结果夹具'));
+
+  @override
+  Future<ReadRecordListData> getReadRecordList(String query) =>
+      Future.error(UnsupportedError('Mock未提供阅读列表，请注入结果夹具'));
 
   @override
   Future<List<ReadRecordTimelineEntry>> getReadRecordTimeline(String query) =>

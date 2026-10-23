@@ -84,6 +84,66 @@ class ReadDayStatDto {
           topBook == other.topBook;
 }
 
+class ReadRecordListDto {
+  final List<ReadRecordListRowDto> aggregate;
+  final List<ReadRecordListRowDto> latest;
+  final PlatformInt64 totalTimeMs;
+
+  const ReadRecordListDto({
+    required this.aggregate,
+    required this.latest,
+    required this.totalTimeMs,
+  });
+
+  @override
+  int get hashCode =>
+      aggregate.hashCode ^ latest.hashCode ^ totalTimeMs.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ReadRecordListDto &&
+          runtimeType == other.runtimeType &&
+          aggregate == other.aggregate &&
+          latest == other.latest &&
+          totalTimeMs == other.totalTimeMs;
+}
+
+class ReadRecordListRowDto {
+  final String bookName;
+  final String author;
+  final String? date;
+  final PlatformInt64 durationMs;
+  final PlatformInt64 lastRead;
+
+  const ReadRecordListRowDto({
+    required this.bookName,
+    required this.author,
+    this.date,
+    required this.durationMs,
+    required this.lastRead,
+  });
+
+  @override
+  int get hashCode =>
+      bookName.hashCode ^
+      author.hashCode ^
+      date.hashCode ^
+      durationMs.hashCode ^
+      lastRead.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ReadRecordListRowDto &&
+          runtimeType == other.runtimeType &&
+          bookName == other.bookName &&
+          author == other.author &&
+          date == other.date &&
+          durationMs == other.durationMs &&
+          lastRead == other.lastRead;
+}
+
 enum ReadRecordPeriodDto { day, week, month, year, all }
 
 class ReadRecordStatisticsDto {

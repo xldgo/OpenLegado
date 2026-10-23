@@ -11,6 +11,7 @@ import '../../models/read_record_detail.dart';
 import '../../models/read_record_session.dart';
 import '../../domain/models/read_record_timeline_entry.dart';
 import '../../domain/models/read_record_statistics.dart';
+import '../../domain/models/read_record_list.dart';
 import '../../bridge/statistics_dto.dart' as statistics;
 import '../bridge/reading_dto_mapping.dart';
 
@@ -146,6 +147,28 @@ final class RustReadRecordRepository
             ),
           )
           .toList();
+
+  ReadRecordBookEntry _listEntry(statistics.ReadRecordListRowDto row) =>
+      ReadRecordBookEntry(
+        bookName: row.bookName,
+        author: row.author,
+        date: row.date,
+        durationMs: row.durationMs,
+        lastRead: row.lastRead,
+      );
+
+  @override
+  Future<ReadRecordListData> getReadRecordList(String query) async {
+    final result = await rustFuture(
+      () => bridge.readRecordViews(query: query),
+      operation: 'readRecordList',
+    );
+    return ReadRecordListData(
+      aggregate: result.aggregate.map(_listEntry).toList(),
+      latest: result.latest.map(_listEntry).toList(),
+      totalTimeMs: result.totalTimeMs,
+    );
+  }
 
   @override
   Future<List<int>> getReadRecordHourly(List<int> boundaries) async =>

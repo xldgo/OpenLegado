@@ -1357,6 +1357,10 @@ Future<PlatformInt64> readRecordRecordTime({
   chapterIndex: chapterIndex,
 );
 
+/// 只读查询按日汇总、最后阅读及未过滤累计时长。
+Future<ReadRecordListDto> readRecordViews({required String query}) =>
+    RustLib.instance.api.crateFfiFfiReadRecordViews(query: query);
+
 /// 按平台本地小时边界只读汇总真实会话，返回24个槽的秒数。
 Future<Int64List> readRecordHourly({required Int64List boundaries}) =>
     RustLib.instance.api.crateFfiFfiReadRecordHourly(boundaries: boundaries);

@@ -1,3 +1,5 @@
+import '../../read_records/read_record_overview_notifier.dart'
+    show readRecordStatisticsProvider;
 import '../../../app/routing/app_navigation.dart';
 import '../../../app/routing/route_arguments.dart';
 import '../../privacy/privacy_gate.dart';
@@ -405,7 +407,12 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
               trailing: IconButton(
                 icon: const Icon(Symbols.refresh_rounded),
                 tooltip: '重试',
-                onPressed: () => ref.invalidate(readRecordDatasetProvider),
+                onPressed: () => ref.invalidate(
+                  readRecordStatisticsProvider((
+                    ReadPeriod.all,
+                    overviewState.referenceDate,
+                  )),
+                ),
               ),
             ),
           // ===== 阅读热力图卡片 =====

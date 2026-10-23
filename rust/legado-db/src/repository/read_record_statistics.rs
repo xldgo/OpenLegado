@@ -48,7 +48,7 @@ pub struct ReadRecordStatistics {
     pub days: Vec<ReadDayStat>,
     pub chart: Vec<ReadChartPoint>,
 }
-fn date(value: &str) -> Option<NaiveDate> {
+pub(super) fn date(value: &str) -> Option<NaiveDate> {
     let date = NaiveDate::parse_from_str(value, "%Y-%m-%d").ok()?;
     (value.len() == 10 && date.format("%Y-%m-%d").to_string() == value).then_some(date)
 }

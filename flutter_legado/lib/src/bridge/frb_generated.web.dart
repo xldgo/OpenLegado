@@ -711,6 +711,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ReadRecordDto> dco_decode_list_read_record_dto(dynamic raw);
 
   @protected
+  List<ReadRecordListRowDto> dco_decode_list_read_record_list_row_dto(
+    dynamic raw,
+  );
+
+  @protected
   List<ReadRecordSessionDto> dco_decode_list_read_record_session_dto(
     dynamic raw,
   );
@@ -942,6 +947,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ReadRecordDto dco_decode_read_record_dto(dynamic raw);
+
+  @protected
+  ReadRecordListDto dco_decode_read_record_list_dto(dynamic raw);
+
+  @protected
+  ReadRecordListRowDto dco_decode_read_record_list_row_dto(dynamic raw);
 
   @protected
   ReadRecordPeriodDto dco_decode_read_record_period_dto(dynamic raw);
@@ -1991,6 +2002,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<ReadRecordListRowDto> sse_decode_list_read_record_list_row_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<ReadRecordSessionDto> sse_decode_list_read_record_session_dto(
     SseDeserializer deserializer,
   );
@@ -2310,6 +2326,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ReadRecordDto sse_decode_read_record_dto(SseDeserializer deserializer);
+
+  @protected
+  ReadRecordListDto sse_decode_read_record_list_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReadRecordListRowDto sse_decode_read_record_list_row_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   ReadRecordPeriodDto sse_decode_read_record_period_dto(
@@ -3651,6 +3677,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_read_record_list_row_dto(
+    List<ReadRecordListRowDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_read_record_session_dto(
     List<ReadRecordSessionDto> self,
     SseSerializer serializer,
@@ -4039,6 +4071,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_read_record_dto(ReadRecordDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_read_record_list_dto(
+    ReadRecordListDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_read_record_list_row_dto(
+    ReadRecordListRowDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_read_record_period_dto(

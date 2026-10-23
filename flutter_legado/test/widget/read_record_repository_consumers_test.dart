@@ -10,6 +10,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/domain/models/read_record_statistics.dart';
+import 'package:flutter_legado/src/domain/models/read_record_list.dart';
 
 import '../mocks/mocks.dart';
 
@@ -36,6 +37,20 @@ void main() {
     final now = DateTime.now();
     final date =
         '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final entry = ReadRecordBookEntry(
+      bookName: '窄接口小说',
+      author: '',
+      date: date,
+      durationMs: 7000,
+      lastRead: 0,
+    );
+    when(() => records.getReadRecordList(any())).thenAnswer(
+      (_) async => ReadRecordListData(
+        aggregate: [entry],
+        latest: [entry],
+        totalTimeMs: 5000,
+      ),
+    );
     when(() => records.getReadRecordOverview(ReadPeriod.all, any())).thenAnswer(
       (_) async => ReadRecordStatistics(
         totalTimeMs: 5000,
@@ -76,17 +91,33 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('记录页汇总与最后阅读使用同一真实明细窄接口', (tester) async {
+  testWidgets('记录页列表与摘要共用投影，不查询原始记录与明细', (tester) async {
     await pump(tester, const ReadRecordScreen());
     expect(find.text('窄接口小说'), findsOneWidget);
-    verify(() => records.getReadRecords()).called(2);
-    verify(() => records.getAllReadRecordDetails()).called(1);
+    verify(() => records.getReadRecordList('')).called(1);
+    verifyNever(() => records.getReadRecords());
+    verifyNever(() => records.getAllReadRecordDetails());
     verifyNever(() => records.readRecordDailyList(DateTime.now().year));
     verifyNever(() => api.readRecordRepository);
     expect(find.textContaining('7秒'), findsWidgets);
     expect(find.text('按天'), findsNothing);
     expect(find.text('按书'), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('首页统计失败重试刷新实际总查询', (tester) async {
+    var failed = true;
+    when(() => records.getReadRecordOverview(ReadPeriod.all, any()))
+        .thenAnswer((_) async {
+          if (failed) throw StateError('统计失败');
+          return const ReadRecordStatistics();
+        });
+    await pump(tester, const HomeTabScreen());
+    expect(find.byTooltip('重试'), findsOneWidget);
+    failed = false;
+    await tester.tap(find.byTooltip('重试'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('重试'), findsNothing);
   });
 
   testWidgets('首页累计时长、今日目标与热力图共用窄接口', (tester) async {
