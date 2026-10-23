@@ -2,6 +2,7 @@ import '../bridge/rust_errors.dart';
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/reading_repository.dart';
 import '../../models/book_chapter.dart';
+import '../../models/book.dart';
 import '../bridge/entity_dto_mapping.dart';
 import '../bridge/transport_request_mapping.dart';
 
@@ -10,6 +11,15 @@ final class RustReadingRepository implements ReadingRepository {
   const RustReadingRepository({required this.dispatchAction});
 
   final Future<String> Function(Map<String, dynamic>) dispatchAction;
+
+  @override
+  Future<bool> resolveReplaceRule(Book book, bool defaultEnabled) => rustFuture(
+    () => bridge.readerResolveReplaceRule(
+      book: bookToDto(book),
+      defaultEnabled: defaultEnabled,
+    ),
+    operation: 'readerResolveReplaceRule',
+  );
 
   @override
   Future<List<BookChapter>> getChapters(String bookUrl) async =>

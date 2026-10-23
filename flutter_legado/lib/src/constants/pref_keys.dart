@@ -167,9 +167,6 @@ class PrefKeys {
   /// 默认首页（bookshelf/explore/rss/my）
   static const defaultHomePage = 'defaultHomePage';
 
-  /// 本地密码（用于 Web 服务鉴权）
-  static const localPassword = 'localPassword';
-
   /// 浏览器标识 UserAgent
   static const userAgent = 'userAgent';
 
@@ -196,9 +193,6 @@ class PrefKeys {
 
   /// 当前章之前的预下载章数（默认0，0～100）。
   static const preDownloadNumPrev = 'preDownloadNumPrev';
-
-  /// 新增书籍默认启用替换净化（默认 true）
-  static const replaceEnableDefault = 'replaceEnableDefault';
 
   /// 退出应用时中断朗读（媒体按钮，仅 Android 生效，默认 true）
   static const mediaButtonOnExit = 'mediaButtonOnExit';

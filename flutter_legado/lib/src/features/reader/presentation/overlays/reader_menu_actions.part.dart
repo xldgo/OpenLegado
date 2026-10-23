@@ -203,13 +203,13 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
   Future<void> _changeBookSource(BuildContext context, Book book) =>
       runChangeSourceFlow(ref, context, book);
 
-  Future<void> _updateBookConfig(
+  Future<bool> _updateBookConfig(
     BuildContext context,
     WidgetRef ref,
     ReadConfig Function(ReadConfig config) transform,
   ) async {
     final book = ref.read(readerNotifierProvider).currentBook;
-    if (book == null) return;
+    if (book == null) return false;
     final updated = book.copyWith(
       readConfig: transform(book.readConfig ?? const ReadConfig()),
     );
@@ -219,27 +219,38 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
       if (!mounted ||
           ref.read(readerNotifierProvider).currentBook?.bookUrl !=
               book.bookUrl) {
-        return;
+        return false;
       }
       notifier.updateCurrentBook(updated);
       await notifier.reloadChapterContent();
+      return true;
     } catch (e) {
       if (context.mounted) _snack(context, '设置保存失败: $e');
+      return false;
     }
   }
 
-  void _toggleReplaceRule(BuildContext context, WidgetRef ref) {
+  Future<void> _toggleReplaceRule(BuildContext context, WidgetRef ref) async {
     final book = ref.read(readerNotifierProvider).currentBook;
-    final enabled = book?.readConfig?.useReplaceRule ?? true;
-    unawaited(
-      _updateBookConfig(
+    if (book == null) return;
+    try {
+      final enabled = await ref.read(effectiveReplaceRuleProvider(book).future);
+      if (!context.mounted ||
+          !mounted ||
+          ref.read(readerNotifierProvider).currentBook?.bookUrl !=
+              book.bookUrl) {
+        return;
+      }
+      final saved = await _updateBookConfig(
         context,
         ref,
         (c) => c.copyWith(useReplaceRule: !enabled),
-      ),
-    );
-    if (context.mounted) {
-      _snack(context, enabled ? '已关闭替换规则' : '已开启替换规则');
+      );
+      if (saved && context.mounted) {
+        _snack(context, enabled ? '已关闭替换规则' : '已开启替换规则');
+      }
+    } catch (error) {
+      if (context.mounted) _snack(context, '读取替换净化状态失败：$error');
     }
   }
 
@@ -811,7 +822,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
       case 'reverseContent':
         unawaited(_reverseContent(context, ref));
       case 'enableReplace':
-        _toggleReplaceRule(context, ref);
+        unawaited(_toggleReplaceRule(context, ref));
       case 'sameTitleRemoved':
         unawaited(_toggleSameTitleRemoved(context));
       case 'reSegment':
@@ -871,7 +882,11 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
       ),
     AppMenuItem(
       value: 'enableReplace',
-      checked: book?.readConfig?.useReplaceRule ?? true,
+      checked: book == null
+          ? false
+          : ref.read(effectiveReplaceRuleProvider(book)).value,
+      enabled:
+          book != null && ref.read(effectiveReplaceRuleProvider(book)).hasValue,
       child: const Text('启用替换规则'),
     ),
     AppMenuItem(

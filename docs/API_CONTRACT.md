@@ -1,5 +1,17 @@
 # API 契约文档
 
+### REPLACE-DEFAULT-20261024：默认替换净化接线（实施前冻结）
+
+- 全局设置 `replaceEnableDefault` 由现有 `configGet/configSet` 读写，Rust 配置键 `config:replaceEnableDefault`，序列化为 `true/false`，缺省 true。Flutter 使用共享设置服务的 RustConfig 投影，不读取旧 SharedPreferences 值、不双写、不迁移；外部配置恢复后通过现有恢复刷新器重读；本批不扩展备份格式。
+- 唯一纯业务判定为 `Book::use_replace_rule(default_enabled)`：书级显式 bool 优先；否则图片媒体位或本地 EPUB 关闭；其余取全局默认。本地 EPUB 复用原版本地识别语义（type=0 按 origin，其余检查 LOCAL 位），按 originName 的 .epub 后缀识别；不根据 URL 猜测在线书类型。
+- 新增1个只读 FFI `reader_resolve_replace_rule(book: BookDto, default_enabled: bool) -> bool`，经 `ReadingRepository.resolveReplaceRule(Book, bool)` 提供给菜单，不查库、不写书级设置。Mock 只提供普通文字书/显式覆盖夹具，不复制类型判定算法；真实策略在 Rust 验证。FRB 生成器产出绑定，不手改生成文件。
+- Rust ContentProcessing 统一以“调用方允许替换 AND 书籍有效开关”门控规则，原始缓存继续保存原始正文。调用方的 raw 选择仍控制繁简转换等既有路径，不能把有效替换开关代入繁简转换或章级重复标题开关。
+- 高级设置可保存，菜单使用只读有效值，点击写书级覆盖；加载/读取失败不按 true 伪造有效值。保存完成后的全局变化使阅读正文重载并清理相邻章布局预览，沿用会话代次隔离及锚点恢复，不清原文缓存、不主动重启正在播放的音频。
+- 阅读、后续朗读正文请求及导出复用 Engine 处理；Web 旧接口复用同一 Core 判定并读取同一全局配置，避免继续固定默认 true。显式内容搜索开关保持其请求语义，并受书级开关门控。
+- 不改 DB schema/Book DTO/应用版本，不新增恢复默认按钮或批量改写书级设置。参考证据为本地 LegadoTeam/legado 363540972 的 Book.kt:232、AppConfig.kt:774；与 HapeLee 判定一致。
+
+编写者：Codex + Rust / UI / Bridge｜2026-10-24
+
 ### AUDIO-FOCUS-POLICY-20261024：共享音频焦点策略（实施前冻结）
 
 - 仅Dart内部设置与平台会话行为变化，无Rust/FRB/DTO/方法数变化。ReadAloudSettings.ignoreAudioFocus对应既有preferences键ignoreAudioFocus，bool缺省false；同一设置快照供界面与平台策略使用，不增加旧键处理或双写。

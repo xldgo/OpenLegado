@@ -5517,18 +5517,6 @@ abstract class AppLocalizations {
   /// **'默认首页'**
   String get advancedDefaultHomePageDialog;
 
-  /// 高级设置文案；对应 HapeLee set_local_password
-  ///
-  /// In zh, this message translates to:
-  /// **'设置本地密码'**
-  String get advancedLocalPassword;
-
-  /// 高级设置文案；对应 HapeLee set_local_password_summary
-  ///
-  /// In zh, this message translates to:
-  /// **'本地密码用来对备份的敏感信息加密和解密,如需在不同设备之间同步,本地密码需一致.'**
-  String get advancedLocalPasswordDescription;
-
   /// 高级设置文案；对应 HapeLee user_agent
   ///
   /// In zh, this message translates to:
@@ -5616,7 +5604,7 @@ abstract class AppLocalizations {
   /// 高级设置文案；对应 HapeLee replace_enable_default_s
   ///
   /// In zh, this message translates to:
-  /// **'新加入书架的书是否启用替换净化'**
+  /// **'未单独设置的书籍默认使用替换净化，图片书和 EPUB 默认关闭'**
   String get advancedReplaceByDefaultDescription;
 
   /// 高级设置文案；对应 HapeLee media_button_on_exit_title

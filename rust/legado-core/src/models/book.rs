@@ -297,6 +297,24 @@ impl Default for Book {
 }
 
 impl Book {
+    /// 原版 Book.getUseReplaceRule：显式书级设置优先，图片及本地 EPUB 默认关闭。
+    pub fn use_replace_rule(&self, default_enabled: bool) -> bool {
+        if let Some(enabled) = self.read_config.as_ref().and_then(|c| c.use_replace_rule) {
+            return enabled;
+        }
+        let local = if self.book_type == 0 {
+            self.origin == book_type::LOCAL_TAG || self.origin.starts_with(book_type::WEB_DAV_TAG)
+        } else {
+            self.book_type & book_type::LOCAL > 0
+        };
+        if self.book_type & book_type::IMAGE_BIT > 0
+            || (local && self.origin_name.to_lowercase().ends_with(".epub"))
+        {
+            return false;
+        }
+        default_enabled
+    }
+
     fn default_origin() -> String {
         book_type::LOCAL_TAG.to_string()
     }
@@ -319,6 +337,63 @@ impl Book {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_use_replace_rule_gating() {
+        // 未设置：普通在线文字书 → 回退 AppConfig.replaceEnableDefault(true)
+        let text = Book {
+            origin: "https://src".to_string(),
+            book_type: book_type::TEXT,
+            ..Book::default()
+        };
+        assert!(text.use_replace_rule(true));
+        assert!(!text.use_replace_rule(false));
+
+        // epub 本地书 → 默认关闭
+        let epub = Book {
+            origin: "loc_book".to_string(),
+            origin_name: "book.epub".to_string(),
+            book_type: book_type::LOCAL,
+            ..Book::default()
+        };
+        assert!(!epub.use_replace_rule(true));
+
+        // 本地图片书（IMAGE_BIT 位域）→ 默认关闭
+        let image = Book {
+            origin: "loc_book".to_string(),
+            book_type: book_type::LOCAL | book_type::IMAGE_BIT,
+            ..Book::default()
+        };
+        assert!(!image.use_replace_rule(true));
+
+        // 在线图片书源（type 数值域 IMAGE=2 不属位域 64）→ 不误判
+        let online_image = Book {
+            origin: "https://src".to_string(),
+            book_type: book_type::IMAGE,
+            ..Book::default()
+        };
+        assert!(online_image.use_replace_rule(true));
+
+        // readConfig.useReplaceRule 非空 → 取该值（含对 epub 显式开启）
+        let epub_on = Book {
+            read_config: Some(ReadConfig {
+                use_replace_rule: Some(true),
+                ..Default::default()
+            }),
+            ..epub.clone()
+        };
+        assert!(epub_on.use_replace_rule(true));
+        assert!(epub_on.use_replace_rule(false));
+
+        let text_off = Book {
+            read_config: Some(ReadConfig {
+                use_replace_rule: Some(false),
+                ..Default::default()
+            }),
+            ..text
+        };
+        assert!(!text_off.use_replace_rule(true));
+    }
 
     #[test]
     fn test_book_default() {

@@ -10,6 +10,7 @@ import 'package:flutter_legado/src/domain/services/book_metadata_policy.dart';
 
 import '../../bookshelf/bookshelf_repositories.dart';
 import '../../../providers/reading_provider.dart';
+import '../../../providers/content_processing_provider.dart';
 import '../../book_sources/book_source_repository_provider.dart';
 import '../../../providers/explore/explore_dependencies.dart';
 import '../../../providers/media_provider.dart';
@@ -390,15 +391,22 @@ class _TocScreenState extends ConsumerState<TocScreen>
         _filter.toggleOrder();
         break;
       case 'useReplace':
-        // 接 ReadConfig.useReplaceRule 字段经 BookshelfRepository 更新（对齐原版 menu_use_replace）
-        final rc = _book.readConfig ?? const ReadConfig();
-        await _updateBook(
-          _book.copyWith(
-            readConfig: rc.copyWith(
-              useReplaceRule: !(rc.useReplaceRule ?? true),
-            ),
-          ),
-        );
+        try {
+          final enabled = await ref.read(
+            effectiveReplaceRuleProvider(_book).future,
+          );
+          if (!mounted) return;
+          final rc = _book.readConfig ?? const ReadConfig();
+          await _updateBook(
+            _book.copyWith(readConfig: rc.copyWith(useReplaceRule: !enabled)),
+          );
+        } catch (error) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('读取替换净化状态失败：${errorMessage(error)}')),
+            );
+          }
+        }
         break;
       case 'loadWordCount':
         try {
@@ -562,6 +570,9 @@ class _TocScreenState extends ConsumerState<TocScreen>
             tab: _tabController.index,
             isLocalTxt: _isLocalTxt,
             readConfig: _book.readConfig,
+            replaceEnabled: ref
+                .watch(effectiveReplaceRuleProvider(_book))
+                .value,
             loadWordCount: _loadWordCount,
             onSelected: _handleMenu,
           ),

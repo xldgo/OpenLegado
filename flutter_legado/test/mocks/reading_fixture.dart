@@ -1,5 +1,6 @@
 import 'package:flutter_legado/src/domain/contracts/reading_repository.dart';
 import 'package:flutter_legado/src/models/book_chapter.dart';
+import 'package:flutter_legado/src/models/book.dart';
 
 /// 场景夹具只覆盖必要读取，其余沿用同一Mock仓储。— Codex + UI
 final class TestReadingRepository implements ReadingRepository {
@@ -28,6 +29,9 @@ final class TestReadingRepository implements ReadingRepository {
   ReadingRepository get _fallback =>
       _delegate ?? (throw StateError('阅读夹具未配置此操作'));
 
+  @override
+  Future<bool> resolveReplaceRule(Book book, bool defaultEnabled) =>
+      _fallback.resolveReplaceRule(book, defaultEnabled);
   @override
   Future<List<BookChapter>> getChapters(String bookUrl) =>
       _getChapters?.call(bookUrl) ?? _fallback.getChapters(bookUrl);

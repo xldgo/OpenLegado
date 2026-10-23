@@ -5,6 +5,7 @@ import '../../../../widgets/app_glass_surface.dart';
 import '../../../../app/routing/route_names.dart';
 import '../../../../app/bootstrap/application_dependencies.dart';
 import '../../../../providers/chapter_content_provider.dart';
+import '../../../../providers/content_processing_provider.dart';
 import '../../../../domain/models/source_action_result.dart';
 import '../../application/reader_settings_provider.dart';
 import '../../../../l10n/app_localization.dart';
@@ -192,6 +193,7 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
     final state = ref.watch(readerNotifierProvider);
     final notifier = ref.read(readerNotifierProvider.notifier);
     final book = state.currentBook;
+    if (book != null) ref.watch(effectiveReplaceRuleProvider(book));
     final chapter =
         (state.chapters.isNotEmpty &&
             state.currentChapterIndex < state.chapters.length)

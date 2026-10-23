@@ -1044,6 +1044,12 @@ pub mod ffi {
         Ok(())
     }
 
+    /// 解析书籍的有效替换开关，不要求入库，也不写配置。
+    pub fn reader_resolve_replace_rule(book: BookDto, default_enabled: bool) -> bool {
+        let book: legado_core::models::Book = book.into();
+        book.use_replace_rule(default_enabled)
+    }
+
     /// 获取当前繁简转换类型（0=不转换 / 1=繁转简 t2s / 2=简转繁 s2t）
     pub fn reader_get_chinese_convert() -> Result<i32, BridgeError> {
         Ok(crate::api::reader::get_chinese_convert_type())

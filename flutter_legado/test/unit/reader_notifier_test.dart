@@ -13,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/reading_provider.dart';
+import 'package:flutter_legado/src/providers/content_processing_provider.dart';
 import 'package:flutter_legado/src/data/services/chapter_content_service.dart';
 import 'package:flutter_legado/src/providers/chapter_content_provider.dart';
 import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
@@ -82,6 +83,46 @@ void main() {
       ),
     ).thenAnswer((_) async {});
   }
+
+  test('保存净化默认值后重读原缓存并保留原文锚点，不触发删除或下载', () async {
+    stubOpenBook();
+    var saved = 'true';
+    when(() => mockApi.configRepository.getConfig('replaceEnableDefault'))
+        .thenAnswer((_) async => saved);
+    when(
+      () => mockApi.configRepository.setConfig('replaceEnableDefault', any()),
+    ).thenAnswer((call) async {
+      saved = call.positionalArguments[1] as String;
+    });
+    when(
+      () =>
+          mockApi.readingRepository.getChapterContentFull(testBook.bookUrl, 0),
+    ).thenAnswer(
+      (_) async => saved == 'false' ? '关闭后的正文' * 100 : '开启后的正文' * 100,
+    );
+    final reloaded = Completer<void>();
+    container.listen(readerNotifierProvider, (_, next) {
+      if (next.chapterContent.startsWith('关闭后的正文') && !reloaded.isCompleted) {
+        reloaded.complete();
+      }
+    });
+    // 正文 Widget 同样订阅全局配置，保持消费者处于活动状态。
+    container.listen(replaceEnableDefaultProvider, (_, _) {});
+    await readNotifier().openBook(testBook);
+    await container.read(replaceEnableDefaultProvider.future);
+    readNotifier().updatePosition(2, sourceOffset: 20);
+    await container
+        .read(contentProcessingSettingsRepositoryProvider)
+        .update((_) => false);
+    await reloaded.future;
+    expect(readNotifier().currentSourceOffset, 20);
+    verifyNever(
+      () => mockApi.chapterCacheRepository.clearChapterCache(any(), any()),
+    );
+    verifyNever(
+      () => mockApi.readingRepository.fetchChapterContent(any(), any(), any()),
+    );
+  });
 
   test('本地阅读与朗读共用可还原相对路径的正文入口', () async {
     stubOpenBook();

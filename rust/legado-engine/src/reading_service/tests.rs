@@ -124,6 +124,37 @@ fn processing_configuration_and_raw_cache_are_owned_by_each_reading_service() {
         a.apply_content_processing_raw(book, raw, "第一章", Some(0))
             .contains("測試")
     );
+    first
+        .storage()
+        .with_database(|db| {
+            CacheRepository::new(db.connection()).put("config:replaceEnableDefault", "false", 0)
+        })
+        .unwrap();
+    // 关闭替换不影响繁简和重复标题设置，也不修改原文缓存。
+    assert_eq!(
+        a.apply_content_processing_chapter(book, raw, "第一章", 0),
+        "第一章\n测试正文"
+    );
+    assert!(
+        b.apply_content_processing_chapter(book, raw, "第一章", 0)
+            .contains("測試乙")
+    );
+    first
+        .storage()
+        .with_database(|db| {
+            let repository = BookRepository::new(db.connection());
+            let mut saved = repository.find_by_url(book)?.unwrap();
+            saved.read_config = Some(legado_core::models::ReadConfig {
+                use_replace_rule: Some(true),
+                ..Default::default()
+            });
+            repository.update(&saved)
+        })
+        .unwrap();
+    assert!(
+        a.apply_content_processing_chapter(book, raw, "第一章", 0)
+            .contains("测试甲")
+    );
     for base in [&a, &b] {
         let content = base.chapter_content().unwrap();
         let cached = content

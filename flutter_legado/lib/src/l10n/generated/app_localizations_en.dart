@@ -3128,13 +3128,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get advancedDefaultHomePageDialog => 'Default start page';
 
   @override
-  String get advancedLocalPassword => 'Set local password';
-
-  @override
-  String get advancedLocalPasswordDescription =>
-      'The local password encrypts and decrypts sensitive backup data. Use the same password on devices that sync with each other.';
-
-  @override
   String get advancedUserAgent => 'User agent';
 
   @override
@@ -3181,7 +3174,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get advancedReplaceByDefaultDescription =>
-      'Apply replacement rules to newly added books';
+      'Use replacement rules by default for books without an individual setting. Image books and EPUBs default to off.';
 
   @override
   String get advancedHeadsetAlways => 'Always respond to headset buttons';

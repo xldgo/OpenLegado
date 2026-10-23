@@ -65,6 +65,7 @@
 | Rust下沉后的主链路：RUST-BOUNDARY-IMPLEMENT-20261023、BOOK-MEDIA-POLICY-20261023 | `610a9d47b`，`build/boundary-integration/{build,native}.log`；统计/分片/聚合/正文搜索的既有定向用例 | 新应用产物中的搜索/停止再搜、正文命中导航、朗读分片和三类书籍分流；本机3项FFI通过不替代移动端运行结论 |
 | 书源解析/主脚本：SOURCE-PARSE-*、SOURCE-JS-CALL / SCOPE / DETAIL-20261022 | [API契约](API_CONTRACT.md)及JS审计后续修复证据，统一Rust解析和实际QuickJS用例 | 主应用粘贴/扫码/预览/严格导入、详情保名和变量传给目录正文；用真实书源确认，不因旧模型测试通过宣称全兼容 |
 | 阅读几何与选区：READER-EDGE-TIPS-20261023；FONT-METRICS / SELECTION-BOUNDS / TITLE / SPACING / PAGE-HEIGHT / TIP-UNIFY / FOOTER-CORNERS-20261021 | [设计系统](design_system.md)、[排版契约](READER_LAYOUT_CONTRACT_20261012.md)，既有布局/选区/分页定向回归 | 实际设备中正文安全区、页眉页脚延伸、字形高度与选区颜色、标题/段距及单双页连续翻页；只处理可读性和操作缺陷，不对照上游像素 |
+| 默认替换净化：REPLACE-DEFAULT-20261024 | `1cf0b9787`，全局 Rust 配置、Core 唯一判定及书级覆盖；定向处理/菜单/锚点回归和真实宿主 FFI 调用通过，见 [API契约](API_CONTRACT.md) | 主应用切换全局及书级开关后的正文、目录菜单与阅读位置；未进行移动设备验证，不重新开发已接通功能 |
 | 阅读器系统与菜单：READER-KEEP-AWAKE / KEYBOARD-VIEWPORT / ICON-LABELS / BOTTOM-PLACEMENT / DOWNLOAD-STYLE / QUICK-THEME / BATTERY-20261021 | 对应设置与布局行为回归；[设计系统](design_system.md)记录现有约定 | 亮屏到期解除防休眠、输入法不触发正文重排、菜单显示/下载表单、真实电量与系统栏；iOS刘海和底部手势区效果由实际设备确认 |
 | 开书动画：READER-OPEN-MOTION-20261022及各旧COVER/TRANSITION批次 | 已使用A轨迹及速度设置；现有转场/归位回归 | 封面进入与返回、中途返回、无可用封面时默认转场的实际连贯性。旧A/B试验或高度缓动独立条目被现实现覆盖，不再分别重做 |
 | 公共界面：APP-LARGE-TOP-BAR / HEADER-SPACING / SCROLL-VIEW / TOPBAR-PAINT-BOUNDARY / EXPLORE-SCROLL-POSITION-20261021；REPLACE-RULE-*、SEARCH-SCOPE-MULTI-20261022 | 独立诊断包/定向交互证据和已提交修复；[设计系统](design_system.md) | 主应用顶栏滚动、发现列表无多位置异常，规则卡片点击/拖拽/多选及搜索多源选择；独立诊断包通过不冒称正式包已验收 |
