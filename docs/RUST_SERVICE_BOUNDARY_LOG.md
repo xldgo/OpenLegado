@@ -47,7 +47,7 @@ Web/MCP 监听状态及 Tokio runtime 由宿主拥有；停止端口和等待实
 **遗留未处理**（需单独立项，不属本次订正范围）：
 1. `lib/src/services/` 仍有 1 处 `bridge/ffi` 引用（`app_update_service.dart` 等含业务逻辑），
    按 §2.1(3) 规则改动前须走契约评审——见 [REFACTORING_SCHEDULE_20261018.md](REFACTORING_SCHEDULE_20261018.md) SCH-X2。
-2. `lib/src/rust/` 空壳目录（仅 `.gitkeep.dart`）待清理。
+2. 原 `lib/src/rust/` 占位目录于2026-10-23移除；Dart生成目录保持 `lib/src/bridge/`，后续记录见Active计划的FRB-EMPTY-DIR-20261023。
 3. `routes.dart` 被 46 个文件反向引用，形成循环依赖，须独占批次处理——SCH-F3a。
 
 — 主代理，2026-10-18

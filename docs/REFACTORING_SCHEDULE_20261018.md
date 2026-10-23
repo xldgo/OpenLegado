@@ -255,7 +255,7 @@ M-1~M-4 可单独安排，不要求完成前述全部整理。已确认的稳定
 
 - `tool/reader_layout_profile.dart` 当前是否仍产出有效数据
 - `lib/src/services/` 仍有 1 处 `bridge/ffi` 引用（规范 v1.3 §8 已登记）
-- `lib/src/rust/` 空壳目录待清理
+- 原 `lib/src/rust/` 占位目录于2026-10-23移除，依据见Active计划FRB-EMPTY-DIR-20261023。
 
 ---
 

@@ -46,7 +46,6 @@
 | `domain/` | 175 | **0** | **Rust 轨** | 领域契约层 |
 | `data/` | 201 | 有 | **Rust 轨** | `rust_*` / `mock_*` 适配器 |
 | `bridge/` | 23 | — | **Rust 轨（UI 轨禁区）** | FRB 生成物，见 §3.3 |
-| `rust/` | 1（空壳） | 0 | **Rust 轨** | 仅 `.gitkeep.dart` 占位，待清理 |
 
 #### (2) 轨道权限
 
@@ -58,7 +57,7 @@
 | 轨道 | 允许修改 | 禁止修改 |
 |------|----------|----------|
 | **UI 轨** | `flutter_legado/lib/src/{app,features,widgets,providers,theme,utils,l10n,models,platform,constants}`、`routes.dart`（改前知会）、`flutter_legado/test/` | `rust/`、`bridge/`、`domain/`、`data/`（未经 §4 契约流程确认的变更）、`frb_generated*`、`pubspec.yaml` 原生依赖段 |
-| **Rust 轨** | `rust/`、经确认的 `domain/contracts/` 契约和 `data/` 适配器、`bridge/`、`lib/src/rust/`、codegen 产物（`frb_generated.dart` / `frb_generated.rs`） | `flutter_legado/lib/src/{features,widgets,theme,providers,l10n,platform}`（UI 层） |
+| **Rust 轨** | `rust/`、经确认的 `domain/contracts/` 契约和 `data/` 适配器、`bridge/`、codegen 产物（`frb_generated.dart` / `frb_generated.rs`） | `flutter_legado/lib/src/{features,widgets,theme,providers,l10n,platform}`（UI 层） |
 
 #### (3) 共享目录的判定规则
 

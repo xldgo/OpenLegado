@@ -32,7 +32,7 @@ Legado Flutter 重构采用 **Rust 核心引擎 + Flutter 跨平台 UI** 架构�
   **改动前须走契约评审**，不因为它是"平台服务"就默认放行给 UI 轨。
 - `routes.dart` 被 46 个文件反向引用，形成循环依赖，改动会同时波及两侧，
   故规定**独占批次**处理，不允许夹带在常规 UI 批次里。
-- `lib/src/rust/` 仅剩 `.gitkeep.dart` 占位（codegen 产物已迁至 `bridge/`），待清理。
+- Dart codegen 产物统一位于 `lib/src/bridge/`，不另保留 `lib/src/rust/` 占位目录。
 - `models/` 与 `services/` 判定时"不确定就按 Rust 轨处理并走契约评审"，
   是因为这两处是跨轨数据结构的实际流通点，判错的代价由两侧共同承担。
 
