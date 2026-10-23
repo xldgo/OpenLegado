@@ -2449,11 +2449,25 @@ Rust签名、数据库格式和生成绑定不变，缓存清理及下载任务�
 
 B4（实施前冻结）：本地密码只经BackupPasswordStore安全存储读写，空值删除；备份页提供
 两次输入确认及独立的云TTS凭据导出选项（普通策略键backup_include_cloud_credentials，默认false）。
-未设密码不导出WebDAV密码，显式选择云凭据且无密码则拒绝创建。密码不参与普通偏好备份。
+未设密码不导出WebDAV密码及远程服务器配置（含账号/密码），两者仅进入加密敏感区。
+远程服务器经既有RemoteServerRepository恢复ID/连接/选中项，普通偏好排除remote_servers及remote_server_id。
+显式选择云凭据且无密码则拒绝创建。密码不参与普通偏好备份。
 上游config.xml只映射WebDAV地址/账号/目录/加密密码，其余Android设置报告未恢复。
-上游AES-ECB/PKCS7密钥为本地密码小写MD5十六进制前16个ASCII字节，仅用于导入；
+上游AES格式没有认证完整性保证；本项目新包不使用该算法。上游AES-ECB/PKCS7密钥为本地密码小写MD5十六进制前16个ASCII字节，仅用于导入；
 无法解密报错，不把密文误存为密码。其他上游敏感文件保持明确未支持，不增加明文回退。
 既有FRB签名、DTO和数据库schema不变。
+
+B5（实施前冻结）：BackupSettings统一保存onlyLatestBackup、autoCheckNewBackup、autoBackup、
+autoBackupIntervalDays（1..365）、autoBackupWebDav及既有凭据导出开关；自动备份默认关闭。
+BackupMetadataRepository单独保存安装身份、上次备份完成时间及已查看远程包，不参加备份恢复。
+BackupRepository.backup增加可选fileName（Dart参数，FRB仍接path），正式及Mock成套调整。
+Mock不创建或恢复真实包，明确报不支持，避免伪成功触发本机旧包清理。
+应用生成含安全设备名、安装身份和时间戳的唯一文件名；仅清理同安装身份、同目录的本项目旧包，
+成功写出/上传新包后才清理相应旧包，禁止删除上游包、无关ZIP及其他设备备份。
+共享BackupService排斥并发备份/恢复；同一创建流程本地成功而云端失败时保留本地文件、报告部分结果，
+不更新时间。自动化仅在启动/恢复前台检查到期间隔，调用真实创建及传输流程；失败保留旧时间，
+不承诺后台定时唤醒。新备份检查显示可恢复项，未经用户选择不得自动恢复；按连接隔离已查看标记。
+不连接尚未实装的AutoTask Backup执行占位，既有独立待办保持。
 
 ### 2.12 阅读记录（15 个方法）
 
@@ -2778,7 +2792,7 @@ Mock保留旧固定50MB/3书/30章、清理空操作和压缩固定10MB的展示
 | `getAudioProgress(String bookUrl, int chapterIndex)` | bookUrl, chapterIndex | `Future<Map<String, dynamic>?>` | 获取音频播放进度 |
 | `saveAudioProgress(String bookUrl, int chapterIndex, int positionMs)` | bookUrl, chapterIndex, positionMs | `Future<void>` | 保存音频播放进度 |
 
-### 2.28 WebDAV 云同步（8 个方法）
+### 2.28 WebDAV 云同步（9 个方法）
 
 **连接测试下沉（RUST-BOUNDARY B5，2026-10-23，实施前冻结）**：新增只读FRB
 `webdav_probe(config_json: String) -> Result<WebDavProbeResultDto, BridgeError>`，
@@ -2803,17 +2817,12 @@ Depth为0，不拼接remote_dir；账号或密码非空才携带Basic Auth。5�
 再应用偏好，部分完成不得误报整体成功。恢复后的设置刷新由应用层集中执行，
 不因个别失败或页面卸载跳过其余刷新；原有顺序和配置同步能力保留。
 
-**应用恢复调用方向（2026-10-15，实施前冻结）**：`SyncNotifier.restoreFromWebDav`
-只使用`webdavDownload`依次读取`bookshelf.json`与`sources.json`，保留原文件名、
-配置字段及远程目录。两份载荷须先通过JSON数组、条目对象及书籍/书源标识校验，
-再分别交给现有`BookshelfRepository.importBooks`和`BookSourceRepository.importBookSources`。
-未知字段原样传入，不通过Dart模型重编码；最终字段解析和导入规则仍由Rust负责。
-有效空列表不执行导入或清库；文件不存在、网络或格式错误不回退成本地数据或空数组。
-恢复不得调用上传、删除或`webdavFullSync`，不以恢复名义覆盖远端。
-两类导入全部完成后才记录成功时间；中途失败不重试已完成步骤，并区分已经完成的回写。
-本地时间记录失败沿用数据已完成的成功状态和独立警告，不重复远程请求。
-`backupToWebDav`暂时保留现有`webdavFullSync`路径，其实际行为为先建目录、上传，
-再回读，不能当作恢复或真正的合并操作。Rust/FRB签名和下表方法数量均不变。
+**应用恢复调用方向（2026-10-24）**：备份统一采用§2.11完整ZIP。
+SyncNotifier.restoreFromWebDav选择/下载远程包并调用同一本地恢复入口；恢复不上传、删除或
+调用webdavFullSync，失败不把载荷改为空数组。业务提交后独立应用平台设置，反馈统计及部分失败。
+备份创建与上传共用BackupService，只有请求的目标均完成才记录备份时间。
+目录MKCOL仅接受成功或405（目录已存在）；DELETE只接受成功状态，认证/服务器错误须上抛，
+不能让旧包清理失败冒充成功。旧双JSON应用路径移除，webdavFullSync不再用于完整备份/恢复。
 
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
@@ -2821,6 +2830,7 @@ Depth为0，不拼接remote_dir；账号或密码非空才携带Basic Auth。5�
 | `webdavProbe(WebDavConnection connection)` | 草稿连接配置 | `Future<WebDavProbeResult>` | 只读连接测试，分类及HTTP状态由Rust返回，不落库 |
 | `webdavUpload(WebDavConnection connection, String path, String data)` | connection, path, data | `Future<void>` | WebDAV 上传文件 |
 | `webdavDownload(WebDavConnection connection, String path)` | connection, path | `Future<String>` | WebDAV 下载文件（**仅 UTF-8 文本**；二进制请用 `webdavDownloadFile`） |
+| `webdavMkdir(WebDavConnection connection, String path)` | connection, path | `Future<void>` | 准备配置的子目录，MKCOL失败上抛 |
 | `webdavDelete(WebDavConnection connection, String path)` | connection, path | `Future<void>` | WebDAV 删除远程文件 |
 | `webdavFullSync(WebDavConnection connection, String localBooks, String localSources)` | connection, localBooks, localSources | `Future<WebDavSyncResult>` | WebDAV 全量同步 |
 | `webdavUploadFile(WebDavConnection connection, String path, String localFilePath)` | connection（适配层编码为原WebDavConfig JSON）；path: 远程目标路径；localFilePath: 本地文件绝对路径 | `Future<void>` | WebDAV 从本地文件路径读取并上传（大文件场景，如书籍上传至远程），区别于既有 `webdavUpload` 的 String data 直传；既有 `webdavUpload` 签名保持不变。错误码：Io（文件不存在/读取失败）/ Net（上传失败）/ Internal（配置解析失败）（台账 §5.11-1 上传至远程，Task #50，加法式新增） |

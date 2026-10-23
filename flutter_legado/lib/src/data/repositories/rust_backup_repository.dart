@@ -26,14 +26,22 @@ final class RustBackupRepository implements BackupRepository {
     Map<String, String> files = const {},
     Map<String, dynamic> sensitive = const {},
     String? password,
+    String? fileName,
   }) async {
     final dir = Directory(dirPath);
     if (!await dir.exists()) {
       await dir.create(recursive: true);
     }
-    final fileName =
+    final name =
+        fileName ??
         'legado_backup_${DateTime.now().microsecondsSinceEpoch}.zip';
-    final filePath = '$dirPath${Platform.pathSeparator}$fileName';
+    if (name.contains('/') ||
+        name.contains('\\') ||
+        name.contains(':') ||
+        !name.endsWith('.zip')) {
+      throw const FormatException('无效备份文件名');
+    }
+    final filePath = '$dirPath${Platform.pathSeparator}$name';
     return rustFuture(
       () => bridge.backupCreate(
         path: filePath,

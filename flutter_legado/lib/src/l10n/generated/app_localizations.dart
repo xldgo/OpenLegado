@@ -7831,7 +7831,7 @@ abstract class AppLocalizations {
   /// No description provided for @backupPasswordDescription.
   ///
   /// In zh, this message translates to:
-  /// **'设置后加密备份，并包含 WebDAV 连接密码。其他设备需使用相同密码恢复；两项留空可清除密码。'**
+  /// **'设置后加密备份，并包含 WebDAV 密码及远程服务器配置。其他设备需使用相同密码恢复；两项留空可清除密码。'**
   String get backupPasswordDescription;
 
   /// No description provided for @backupNewPassword.
@@ -7867,7 +7867,7 @@ abstract class AppLocalizations {
   /// No description provided for @backupPasswordNotSet.
   ///
   /// In zh, this message translates to:
-  /// **'未设置，备份不含连接密码'**
+  /// **'未设置，不备份连接密码及服务器配置'**
   String get backupPasswordNotSet;
 
   /// No description provided for @backupCloudCredentials.
@@ -7881,6 +7881,66 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'需要本地密码；关闭时仅备份引擎配置，恢复后需重新填写密钥'**
   String get backupCloudCredentialsDescription;
+
+  /// No description provided for @backupDeviceDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'用于区分设备；自动附加本机身份，清理不会影响其他设备'**
+  String get backupDeviceDescription;
+
+  /// No description provided for @backupAutomatic.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动备份'**
+  String get backupAutomatic;
+
+  /// No description provided for @backupAutomaticDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'启动或回到前台时检查备份间隔，不会在后台定时唤醒'**
+  String get backupAutomaticDescription;
+
+  /// No description provided for @backupAutomaticInterval.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动备份间隔'**
+  String get backupAutomaticInterval;
+
+  /// No description provided for @backupIntervalDays.
+  ///
+  /// In zh, this message translates to:
+  /// **'{days} 天'**
+  String backupIntervalDays(int days);
+
+  /// No description provided for @backupInvalidInterval.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入 1～365 天'**
+  String get backupInvalidInterval;
+
+  /// No description provided for @backupAutomaticCloud.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动备份上传 WebDAV'**
+  String get backupAutomaticCloud;
+
+  /// No description provided for @backupNewRemote.
+  ///
+  /// In zh, this message translates to:
+  /// **'发现云端备份'**
+  String get backupNewRemote;
+
+  /// No description provided for @backupLastCreated.
+  ///
+  /// In zh, this message translates to:
+  /// **'上次备份：{time}'**
+  String backupLastCreated(String time);
+
+  /// No description provided for @backupLocalCreated.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地备份已生成'**
+  String get backupLocalCreated;
 }
 
 class _AppLocalizationsDelegate

@@ -1,3 +1,4 @@
+import 'sync/sync_notifier.dart';
 import '../features/read_aloud/read_aloud_voice_provider.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -40,6 +41,7 @@ final restoredSettingsRefresherProvider = Provider<RestoredSettingsRefresher>(
     ('护眼', () => ref.read(eyeProtectionSettingsRepositoryProvider).reload()),
     ('应用行为', () => ref.read(generalSettingsRepositoryProvider).reload()),
     ('备份', () => ref.read(backupSettingsRepositoryProvider).reload()),
+    ('同步连接', () => ref.read(syncNotifierProvider.notifier).loadConfig()),
     ('漫画设置', () => ref.read(mangaSettingsRepositoryProvider).reload()),
     ('换源设置', () => ref.read(changeSourceSettingsRepositoryProvider).reload()),
     ('播放设置', () => ref.read(audioPlaybackSettingsRepositoryProvider).reload()),

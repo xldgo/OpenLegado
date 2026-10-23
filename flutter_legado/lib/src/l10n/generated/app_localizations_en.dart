@@ -4402,7 +4402,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get backupPasswordDescription =>
-      'Encrypt backups and include the WebDAV password. Use the same password on other devices. Leave both fields empty to clear it.';
+      'Encrypt backups and include WebDAV credentials and private server settings. Use the same password on other devices. Leave both fields empty to clear it.';
 
   @override
   String get backupNewPassword => 'New password (empty to clear)';
@@ -4420,7 +4420,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backupPasswordSet => 'Set; backups will be encrypted';
 
   @override
-  String get backupPasswordNotSet => 'Not set; connection passwords excluded';
+  String get backupPasswordNotSet =>
+      'Not set; connection passwords and private servers excluded';
 
   @override
   String get backupCloudCredentials => 'Back up cloud TTS credentials';
@@ -4428,4 +4429,40 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get backupCloudCredentialsDescription =>
       'Requires a local password. When off, restore engine settings and re-enter API keys.';
+
+  @override
+  String get backupDeviceDescription =>
+      'Labels this device. A local identity prevents removing other devices’ backups.';
+
+  @override
+  String get backupAutomatic => 'Automatic backup';
+
+  @override
+  String get backupAutomaticDescription =>
+      'Check the interval at launch or on resume. Does not schedule background wake-ups.';
+
+  @override
+  String get backupAutomaticInterval => 'Backup interval';
+
+  @override
+  String backupIntervalDays(int days) {
+    return '$days days';
+  }
+
+  @override
+  String get backupInvalidInterval => 'Enter 1–365 days';
+
+  @override
+  String get backupAutomaticCloud => 'Upload automatic backups to WebDAV';
+
+  @override
+  String get backupNewRemote => 'Cloud backup available';
+
+  @override
+  String backupLastCreated(String time) {
+    return 'Last backup: $time';
+  }
+
+  @override
+  String get backupLocalCreated => 'Local backup created';
 }

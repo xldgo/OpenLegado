@@ -9,6 +9,7 @@ abstract interface class BackupRepository {
     Map<String, String> files = const {},
     Map<String, dynamic> sensitive = const {},
     String? password,
+    String? fileName,
   });
   Future<BackupRestoreResult> restore(
     String backupPath, {

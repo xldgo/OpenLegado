@@ -30,16 +30,52 @@ final class AppBackupSettingsRepository implements BackupSettingsRepository {
     storage: SettingsStorageKind.preferences,
     key: 'backup_include_cloud_credentials',
   );
+  static const _latest = (
+    storage: SettingsStorageKind.preferences,
+    key: 'onlyLatestBackup',
+  );
+  static const _check = (
+    storage: SettingsStorageKind.preferences,
+    key: 'autoCheckNewBackup',
+  );
+  static const _autoBackup = (
+    storage: SettingsStorageKind.preferences,
+    key: 'autoBackup',
+  );
+  static const _interval = (
+    storage: SettingsStorageKind.preferences,
+    key: 'autoBackupIntervalDays',
+  );
+  static const _autoDav = (
+    storage: SettingsStorageKind.preferences,
+    key: 'autoBackupWebDav',
+  );
   static const _addresses = {
     _path,
     _progress,
     _autoSync,
     _progressPlus,
     _cloud,
+    _latest,
+    _check,
+    _autoBackup,
+    _interval,
+    _autoDav,
   };
 
   BackupSettings _decode(AppSettingsSnapshot snapshot) => BackupSettings(
     includeCloudCredentials: snapshot[_cloud] == true,
+    onlyLatestBackup: snapshot[_latest] is bool
+        ? snapshot[_latest] as bool
+        : true,
+    autoCheckNewBackup: snapshot[_check] is bool
+        ? snapshot[_check] as bool
+        : true,
+    autoBackup: snapshot[_autoBackup] == true,
+    autoBackupIntervalDays: snapshot[_interval] is int
+        ? (snapshot[_interval] as int).clamp(1, 365)
+        : 1,
+    autoBackupWebDav: snapshot[_autoDav] == true,
     backupPath: snapshot[_path] is String ? snapshot[_path] as String : '',
     syncBookProgress: snapshot[_progress] is bool
         ? snapshot[_progress] as bool
@@ -77,9 +113,29 @@ final class AppBackupSettingsRepository implements BackupSettingsRepository {
     String? backupPath,
     bool? syncBookProgress,
     bool? includeCloudCredentials,
-  }) => _service.update({
-    if (backupPath != null) _path: backupPath.isEmpty ? null : backupPath,
-    _progress: ?syncBookProgress,
-    _cloud: ?includeCloudCredentials,
-  });
+    bool? onlyLatestBackup,
+    bool? autoCheckNewBackup,
+    bool? autoBackup,
+    int? autoBackupIntervalDays,
+    bool? autoBackupWebDav,
+  }) {
+    if (autoBackupIntervalDays != null &&
+        (autoBackupIntervalDays < 1 || autoBackupIntervalDays > 365)) {
+      throw ArgumentError.value(
+        autoBackupIntervalDays,
+        'autoBackupIntervalDays',
+        '范围1..365天',
+      );
+    }
+    return _service.update({
+      if (backupPath != null) _path: backupPath.isEmpty ? null : backupPath,
+      _progress: ?syncBookProgress,
+      _cloud: ?includeCloudCredentials,
+      _latest: ?onlyLatestBackup,
+      _check: ?autoCheckNewBackup,
+      _autoBackup: ?autoBackup,
+      _interval: ?autoBackupIntervalDays,
+      _autoDav: ?autoBackupWebDav,
+    });
+  }
 }

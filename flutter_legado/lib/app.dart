@@ -1,3 +1,5 @@
+import 'src/features/settings/application/backup_automation_controller.dart';
+import 'src/providers/backup_provider.dart';
 import 'src/data/services/file_metadata.dart';
 import 'src/app/routing/startup_default_to_read.dart';
 import 'src/app/routing/startup_reading_navigation.dart';
@@ -174,6 +176,8 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
   late final StartupReadingNavigation _startupReading;
   late final ProviderContainer _applicationContainer;
   late final AppServicesController _appServices;
+  StreamSubscription<BackupAutomationState>? _backupUpdates;
+  String? _lastBackupNotice;
   final _initialDeepLinkReady = Completer<void>();
   final _dynamicColorsKey = GlobalKey<DynamicColorBuilderState>();
 
@@ -255,6 +259,31 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
     // FFI已就绪，自动启动不阻塞首帧，也不依赖用户先打开设置页。
     _appServices = ref.read(appServicesControllerProvider);
     unawaited(_appServices.initializeWebService());
+    _backupUpdates = ref
+        .read(backupAutomationControllerProvider)
+        .changes
+        .listen((state) {
+          if (state.running) return;
+          final changed = state.newBackup != _lastBackupNotice;
+          _lastBackupNotice = state.newBackup;
+          if (!changed || state.newBackup == null || !mounted) return;
+          final target = PlatformBridgeService.navigatorKey.currentContext;
+          if (target == null || !target.mounted) return;
+          ScaffoldMessenger.maybeOf(target)?.showSnackBar(
+            SnackBar(
+              content: Text(target.l10n.backupNewRemote),
+              action: SnackBarAction(
+                label: target.l10n.open,
+                onPressed: () => _router.pushAppRoute(AppRoutes.webdavSettings),
+              ),
+            ),
+          );
+        });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(ref.read(backupAutomationControllerProvider).onForeground());
+      }
+    });
     // P1-11：监听系统 legado:// / yuedu:// 深链 → Association
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // 等 Navigator 装配后再 attach（冷启动首帧前 navigatorKey 为空）。
@@ -316,12 +345,14 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
     if (state == AppLifecycleState.resumed) {
       unawaited(_dynamicColorsKey.currentState?.initPlatformState());
       unawaited(_appServices.refreshWebStatus());
+      unawaited(ref.read(backupAutomationControllerProvider).onForeground());
     }
   }
 
   @override
   void dispose() {
     _completeInitialDeepLink();
+    unawaited(_backupUpdates?.cancel());
     AutoTaskScheduler.instance.detach();
     unawaited(DeepLinkService.instance.detach());
     VideoFloatWindowBridge.instance.detach();

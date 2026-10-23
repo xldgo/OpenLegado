@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [2.0.439] - 2026-10-22
 
+### Added
+- 备份覆盖24类业务集合与用户字体、背景资源，本地和WebDAV共用完整ZIP并可选择远程备份恢复；贡献者：Codex + Rust / UI。
+- 备份页加入本地密码、认证加密及可选云TTS凭据导出；连接密码与远程服务器配置只进入加密载荷；贡献者：Codex + Rust / UI。
+- 接通设备命名、仅保留本机最新包、前台到期自动备份及云端新备份提示；上传失败保留本地包和旧备份；贡献者：Codex + Rust / UI。
+
 ### Fixed
 - 修复本地恢复跳过失败条目仍提示成功的问题，业务数据整批回滚并展示真实恢复数量；贡献者：Codex + Rust / UI。
 - 接通默认替换净化，正文和菜单统一遵循书级覆盖与全局设置；调整后保留阅读位置及原始缓存；贡献者：Codex + Rust / UI。

@@ -4169,7 +4169,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get backupPasswordDescription =>
-      '设置后加密备份，并包含 WebDAV 连接密码。其他设备需使用相同密码恢复；两项留空可清除密码。';
+      '设置后加密备份，并包含 WebDAV 密码及远程服务器配置。其他设备需使用相同密码恢复；两项留空可清除密码。';
 
   @override
   String get backupNewPassword => '新密码（留空清除）';
@@ -4187,7 +4187,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backupPasswordSet => '已设置，备份将加密';
 
   @override
-  String get backupPasswordNotSet => '未设置，备份不含连接密码';
+  String get backupPasswordNotSet => '未设置，不备份连接密码及服务器配置';
 
   @override
   String get backupCloudCredentials => '备份云 TTS 凭据';
@@ -4195,4 +4195,38 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get backupCloudCredentialsDescription =>
       '需要本地密码；关闭时仅备份引擎配置，恢复后需重新填写密钥';
+
+  @override
+  String get backupDeviceDescription => '用于区分设备；自动附加本机身份，清理不会影响其他设备';
+
+  @override
+  String get backupAutomatic => '自动备份';
+
+  @override
+  String get backupAutomaticDescription => '启动或回到前台时检查备份间隔，不会在后台定时唤醒';
+
+  @override
+  String get backupAutomaticInterval => '自动备份间隔';
+
+  @override
+  String backupIntervalDays(int days) {
+    return '$days 天';
+  }
+
+  @override
+  String get backupInvalidInterval => '请输入 1～365 天';
+
+  @override
+  String get backupAutomaticCloud => '自动备份上传 WebDAV';
+
+  @override
+  String get backupNewRemote => '发现云端备份';
+
+  @override
+  String backupLastCreated(String time) {
+    return '上次备份：$time';
+  }
+
+  @override
+  String get backupLocalCreated => '本地备份已生成';
 }

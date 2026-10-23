@@ -13,3 +13,9 @@ final class BackupRestoreResult {
   final Map<String, dynamic> sensitive;
   final List<String> warnings;
 }
+
+typedef BackupRestoreOutcome = ({
+  BackupRestoreStats stats,
+  Object? preferencesError,
+  List<String> warnings,
+});

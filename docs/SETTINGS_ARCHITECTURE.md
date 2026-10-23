@@ -1129,18 +1129,17 @@ SyncStatus仍为success，并通过现有error字段说明“云端同步已完�
 |---|---|
 | WebDavService | 七项现有远程能力；接收WebDavConnection，FRB适配层统一编码，目录JSON在数据边界解码 |
 | BackupRepository | 既有业务数据备份、恢复、列表与旧版导入；正式/Mock各有一份实现 |
-| BackupService | 本地文件及偏好编排、恢复过滤、云端快照读写与两类实体导入，不依赖页面上下文 |
-| BackupPreferencesService | 原appPrefs格式、忽略键集合及Preferences读写；失败当前键回退，已成功字段保留 |
+| BackupService | 完整ZIP、平台数据、云端传输及保留策略的共享操作所有者，不依赖页面上下文 |
+| BackupPreferencesService | 普通偏好快照、资源引用清单及忽略规则；Preferences读写；失败当前键回退，已成功字段保留 |
 | RestoredSettingsRefresher | 应用层按既有顺序重读设置和同步运行时；收集失败项，继续其余刷新 |
 
 BookApi只提供共享传输/备份访问引用，不再包含十一项旧方法，Provider跟随根实例
 替换。RustApiException独立放在Bridge数据目录，原RustApi导入路径仍导出同一异常
 类型，以便保留其他现有能力的异常语义；没有复制异常实现。
 
-本地备份先生成业务文件，偏好在临时文件写完后替换，注入失败返回文件路径及错误；
-可选云端备份结果与本地结果分开显示。恢复先解析并准备过滤，再恢复业务数据，
-业务成功后应用偏好。偏好写入拒绝或异常均向上反馈，不把部分完成称为整体成功，
-也不声称数据库与Preferences之间具有整体事务。
+本地备份先收集偏好与资源引用，再由Rust生成完整临时ZIP并发布，收集失败不生成缺设置半成品。
+云端上传同一本地产物，上传失败保留本地包和旧包，不记录完整成功。恢复先校验包与资源，
+以业务事务恢复后再应用平台偏好和凭据；平台失败反馈已提交计数，不声称跨存储整体原子。
 
 恢复后刷新由应用Provider持有，页面只选择路径、显示进度和结果。单项配置重读或
 原生同步失败不能中断其余刷新；页面是否仍挂载只决定是否呈现提示，不决定已经
@@ -1158,8 +1157,20 @@ BookApi只提供共享传输/备份访问引用，不再包含十一项旧方法
 
 本地密码入口在备份与恢复页，两次输入确认，空值清除；BackupPasswordStore只使用平台安全存储，
 不写SharedPreferences、不进入普通备份。设置后完整ZIP采用认证加密；不按深浅主题或平台分裂格式。
-WebDAV密码仅在加密包中导出，云TTS凭据额外受BackupSettings.includeCloudCredentials控制，默认关闭。
+WebDAV密码及远程服务器配置只进入加密敏感区，后者复用RemoteServerRepository保留ID与选中项；
+普通偏好排除服务器JSON、选中项和同步时间。云TTS凭据额外受BackupSettings.includeCloudCredentials控制，默认关闭。
 恢复先提交Rust业务事务，再应用普通偏好和安全凭据，平台写入失败保留实际统计并独立提示。
 上游Android config.xml仅映射已核对的WebDAV四字段，其余设置报告未映射；AES旧算法只用于导入。
+
+编写者：Codex｜2026-10-24
+
+## 备份策略与前台自动化（2026-10-24）
+
+BackupSettingsRepository统一持有路径、仅保留最新、新备份检查、自动备份及间隔/云端目标。
+自动备份默认关闭；App已有启动/恢复前台回调调用BackupAutomationController，不建立周期唤醒。
+本地安装身份与最后完成时间归BackupMetadataRepository，排除备份/恢复；设备名可编辑，文件名
+同时附加安装身份和时间戳。清理只匹配同安装的本项目包，成功写出/上传后才清理对应旧包。
+新备份按服务端时间（本项目名称时间戳兜底）与本地完成时间比较，只提示可恢复项；不自动恢复。
+已查看标记按WebDAV地址/账号/目录隔离，恢复失败不记录已查看，记录失败不掩盖已完成恢复。
 
 编写者：Codex｜2026-10-24

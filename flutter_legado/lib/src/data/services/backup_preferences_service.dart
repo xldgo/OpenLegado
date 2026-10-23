@@ -18,6 +18,10 @@ class BackupPreferencesService {
   /// 始终不备份/不恢复（对齐 BackupConfig.ignorePrefKeys）
   static const alwaysIgnoreKeys = <String>{
     'sync_webdav_password',
+    'backup_local_metadata',
+    'sync_last_time',
+    'remote_servers',
+    'remote_server_id',
     'app_backup_path',
     'sync_webdav_device_name',
     PrefKeys.webServiceWakeLock,

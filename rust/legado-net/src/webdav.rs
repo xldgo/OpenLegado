@@ -251,12 +251,19 @@ impl WebDavClient {
     /// DELETE — 删除文件
     pub async fn delete(&self, path: &str) -> LegadoResult<()> {
         let url = self.full_url(path);
-        self.client
+        let response = self
+            .client
             .delete(&url)
             .header("Authorization", self.auth_header())
             .send()
             .await
             .map_err(|e| LegadoError::Network(reqwest_error_chain(&e)))?;
+        let status = response.status();
+        if !status.is_success() {
+            return Err(LegadoError::Network(format!(
+                "删除WebDAV文件失败（HTTP {status}）"
+            )));
+        }
         Ok(())
     }
 

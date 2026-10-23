@@ -18,16 +18,13 @@ import '../../../widgets/legado_app_bar.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../../../constants/pref_keys.dart';
 import '../../../domain/models/restore_ignore_config.dart';
 import '../../../domain/models/webdav_probe_result.dart';
 import '../../../l10n/app_strings.dart';
-import '../../../providers/providers.dart';
 import '../../../providers/sync/sync_notifier.dart';
 import '../../../app/routing/route_names.dart';
 import '../../../providers/backup_settings_provider.dart';
 import '../../../providers/restore_ignore_provider.dart';
-import '../../../services/settings_service.dart';
 import '../../../widgets/settings_widgets.dart';
 import '../../../widgets/help/help_assets.dart';
 import '../../../widgets/help/show_help.dart';
@@ -59,7 +56,6 @@ class WebDavSettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
-  SettingsService get _settings => ref.read(settingsProvider);
   static String _pendingDescription(String description) => '$description\n待实现';
 
   Future<void> _saveBackupPreference(Future<void> Function() save) async {
@@ -80,8 +76,6 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
   String get _device => ref.read(syncNotifierProvider).deviceName;
   String get _backupPath =>
       ref.read(backupSettingsRepositoryProvider).current.backupPath;
-  bool _onlyLatestBackup = true;
-  bool _autoCheckNewBackup = true;
   bool _busy = false;
   bool _hasBackupPassword = false;
   bool _savingConnection = false;
@@ -106,20 +100,10 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
     final notifier = ref.read(syncNotifierProvider.notifier);
     await notifier.loadConfig();
     final password = await ref.read(backupPasswordStoreProvider).read();
-    final onlyLatest = await _settings.getBoolPref(
-      PrefKeys.onlyLatestBackup,
-      defaultValue: true,
-    );
-    final autoCheck = await _settings.getBoolPref(
-      PrefKeys.autoCheckNewBackup,
-      defaultValue: true,
-    );
     if (!mounted) return;
-    setState(() {
-      _hasBackupPassword = password != null && password.isNotEmpty;
-      _onlyLatestBackup = onlyLatest;
-      _autoCheckNewBackup = autoCheck;
-    });
+    setState(
+      () => _hasBackupPassword = password != null && password.isNotEmpty,
+    );
   }
 
   Future<void> _saveWebDav({
@@ -127,6 +111,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
     String? username,
     String? password,
     String? remoteDir,
+    String? deviceName,
   }) async {
     setState(() => _savingConnection = true);
     try {
@@ -137,7 +122,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
             username ?? _user,
             password ?? _pass,
             remoteDir ?? _dir,
-            deviceName: _device,
+            deviceName: deviceName ?? _device,
           );
     } catch (_) {
       if (mounted) {
@@ -211,10 +196,10 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
   }
 
   Future<void> _doLocalBackup() async {
+    final localCreated = context.l10n.backupLocalCreated;
     final service = ref.read(backupServiceProvider);
     final settings = ref.read(backupSettingsRepositoryProvider);
     final sync = ref.read(syncNotifierProvider.notifier);
-    final container = ProviderScope.containerOf(context, listen: false);
     final hasCloud = ref.read(syncNotifierProvider).isConfigured;
     await _runWithProgress('备份中…', () async {
       var directory = settings.current.backupPath;
@@ -224,20 +209,13 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
         directory = picked;
         await settings.update(backupPath: directory);
       }
-      final path = await service.backupLocal(
+      final result = await service.createBackup(
         directory,
-        includeCloudCredentials: settings.current.includeCloudCredentials,
+        uploadConnection: hasCloud ? sync.connection : null,
       );
-      String? warning;
-      if (hasCloud) {
-        await sync.backupToWebDav(localPath: path);
-        final cloud = container.read(syncNotifierProvider);
-        warning = cloud.status == SyncStatus.error
-            ? '云端备份失败：${cloud.error}'
-            : cloud.error;
-      }
+      ref.invalidate(backupMetadataProvider);
       _showResult(
-        '${AppStrings.backupSuccess}：$path${warning == null ? '' : '\n$warning'}',
+        '${result.completed ? AppStrings.backupSuccess : localCreated}：${result.path}${result.warnings.isEmpty ? '' : '\n${result.warnings.join('\n')}'}',
       );
     });
   }
@@ -473,7 +451,11 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    ref.watch(backupSettingsProvider);
+    final backupSettings =
+        ref.watch(backupSettingsProvider).value ??
+        ref.read(backupSettingsRepositoryProvider).current;
+    final automation = ref.watch(backupAutomationStateProvider).value;
+    final metadata = ref.watch(backupMetadataProvider).value;
     final syncState = ref.watch(syncNotifierProvider);
     final notifier = ref.read(syncNotifierProvider.notifier);
 
@@ -570,11 +552,16 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
                 ),
                 SettingTile(
                   title: context.l10n.backupWebdavDeviceName,
-                  subtitle: _pendingDescription(
-                    _device.isEmpty ? '用于区分不同设备的备份' : _device,
-                  ),
-                  onTap: null,
-                  enabled: false,
+                  subtitle: _device.isEmpty
+                      ? context.l10n.backupDeviceDescription
+                      : _device,
+                  onTap: _savingConnection
+                      ? null
+                      : () => _editTextPref(
+                          title: context.l10n.backupWebdavDeviceName,
+                          initial: _device,
+                          onSaved: (value) => _saveWebDav(deviceName: value),
+                        ),
                 ),
                 // 差异清单 C7：参考版有「测试配置」行 → 连通性+认证探测（只读服务）
                 SettingTile(
@@ -657,22 +644,91 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
                 ),
                 SettingSwitchRow(
                   title: context.l10n.backupKeepLatest,
-                  subtitle: _pendingDescription(
-                    context.l10n.backupKeepLatestDescription,
+                  subtitle: context.l10n.backupKeepLatestDescription,
+                  value: backupSettings.onlyLatestBackup,
+                  onChanged: (value) => _saveBackupPreference(
+                    () => ref
+                        .read(backupSettingsRepositoryProvider)
+                        .update(onlyLatestBackup: value),
                   ),
-                  value: _onlyLatestBackup,
-                  onChanged: null,
+                ),
+                SettingSwitchRow(
+                  title: context.l10n.backupAutomatic,
+                  subtitle: context.l10n.backupAutomaticDescription,
+                  value: backupSettings.autoBackup,
+                  onChanged: (value) => _saveBackupPreference(
+                    () => ref
+                        .read(backupSettingsRepositoryProvider)
+                        .update(autoBackup: value),
+                  ),
+                ),
+                SettingTile(
+                  title: context.l10n.backupAutomaticInterval,
+                  subtitle: context.l10n.backupIntervalDays(
+                    backupSettings.autoBackupIntervalDays,
+                  ),
+                  onTap: () => _editTextPref(
+                    title: context.l10n.backupAutomaticInterval,
+                    initial: '${backupSettings.autoBackupIntervalDays}',
+                    onSaved: (value) async {
+                      final days = int.tryParse(value);
+                      if (days == null || days < 1 || days > 365) {
+                        _showResult(context.l10n.backupInvalidInterval);
+                        return;
+                      }
+                      await _saveBackupPreference(
+                        () => ref
+                            .read(backupSettingsRepositoryProvider)
+                            .update(autoBackupIntervalDays: days),
+                      );
+                    },
+                  ),
+                ),
+                SettingSwitchRow(
+                  title: context.l10n.backupAutomaticCloud,
+                  value: backupSettings.autoBackupWebDav,
+                  onChanged: (value) => _saveBackupPreference(
+                    () => ref
+                        .read(backupSettingsRepositoryProvider)
+                        .update(autoBackupWebDav: value),
+                  ),
                 ),
                 SettingSwitchRow(
                   title: context.l10n.backupCheckNew,
-                  subtitle: _pendingDescription(
-                    context.l10n.backupCheckNewDescription,
+                  subtitle: context.l10n.backupCheckNewDescription,
+                  value: backupSettings.autoCheckNewBackup,
+                  onChanged: (value) => _saveBackupPreference(
+                    () => ref
+                        .read(backupSettingsRepositoryProvider)
+                        .update(autoCheckNewBackup: value),
                   ),
-                  value: _autoCheckNewBackup,
-                  onChanged: null,
                 ),
               ],
             ),
+            if (automation?.newBackup case final String name)
+              SettingTile(
+                title: context.l10n.backupNewRemote,
+                subtitle: name,
+                onTap: _doRestore,
+                trailing: IconButton(
+                  icon: const Icon(Symbols.close),
+                  tooltip: context.l10n.close,
+                  onPressed: () =>
+                      ref.read(backupAutomationControllerProvider).dismiss(),
+                ),
+              ),
+            if (automation?.error case final String error)
+              SettingsSectionFooter(error),
+            if (metadata != null && metadata.lastBackupMs > 0)
+              SettingsSectionFooter(
+                context.l10n.backupLastCreated(
+                  DateTime.fromMillisecondsSinceEpoch(metadata.lastBackupMs)
+                      .toLocal()
+                      .toString()
+                      .split('.')
+                      .first,
+                ),
+              ),
             if (syncState.lastSyncTimeLabel.isNotEmpty)
               SettingsSectionFooter('上次同步：${syncState.lastSyncTimeLabel}'),
             if (syncState.status == SyncStatus.success &&

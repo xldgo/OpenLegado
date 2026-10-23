@@ -135,14 +135,17 @@ async fn probe_distinguishes_invalid_address_from_transport_failure() {
 }
 
 #[tokio::test]
-async fn mkdir_checks_http_failures_and_accepts_existing_collection() {
+async fn mutations_check_http_failures_and_mkdir_accepts_existing_collection() {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let client = WebDavClient::new(config(format!("http://{}", listener.local_addr().unwrap())));
     let server = tokio::spawn(async move {
-        for code in [201, 405, 401, 500] {
+        for (method, code) in ["MKCOL", "DELETE"]
+            .into_iter()
+            .flat_map(|method| [201, 405, 401, 500].map(|code| (method, code)))
+        {
             let (mut socket, _) = listener.accept().await.unwrap();
             let request = request_headers(&mut socket).await;
-            assert!(request.starts_with("MKCOL "));
+            assert!(request.starts_with(&format!("{method} ")));
             socket
                 .write_all(
                     format!(
@@ -156,6 +159,9 @@ async fn mkdir_checks_http_failures_and_accepts_existing_collection() {
     });
     for expected in [true, true, false, false] {
         assert_eq!(client.mkdir("nested").await.is_ok(), expected);
+    }
+    for expected in [true, false, false, false] {
+        assert_eq!(client.delete("old.zip").await.is_ok(), expected);
     }
     server.await.unwrap();
 }

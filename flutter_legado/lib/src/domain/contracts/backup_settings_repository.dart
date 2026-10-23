@@ -10,5 +10,10 @@ abstract interface class BackupSettingsRepository {
     String? backupPath,
     bool? syncBookProgress,
     bool? includeCloudCredentials,
+    bool? onlyLatestBackup,
+    bool? autoCheckNewBackup,
+    bool? autoBackup,
+    int? autoBackupIntervalDays,
+    bool? autoBackupWebDav,
   });
 }

@@ -1480,13 +1480,37 @@
   "backupSelectRemote": "Select remote backup",
   "backupNoRemote": "No remote backups available",
   "backupLocalPassword": "Local password",
-  "backupPasswordDescription": "Encrypt backups and include the WebDAV password. Use the same password on other devices. Leave both fields empty to clear it.",
+  "backupPasswordDescription": "Encrypt backups and include WebDAV credentials and private server settings. Use the same password on other devices. Leave both fields empty to clear it.",
   "backupNewPassword": "New password (empty to clear)",
   "backupConfirmPassword": "Confirm password",
   "backupPasswordMismatch": "Passwords do not match",
   "backupPasswordSaveFailed": "Could not save the backup password",
   "backupPasswordSet": "Set; backups will be encrypted",
-  "backupPasswordNotSet": "Not set; connection passwords excluded",
+  "backupPasswordNotSet": "Not set; connection passwords and private servers excluded",
   "backupCloudCredentials": "Back up cloud TTS credentials",
-  "backupCloudCredentialsDescription": "Requires a local password. When off, restore engine settings and re-enter API keys."
+  "backupCloudCredentialsDescription": "Requires a local password. When off, restore engine settings and re-enter API keys.",
+  "backupDeviceDescription": "Labels this device. A local identity prevents removing other devices’ backups.",
+  "backupAutomatic": "Automatic backup",
+  "backupAutomaticDescription": "Check the interval at launch or on resume. Does not schedule background wake-ups.",
+  "backupAutomaticInterval": "Backup interval",
+  "backupIntervalDays": "{days} days",
+  "@backupIntervalDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "backupInvalidInterval": "Enter 1–365 days",
+  "backupAutomaticCloud": "Upload automatic backups to WebDAV",
+  "backupNewRemote": "Cloud backup available",
+  "backupLastCreated": "Last backup: {time}",
+  "@backupLastCreated": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "backupLocalCreated": "Local backup created"
 }

@@ -1,6 +1,5 @@
 import '../../domain/models/backup_restore_result.dart';
 import '../../domain/models/old_data_import_result.dart';
-import '../../domain/models/backup_restore_stats.dart';
 import '../../domain/contracts/backup_repository.dart';
 
 /// 本地备份访问沿用原方法行为。— Codex + Bridge
@@ -15,8 +14,9 @@ final class MockBackupRepository implements BackupRepository {
     Map<String, String> files = const {},
     Map<String, dynamic> sensitive = const {},
     String? password,
+    String? fileName,
   }) async {
-    return '$dirPath/legado_backup_mock.zip';
+    throw UnsupportedError('Mock模式不创建真实备份文件');
   }
 
   @override
@@ -24,16 +24,7 @@ final class MockBackupRepository implements BackupRepository {
     String backupPath, {
     String? password,
     Set<String> ignore = const {},
-  }) async => const BackupRestoreResult(
-    stats: BackupRestoreStats(
-      books: 0,
-      bookmarks: 0,
-      replaceRules: 0,
-      bookSources: 0,
-      rssSources: 0,
-      readRecords: 0,
-    ),
-  );
+  }) async => throw UnsupportedError('Mock模式不能恢复真实备份');
 
   @override
   Future<List<String>> backupList(String dir) async => [];
