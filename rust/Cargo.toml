@@ -20,39 +20,55 @@ edition = "2024"
 [workspace.dependencies]
 # 共用依赖在此维护版本、共有功能与构建策略；各 crate 保留差异功能、optional 与平台条件。
 # 实际解析版本由 Cargo.lock 锁定；仅局部使用或不兼容的版本可留在所属 crate。
+
+# 序列化、日志与错误处理
+log = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+
+# 异步运行时与并发
+futures = "0.3"
+tokio = "1"
+
+# 网络请求与地址处理
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls-no-provider", "http2", "charset"] }
+url = "2"
+urlencoding = "2.1"
+
+# 文本解析与脚本
+encoding_rs = "0.8"
+jsonpath-rust = "0.7"
+quick-xml = "0.42"
+regex = "1"
+rquickjs = "0.14"
+scraper = "0.29"
+
+# 加密、摘要与编解码
 aes = "0.9"
 base64 = "0.23"
 cbc = "0.2"
-chrono = { version = "0.4", default-features = false }
 des = "0.9"
 ecb = "0.2"
-encoding_rs = "0.8"
-flate2 = "1"
-futures = "0.3"
-jsonpath-rust = "0.7"
-log = "0.4"
-lru = "0.19"
 md-5 = "0.11"
-quick-xml = "0.42"
+rand_core = { version = "0.6", features = ["getrandom"] }
+sha2 = "0.11"
+
+# 数据库与缓存
+lru = "0.19"
 r2d2 = "0.8"
 r2d2_sqlite = "0.35"
-rand_core = { version = "0.6", features = ["getrandom"] }
-regex = "1"
-reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls-no-provider", "http2", "charset"] }
-rquickjs = "0.14"
 rusqlite = { version = "0.40.2", features = ["bundled"] }
-scraper = "0.29"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-sha2 = "0.11"
-thiserror = "2"
-tokio = "1"
-url = "2"
-urlencoding = "2.1"
-uuid = { version = "1", features = ["v4"] }
+
+# 压缩与归档
+flate2 = "1"
 zip = "9.0.1"
 
-# 内部依赖路径以工作区根目录为基准，功能开关仍由使用方声明。
+# 时间与标识
+chrono = { version = "0.4", default-features = false }
+uuid = { version = "1", features = ["v4"] }
+
+# 内部模块（路径以工作区根目录为基准）
 legado-book = { path = "legado-book" }
 legado-core = { path = "legado-core" }
 legado-db = { path = "legado-db" }

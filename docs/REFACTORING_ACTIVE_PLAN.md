@@ -14,6 +14,8 @@
 
 - 共有配置收口：按用户确认，将 serde/derive、uuid/v4、rand_core/getrandom、reqwest 四项公共功能集中到根声明，并统一9个内部 crate 的依赖路径。使用方保留 serde/rc、网络压缩代理、可选性和平台条件，未统一包版本或不同加密版本。Windows 默认/全功能 Cargo 解析图完全一致，展开的成员声明在功能集合和规范化路径下等价，Cargo.lock 逐字节不变；diff 检查通过。证据 build/workspace-deps/common/verification.json 及前后 metadata；未运行全量测试、非 Windows 构建或新增专项用例，单代理复核，仅本地提交。
 
+- 可读性整理：按用户要求，将根共享依赖分为序列化/日志/错误处理、异步、网络、文本与脚本、加密与编解码、数据库与缓存、归档、时间与标识、内部模块9组。仅调整顺序、注释和空行，Python tomllib 解析的完整清单修改前后相等，diff 检查通过；不重复运行已通过的依赖解析或业务测试，本地提交。
+
 编写者：Codex + Rust｜2026-10-24
 
 ### FRB-STALE-OUTPUTS-20261023：清理旧绑定与导出（P2，清理及定向验证完成）
