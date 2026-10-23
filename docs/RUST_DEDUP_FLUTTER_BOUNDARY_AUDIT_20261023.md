@@ -328,4 +328,27 @@ Provider准备逻辑；复用DB配置及Flutter各家表单/试听回归。Dart�
 管理页重试后消费返回默认模型的行为测试，不复制Provider算法或锁定样式常量。
 验证、生成hash、提交和未测限制统一记录Active计划。
 
+## 16. 内容划分与本地上游的差异核对
+
+核对基线：OpenLegado c249cf508；本地参考源码
+`build/upstream/legado-with-MD3` / c4182eb9b（2026-10-19），没有联网更新上游。
+本节只核对切分层及追踪到的云合成调用链，不把辅助函数差异直接等同最终设备表现。
+
+| 项目 | OpenLegado | 本地上游证据与差异 |
+|---|---|---|
+| 用户默认模式 | 缺省paragraph，整段 | ContentSplitPolicies.resolve/forMode将Default解析成Paragraph；实际设置口径一致。内部SentenceLevel策略不同于用户设置缺省，不混为一谈。 |
+| 符号模式 | 相同14种标点、空选择回退句末集合；连续选中标点留前一单元，保留UTF-16起点 | ReadAloudContentSplit.kt:148/155/212同样处理；结束引号不在所选集合，两侧均可能将其留到下一单元。 |
+| 换行及空白 | read_aloud_content.dart:53处理CRLF/CR/LF/U+2028/U+2029，_appendTrimmed裁两端空白并修正起点、忽略空白段 | ReadAloudContentSplit.kt:194的lineParagraphs仅按LF切分，此层保留非空片段的原始空白；其他上游过滤/清洗是另一步，不声称最终会朗读空白。 |
+| 页面模式 | read_aloud_content.dart:23直接将一个完整页面范围作为一个单元，页面内可含多个段落 | ReaderReadAloudChapter.kt:105/108先建段落，再按pageStarts切开每段；paragraphs(Page)仍取这些保留段落边界的片段，不把同页段落整体合并。 |
+| 段末元信息 | ReadAloudUnit只有start/text，播放cue携带原文位置和当前单元编号 | ReaderReadAloudParagraph另有isParagraphEnd，跨页切片与符号重切后仍区分真实段末；这是模型差异，不据此断言当前停顿一定错误。 |
+| 云请求长度分片 | splitSpeechRequests在朗读单元之内按UTF-16/UTF-8限制再次分片，优先句末/词边界/字形簇 | 此次追踪的HttpReadAloudService→CloudTtsAudioSynthesizer.kt:78→各Provider链路直接使用传入text，未找到等价的通用长度分片步骤；上游角色/台词规划是另一层，不混作请求长度算法。 |
+
+当前本地行为探针得到：短句接超长句、limit600时分片长度为3/600/100；601字得到
+600/1；英文Mr.可能单独成片。这些来自我方splitSpeechRequests，不称为已复刻的
+上游策略。符号引号探针结果为`他说：“你好！`和`”然后离开。`；其暂缓状态只记Active。
+
+本轮没有调整任何生产切分逻辑、请求长度或原文坐标，没有新增持久测试；只读源码、
+运行忽略目录内的Dart行为探针并记录差异。单引号/括号吸收、短片平衡与缩写识别等
+优化尚未实施，不能把前一轮建议写成已经采用的规则。
+
 编写者：Codex + Rust / UI｜2026-10-23
