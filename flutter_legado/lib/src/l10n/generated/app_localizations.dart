@@ -5358,13 +5358,13 @@ abstract class AppLocalizations {
   /// No description provided for @readerExtendPageTips.
   ///
   /// In zh, this message translates to:
-  /// **'页眉页脚延伸至屏幕边缘'**
+  /// **'扩展至屏幕边缘'**
   String get readerExtendPageTips;
 
   /// No description provided for @readerExtendPageTipsDescription.
   ///
   /// In zh, this message translates to:
-  /// **'正文继续避让；系统栏可见或页眉居中时保留对应占位'**
+  /// **'页眉页脚可以进入屏幕边缘'**
   String get readerExtendPageTipsDescription;
 
   /// No description provided for @readerAvoidDisplayCutouts.
