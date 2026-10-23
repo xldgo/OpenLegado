@@ -2,6 +2,7 @@ import '../../models/misc.dart';
 import '../../models/read_record_detail.dart';
 import '../../models/read_record_session.dart';
 import '../models/read_record_timeline_entry.dart';
+import '../models/read_record_statistics.dart';
 
 /// 阅读记录的数据访问契约；累计与持久化规则由底层负责。— Codex + UI
 abstract interface class ReadRecordRepository {
@@ -26,6 +27,12 @@ abstract interface class ReadRecordRepository {
   Future<List<ReadRecordDetail>> getAllReadRecordDetails();
   Future<List<ReadRecordSession>> getReadRecordSessions();
   Future<List<ReadRecordTimelineEntry>> getReadRecordTimeline(String query);
+  Future<ReadRecordStatistics> getReadRecordOverview(
+    ReadPeriod period,
+    DateTime date,
+  );
+  Future<List<ReadBookRanking>> getReadRecordBooksForDay(DateTime date);
+
   Future<void> deleteReadRecordDetail(
     String bookName,
     String author,

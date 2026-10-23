@@ -11,6 +11,7 @@ import '../file_dto.dart';
 import '../frb_generated.dart';
 import '../media_dto.dart';
 import '../source_tools_dto.dart';
+import '../statistics_dto.dart';
 import '../task_dto.dart';
 import '../transfer_dto.dart';
 
@@ -1355,6 +1356,20 @@ Future<PlatformInt64> readRecordRecordTime({
   bookUrl: bookUrl,
   chapterIndex: chapterIndex,
 );
+
+/// 只读查询周期统计、排行及日历。
+Future<ReadRecordStatisticsDto> readRecordOverview({
+  required ReadRecordPeriodDto period,
+  required String referenceDate,
+}) => RustLib.instance.api.crateFfiFfiReadRecordOverview(
+  period: period,
+  referenceDate: referenceDate,
+);
+
+/// 该日全部单书统计，不截取前十。
+Future<List<ReadBookRankingDto>> readRecordBooksForDay({
+  required String date,
+}) => RustLib.instance.api.crateFfiFfiReadRecordBooksForDay(date: date);
 
 /// 只读查询已归并的阅读时间线，保留原始会话ID用于删除。
 Future<List<ReadRecordTimelineDto>> readRecordTimeline({

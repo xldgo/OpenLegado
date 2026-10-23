@@ -22,6 +22,7 @@ import 'media_dto.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart';
 
 import 'source_tools_dto.dart';
+import 'statistics_dto.dart';
 import 'task_dto.dart';
 import 'transfer_dto.dart';
 
@@ -690,6 +691,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ReadAloudVoiceDto> dco_decode_list_read_aloud_voice_dto(dynamic raw);
 
   @protected
+  List<ReadBookRankingDto> dco_decode_list_read_book_ranking_dto(dynamic raw);
+
+  @protected
+  List<ReadChartPointDto> dco_decode_list_read_chart_point_dto(dynamic raw);
+
+  @protected
+  List<ReadDayStatDto> dco_decode_list_read_day_stat_dto(dynamic raw);
+
+  @protected
   List<ReadRecordDailyDto> dco_decode_list_read_record_daily_dto(dynamic raw);
 
   @protected
@@ -911,7 +921,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ReadAloudVoiceDto dco_decode_read_aloud_voice_dto(dynamic raw);
 
   @protected
+  ReadBookRankingDto dco_decode_read_book_ranking_dto(dynamic raw);
+
+  @protected
+  ReadChartPointDto dco_decode_read_chart_point_dto(dynamic raw);
+
+  @protected
   ReadConfigDto dco_decode_read_config_dto(dynamic raw);
+
+  @protected
+  ReadDayStatDto dco_decode_read_day_stat_dto(dynamic raw);
 
   @protected
   ReadRecordDailyDto dco_decode_read_record_daily_dto(dynamic raw);
@@ -923,7 +942,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ReadRecordDto dco_decode_read_record_dto(dynamic raw);
 
   @protected
+  ReadRecordPeriodDto dco_decode_read_record_period_dto(dynamic raw);
+
+  @protected
   ReadRecordSessionDto dco_decode_read_record_session_dto(dynamic raw);
+
+  @protected
+  ReadRecordStatisticsDto dco_decode_read_record_statistics_dto(dynamic raw);
 
   @protected
   ReadRecordTimelineDto dco_decode_read_record_timeline_dto(dynamic raw);
@@ -1934,6 +1959,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<ReadBookRankingDto> sse_decode_list_read_book_ranking_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<ReadChartPointDto> sse_decode_list_read_chart_point_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<ReadDayStatDto> sse_decode_list_read_day_stat_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<ReadRecordDailyDto> sse_decode_list_read_record_daily_dto(
     SseDeserializer deserializer,
   );
@@ -2241,7 +2281,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  ReadBookRankingDto sse_decode_read_book_ranking_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReadChartPointDto sse_decode_read_chart_point_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ReadConfigDto sse_decode_read_config_dto(SseDeserializer deserializer);
+
+  @protected
+  ReadDayStatDto sse_decode_read_day_stat_dto(SseDeserializer deserializer);
 
   @protected
   ReadRecordDailyDto sse_decode_read_record_daily_dto(
@@ -2257,7 +2310,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ReadRecordDto sse_decode_read_record_dto(SseDeserializer deserializer);
 
   @protected
+  ReadRecordPeriodDto sse_decode_read_record_period_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ReadRecordSessionDto sse_decode_read_record_session_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReadRecordStatisticsDto sse_decode_read_record_statistics_dto(
     SseDeserializer deserializer,
   );
 
@@ -3550,6 +3613,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_read_book_ranking_dto(
+    List<ReadBookRankingDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_read_chart_point_dto(
+    List<ReadChartPointDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_read_day_stat_dto(
+    List<ReadDayStatDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_read_record_daily_dto(
     List<ReadRecordDailyDto> self,
     SseSerializer serializer,
@@ -3922,7 +4003,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_read_book_ranking_dto(
+    ReadBookRankingDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_read_chart_point_dto(
+    ReadChartPointDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_read_config_dto(ReadConfigDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_read_day_stat_dto(
+    ReadDayStatDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_read_record_daily_dto(
@@ -3940,8 +4039,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_read_record_dto(ReadRecordDto self, SseSerializer serializer);
 
   @protected
+  void sse_encode_read_record_period_dto(
+    ReadRecordPeriodDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_read_record_session_dto(
     ReadRecordSessionDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_read_record_statistics_dto(
+    ReadRecordStatisticsDto self,
     SseSerializer serializer,
   );
 

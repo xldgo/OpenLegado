@@ -115,8 +115,8 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final overviewState = ref.watch(homeReadRecordOverviewProvider);
-    final dataset = ref.watch(readRecordDatasetProvider);
-    final records = dataset.asData?.value.records ?? const <ReadRecord>[];
+    final dataset = ref.watch(readRecordRecordsProvider);
+    final records = dataset.asData?.value ?? const <ReadRecord>[];
     final totalMs = overviewState.totalTimeMs;
     final todaySeconds =
         overviewState.allDailyTimes[_dayKey(DateTime.now())] ?? 0;

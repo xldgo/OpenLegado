@@ -15,6 +15,20 @@ class ReadRecordDataset {
        details = List.unmodifiable(details);
 }
 
+/// 最近阅读只需累计记录，不为首页额外拉取全部每日明细。
+final readRecordRecordsProvider = FutureProvider<List<ReadRecord>>((ref) {
+  final repository = ref.watch(readRecordRepositoryProvider);
+  if (repository is ReadRecordChangeSource) {
+    final subscription = (repository as ReadRecordChangeSource).changes.listen((
+      _,
+    ) {
+      if (ref.mounted) ref.invalidateSelf();
+    });
+    ref.onDispose(subscription.cancel);
+  }
+  return repository.getReadRecords();
+});
+
 final readRecordDatasetProvider = FutureProvider<ReadRecordDataset>((
   ref,
 ) async {
@@ -27,7 +41,7 @@ final readRecordDatasetProvider = FutureProvider<ReadRecordDataset>((
     });
     ref.onDispose(subscription.cancel);
   }
-  final records = repository.getReadRecords();
+  final records = ref.watch(readRecordRecordsProvider.future);
   final details = repository.getAllReadRecordDetails();
   // 同时注册两个失败处理器，避免另一查询先失败时出现未处理的 Future。
   final results = await Future.wait<Object>([records, details]);

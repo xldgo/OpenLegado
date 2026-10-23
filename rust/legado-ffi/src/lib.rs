@@ -45,3 +45,6 @@ pub use legado_js;
 pub use legado_net;
 pub use legado_parser;
 pub use legado_server;
+
+/// 阅读统计只读类型。
+pub mod statistics_dto;

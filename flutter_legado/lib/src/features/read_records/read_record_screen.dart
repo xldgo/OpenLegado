@@ -60,6 +60,7 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
   Future<void> _refresh() async {
     final controls = ref.read(readRecordNotifierProvider);
     final notifier = ref.read(readRecordNotifierProvider.notifier);
+    ref.invalidate(readRecordRecordsProvider);
     ref.invalidate(readRecordDatasetProvider);
     ref.invalidate(readRecordSessionsProvider);
     ref.invalidate(readRecordTimelineProvider);

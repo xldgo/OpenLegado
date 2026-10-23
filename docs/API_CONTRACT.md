@@ -2397,7 +2397,29 @@ Rust导出、参数、返回和数据库格式保持。
 | `restore(String backupPath)` | backupPath | `Future<void>` | 恢复数据。BackupService从RestoreIgnoreRepository读取策略并预过滤本地书，先调用本方法恢复业务表，成功后由BackupPreferencesService按忽略规则应用appPrefs并检查写入结果；部分失败独立反馈，应用层集中刷新配置。Rust签名不变 |
 | `importOldData(String dirPath)` | dirPath：含旧版备份文件的目录 | `Future<OldDataImportResult>` | **P2-4（2026-08-13）**：对齐原版 `ImportOldData.importUri`。读取目录下 `myBookShelf.json` / `myBookSource.json` / `myBookReplaceRule.json`（缺文件不致命，计入 `messages`）；书架字段映射（`noteUrl`→`bookUrl`、`bookInfoBean.*` 等）；书源经 `toNewRule`/`toNewUrl`/`toNewUrls`/`uaToHeader` 迁到 3.x 规则结构；替换规则兼容新格式或旧字段（`regex`/`replaceSummary`/`useTo`/`enable`/`serialNumber`）。已存在 `bookUrl` 的书跳过。返回结构化统计：books / bookSources / replaceRules / messages |
 
-### 2.12 阅读记录（11 个方法）
+### 2.12 阅读记录（13 个方法）
+
+**周期统计下沉（RUST-BOUNDARY B7b，2026-10-23，实施前冻结）**：新增只读FRB
+`read_record_overview(period: ReadRecordPeriodDto, reference_date: String)`及
+`read_record_books_for_day(date: String)`，领域同名getReadRecordOverview/getReadRecordBooksForDay。
+Rust直接读取每日明细、累计记录和正式书架（排除notShelf）；不接收Flutter全量历史。
+period为day/week/month/year/all，日期严格YYYY-MM-DD；周一至周日、自然月/年按日历
+运算，不用固定24小时。跨设备同日同书同作者相加，非正明细及非法明细日期不参与。
+周期毫秒、天数、本数和排行由有效明细计算；all时长仅取累计表，不能用其补造日历。
+在读数按累计表作者集合与周期书籍身份交集；读完数按同身份正式书架章节末尾且
+durChapterPos非零判定。封面仍取书架coverUrl，同日并列最长优先最后阅读较新的书。
+overview返回totalTimeMs/readingDays/totalBooks/readingBooks/finishedBooks、前十topBooks、
+日期列表days（seconds/bookCount/topBook）及周/月日点或年内月点chart；均类型化DTO。
+Dart仅将days映射为allDailyTimes/allDailyCounts/dailyTopBook，日/all的chart为空。
+当天明细返回全部同名同作者归并项，按时长降序、名称/作者排序，不限前十。
+界面保留周期选择/日期步进/图表坐标与格式化；本批日内小时柱状图继续由现有真实
+会话求交集，不借每日总量伪造小时数据。原始记录查询及写入/删除事务不变，无迁移。
+统计Provider使用查询参数和现有成功变更通知失效；书架状态变化也重新查询封面与
+完成状态，首页固定all查询且独立于总览导航。异步归属由Riverpod管理，不另加锁。
+Mock默认明确不支持新查询，测试注入结果夹具，不在Dart保留统计算法或调用FFI。
+本批新增2个FRB方法，生成绑定；保持应用版本、其他视图及UI样式。
+
+编写者：Codex + Rust / UI / Bridge｜2026-10-23
 
 **时间线归并下沉（RUST-BOUNDARY B7a，2026-10-23，实施前冻结）**：新增只读FRB
 `read_record_timeline(query: String) -> Result<Vec<ReadRecordTimelineDto>, BridgeError>`，
@@ -2473,6 +2495,8 @@ Mock不联网、不调用FFI或重写归并算法：默认明确不支持，测�
 |------|------|------|------|
 | `getReadRecordSessions()` | 无 | `Future<List<ReadRecordSession>>` | 查询原始真实会话，按startTime/id升序，保留设备副本供统计 |
 | `getReadRecordTimeline(String query)` | 搜索词 | `Future<List<ReadRecordTimelineEntry>>` | Rust只读时间线投影，保留全部原始ID及本地日期，详见B7a冻结 |
+| `getReadRecordOverview(ReadPeriod period, DateTime date)` | 周期、本地日期 | `Future<ReadRecordStatistics>` | Rust周期统计、排行与全量日历投影；小时分布仍由真实会话计算 |
+| `getReadRecordBooksForDay(DateTime date)` | 本地日期 | `Future<List<ReadBookRanking>>` | 该日全部单书归并明细，不截取前十 |
 | `deleteReadRecordDetail(String bookName, String author, String date)` | 名称、作者、本地YYYY-MM-DD | `Future<void>` | 删除该日单书明细，联动累计/日总数/会话区间 |
 | `deleteReadRecordSessions(List<int> ids)` | 原始会话ID列表 | `Future<void>` | 原子删除选定会话，重复/不存在ID不扣减；同步每日与累计 |
 
@@ -3398,7 +3422,7 @@ Dart 窄接口 PrivacyCredentialRepository 的 hasPassword、verify、change 分
 | 9 | 阅读器操作 | 12 |
 | 10 | 配置操作 | 4 |
 | 11 | 备份操作 | 3 |
-| 12 | 阅读记录 | 10 |
+| 12 | 阅读记录 | 13 |
 | 13 | RSS 收藏操作 | 4 |
 | 14 | 书籍分组 | 4 |
 | 15 | 搜索历史 | 5 |
@@ -3435,7 +3459,10 @@ Dart 窄接口 PrivacyCredentialRepository 的 hasPassword、verify、change 分
 | 49 | 视频弹幕数据链 | 1 |
 | 50 | 视频弹幕解析 | 1 |
 | 51 | 隐私凭据 | 3 |
-| | **合计（§2.x 附录行合计）** | **307** |
+| | **合计（§2.x 附录行合计）** | **310** |
+
+2026-10-23校准：阅读记录补计B7a时间线1项及B7b统计/当天明细2项，10→13。
+此处为领域方法行合计，不是FRB导出总数。
 
 > 口径说明（2026-08-15 程序化计数校准，2026-09-13 C2 批1 增 §2.45 字典规则 7 方法、书源作用域批次增 §2.8 替换规则 1 方法 `applyReplaceRulesToSource`、替换规则预览批次再增 §2.8 1 方法 `previewReplaceRule`、2026-09-24 换源预拉缓存批次增 §2.4 2 方法、2026-09-26 项 B/B1 增 §2.3 1 方法 `submitWebviewResultWithCookies`、2026-09-28 STAGE3-C2B 增 §2.16 单章缓存失效 1 方法 `clearChapterCache`、2026-09-28 P2-28c 增 §2.43 目录实时刷新 1 方法 `listCachedChapters`、2026-09-29 P2-29 增 §2.43 目录下载中态查询 1 方法 `listDownloadingChapters`、2026-09-29 P4-2a 增 §2.46 图片磁盘缓存 2 方法 `saveImageCache`/`getImageCache`、2026-10-03 cbz 批 B 增 §2.34 本地漫画页读取 1 方法 `cbzReadPage`、2026-10-04 B1 增 §2.47 音频章节文件缓存 4 方法、2026-10-03 B2 增 §2.48 音频章节预下载写入 2 方法 `audioCacheDownload`/`audioCacheCancel`、2026-10-13 UI-HOME-OVERVIEW-A1 增 §2.12 阅读记录单书每日明细 2 方法 `getReadRecordDetails`/`getAllReadRecordDetails`，取代人工统计）：
 

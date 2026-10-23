@@ -5,6 +5,8 @@ import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge.dart' show Int64List;
+import 'package:flutter_legado/src/bridge/statistics_dto.dart' as statistics;
+import 'package:flutter_legado/src/domain/models/read_record_statistics.dart';
 
 class _Bridge extends Mock implements RustLibApi {}
 
@@ -17,6 +19,63 @@ void main() {
     RustLib.initMock(api: bridge);
   });
   tearDown(RustLib.dispose);
+
+  test('周期与日期只传查询参数，统计图与日历投影直接映射，明细查询错误上抛', () async {
+    const book = statistics.ReadBookRankingDto(
+      bookName: '书',
+      author: '作者',
+      readTimeMs: 1200,
+      coverUrl: '封面',
+    );
+    when(
+      () => bridge.crateFfiFfiReadRecordOverview(
+        period: statistics.ReadRecordPeriodDto.month,
+        referenceDate: '2026-02-10',
+      ),
+    ).thenAnswer(
+      (_) async => const statistics.ReadRecordStatisticsDto(
+        totalTimeMs: 1200,
+        readingDays: 1,
+        totalBooks: 1,
+        readingBooks: 1,
+        finishedBooks: 0,
+        topBooks: [book],
+        days: [
+          statistics.ReadDayStatDto(
+            date: '2026-02-10',
+            seconds: 1,
+            bookCount: 1,
+            topBook: book,
+          ),
+        ],
+        chart: [statistics.ReadChartPointDto(date: '2026-02-10', seconds: 1)],
+      ),
+    );
+    final result = await repository.getReadRecordOverview(
+      ReadPeriod.month,
+      DateTime(2026, 2, 10, 15),
+    );
+    expect(result.totalTimeMs, 1200);
+    expect(
+      result.topBooks.single,
+      const ReadBookRanking(
+        bookName: '书',
+        author: '作者',
+        readTimeMs: 1200,
+        coverUrl: '封面',
+      ),
+    );
+    expect(result.allDailyTimes, {'2026-02-10': 1});
+    expect(result.dailyTopBook['2026-02-10']?.coverUrl, '封面');
+    expect(result.dailyTimeData, [(date: DateTime(2026, 2, 10), seconds: 1)]);
+    final failure = StateError('明细查询失败');
+    when(() => bridge.crateFfiFfiReadRecordBooksForDay(date: '2026-02-10'))
+        .thenAnswer((_) async => throw failure);
+    await expectLater(
+      repository.getReadRecordBooksForDay(DateTime(2026, 2, 10)),
+      throwsA(same(failure)),
+    );
+  });
 
   test('时间线只传查询词，保留Rust原始ID和上下文，查询失败上抛', () async {
     when(() => bridge.crateFfiFfiReadRecordTimeline(query: '作者')).thenAnswer(

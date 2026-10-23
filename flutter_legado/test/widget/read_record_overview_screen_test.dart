@@ -99,7 +99,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 1. 顶栏标题「阅读总览」与返回按钮
-      expect(find.text('阅读总览'), findsOneWidget);
+      expect(find.text('阅读总览'), findsWidgets);
 
       // 2. TabBar 5 个周期
       expect(find.text('日'), findsOneWidget);

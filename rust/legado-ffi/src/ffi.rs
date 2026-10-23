@@ -153,6 +153,7 @@ pub mod ffi {
     use crate::frb_generated::StreamSink;
     use crate::media_dto::*;
     use crate::source_tools_dto::*;
+    use crate::statistics_dto::*;
     use crate::task_dto::*;
     use crate::transfer_dto::{
         AnnotatedCandidateDto, BookDto, BookGroupDto, BookHighlightDto, BookSourceDto, BookmarkDto,
@@ -1864,6 +1865,26 @@ pub mod ffi {
             chapter_index,
         )?;
         Ok(rt)
+    }
+
+    /// 只读查询周期统计、排行及日历。
+    pub fn read_record_overview(
+        period: ReadRecordPeriodDto,
+        reference_date: String,
+    ) -> Result<ReadRecordStatisticsDto, BridgeError> {
+        Ok(
+            crate::api::read_record_api::get_read_record_overview(period.into(), &reference_date)?
+                .into(),
+        )
+    }
+    /// 该日全部单书统计，不截取前十。
+    pub fn read_record_books_for_day(date: String) -> Result<Vec<ReadBookRankingDto>, BridgeError> {
+        Ok(
+            crate::api::read_record_api::get_read_record_books_for_day(&date)?
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+        )
     }
 
     /// 只读查询已归并的阅读时间线，保留原始会话ID用于删除。

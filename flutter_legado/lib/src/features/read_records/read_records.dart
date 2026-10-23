@@ -23,7 +23,10 @@ export 'widgets/reading_time_bar_chart_card.dart'
     show ReadingTimeBarChartCard, DailyTimeBarItem;
 
 export 'read_record_dataset.dart'
-    show ReadRecordDataset, readRecordDatasetProvider;
+    show
+        ReadRecordDataset,
+        readRecordDatasetProvider,
+        readRecordRecordsProvider;
 
 export 'widgets/read_record_day_details_sheet.dart'
     show showReadRecordDayDetails;

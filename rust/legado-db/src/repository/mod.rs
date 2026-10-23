@@ -20,6 +20,7 @@ pub mod privacy_credentials;
 pub mod read_aloud_voice_repository;
 pub mod read_record_repository;
 pub mod read_record_sessions;
+pub mod read_record_statistics;
 pub mod read_record_timeline;
 pub mod replace_rule_repository;
 pub mod review_repository;

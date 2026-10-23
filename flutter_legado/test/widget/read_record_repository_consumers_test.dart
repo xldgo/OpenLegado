@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_legado/src/domain/models/read_record_statistics.dart';
 
 import '../mocks/mocks.dart';
 
@@ -18,7 +19,10 @@ void main() {
   late _Records records;
   late MockRustApi api;
 
-  setUpAll(registerFallbacks);
+  setUpAll(() {
+    registerFallbacks();
+    registerFallbackValue(DateTime(2026));
+  });
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     records = _Records();
@@ -32,6 +36,13 @@ void main() {
     final now = DateTime.now();
     final date =
         '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    when(() => records.getReadRecordOverview(ReadPeriod.all, any())).thenAnswer(
+      (_) async => ReadRecordStatistics(
+        totalTimeMs: 5000,
+        allDailyTimes: {date: 7},
+        allDailyCounts: {date: 1},
+      ),
+    );
     when(() => records.getAllReadRecordDetails()).thenAnswer(
       (_) async => [
         ReadRecordDetail(
@@ -82,8 +93,9 @@ void main() {
     await pump(tester, const HomeTabScreen());
     expect(find.text('累计阅读'), findsOneWidget);
     expect(find.text('阅读时长'), findsOneWidget);
-    verify(() => records.getReadRecords()).called(1);
-    verify(() => records.getAllReadRecordDetails()).called(1);
+    verify(() => records.getReadRecordOverview(ReadPeriod.all, any()))
+        .called(greaterThanOrEqualTo(1));
+    verifyNever(() => records.getAllReadRecordDetails());
     verifyNever(() => records.readRecordDailyList(DateTime.now().year));
     verifyNever(() => api.readRecordRepository);
     expect(tester.takeException(), isNull);

@@ -151,6 +151,23 @@ pub fn clear_read_records() -> LegadoResult<bool> {
     })
 }
 
+/// 按周期读取真实明细及累计记录，不写回统计快照。
+pub fn get_read_record_overview(
+    period: legado_db::repository::read_record_statistics::ReadRecordPeriod,
+    date: &str,
+) -> LegadoResult<legado_db::repository::read_record_statistics::ReadRecordStatistics> {
+    with_database(|db| {
+        legado_db::repository::read_record_statistics::query_overview(db.connection(), period, date)
+    })
+}
+pub fn get_read_record_books_for_day(
+    date: &str,
+) -> LegadoResult<Vec<legado_db::repository::read_record_statistics::ReadBookRanking>> {
+    with_database(|db| {
+        legado_db::repository::read_record_statistics::query_books_for_day(db.connection(), date)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
