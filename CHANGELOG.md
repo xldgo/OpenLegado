@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [2.0.439] - 2026-10-22
 
 ### Fixed
+- 离线缓存导出改用底部Sheet，统一表单交互；修复导出忙碌状态和WebDAV上传失败仍提示成功的问题；贡献者：Codex + UI。
 - 修复重新分段开关不生效，对齐上游正文分段流程；导出保留原段落，保存失败不再提示成功；贡献者：Codex + Rust / UI。
 - 接通默认替换净化，正文和菜单统一遵循书级覆盖与全局设置；调整后保留阅读位置及原始缓存；贡献者：Codex + Rust / UI。
 - 移除高级设置中未接通的本地密码入口，隐私密码继续在隐私设置中管理；贡献者：Codex + UI。

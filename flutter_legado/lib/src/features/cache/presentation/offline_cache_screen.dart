@@ -1,7 +1,6 @@
 import '../../../app/routing/app_navigation.dart';
 import '../../bookshelf/bookshelf_repositories.dart';
 import '../../../providers/backup_provider.dart';
-import '../../../domain/models/book_content_result.dart';
 import '../../../providers/book_content_provider.dart';
 import '../../../providers/chapter_cache_provider.dart';
 import '../../../domain/models/cache_download_task.dart';
@@ -24,7 +23,7 @@ import '../../../providers/sync/sync_notifier.dart';
 import '../../../app/routing/route_names.dart';
 import '../../../services/export_service.dart';
 import '../../../utils/book_open_utils.dart';
-import '../../../widgets/export_dialog.dart';
+import 'book_export_sheet.dart';
 import '../../../widgets/loading_indicator.dart';
 
 /// 离线缓存界面（对齐原版 CacheActivity）
@@ -265,7 +264,7 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
 
   // ===== 单本导出（对齐原版 CacheActivity → ExportBookService） =====
 
-  /// 打开导出对话框：格式 txt/epub/pdf、charset、文件名模板、章节范围、进度与 WebDAV
+  /// 打开导出Sheet：格式 txt/epub/pdf、charset、文件名模板、章节范围、进度与 WebDAV
   Future<void> _exportBook(Book book) async {
     final sync = ref.read(syncNotifierProvider);
     WebDavConnection? webDavConfig;
@@ -273,16 +272,14 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
       webDavConfig = ref.read(syncNotifierProvider.notifier).connection;
     }
 
-    final result = await showDialog<BookExportData>(
+    final result = await BookExportSheet.show(
       context: context,
-      builder: (_) => ExportDialog(
-        book: book,
-        exportService: ExportService(
-          exporter: ref.read(bookExportServiceProvider),
-          webDav: ref.read(webDavServiceProvider),
-        ),
-        webDavConfig: webDavConfig,
+      book: book,
+      exportService: ExportService(
+        exporter: ref.read(bookExportServiceProvider),
+        webDav: ref.read(webDavServiceProvider),
       ),
+      webDavConfig: webDavConfig,
     );
     if (!mounted || result == null) return;
     _snack('已导出 ${result.fileName}');

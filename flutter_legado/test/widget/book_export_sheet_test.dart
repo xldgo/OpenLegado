@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 import 'dart:io';
 
@@ -11,7 +12,7 @@ import 'package:flutter_legado/src/services/export_service.dart';
 
 import '../fixtures/native_test_api.dart';
 
-import 'package:flutter_legado/src/widgets/export_dialog.dart';
+import 'package:flutter_legado/src/features/cache/presentation/book_export_sheet.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
 
 /// 只替换系统目录选择，不改变导出前置校验和真实文件写入。— Codex + UI
@@ -37,6 +38,10 @@ class FakeExportService extends ExportService {
 
   /// 导出是否被调用
   bool exportCalled = false;
+  int exportCount = 0;
+  Completer<void>? exportGate;
+  bool uploadFails = false;
+  List<int>? uploadedBytes;
   ({String format, bool includeToc, String? encoding})? request;
 
   /// WebDAV 上传是否被调用
@@ -65,6 +70,8 @@ class FakeExportService extends ExportService {
     String? fileNameTemplate,
   }) async {
     exportCalled = true;
+    exportCount++;
+    await exportGate?.future;
     request = (format: format, includeToc: includeToc, encoding: encoding);
     if (shouldFail) {
       throw const ExportException('模拟导出失败');
@@ -77,20 +84,14 @@ class FakeExportService extends ExportService {
   }
 
   @override
-  Future<BookExportInfo> getExportInfo({
-    required String bookUrl,
-    required String format,
-  }) async {
-    return const BookExportInfo(fileName: '测试书籍.txt', chapterCount: 100);
-  }
-
-  @override
-  Future<bool> webdavUpload(
+  Future<bool> webdavUploadFile(
     WebDavConnection connection,
-    String path,
-    String data,
+    String remotePath,
+    String localPath,
   ) async {
     webdavCalled = true;
+    uploadedBytes = await File(localPath).readAsBytes();
+    if (uploadFails) throw StateError('上传失败');
     return true;
   }
 }
@@ -108,6 +109,7 @@ void main() {
     Book? book,
     ExportService? exportService,
     WebDavConnection? webDavConfig,
+    ValueChanged<BookExportData?>? onClosed,
   }) {
     // 构造测试用书籍对象
     final testBook =
@@ -115,12 +117,18 @@ void main() {
     return MaterialApp(
       theme: theme ?? AppTheme.light,
       home: Scaffold(
-        body: Center(
-          child: ExportDialog(
-            book: testBook,
-            exportService: exportService ?? fakeExportService,
-
-            webDavConfig: webDavConfig,
+        body: Builder(
+          builder: (context) => TextButton(
+            onPressed: () async {
+              final result = await BookExportSheet.show(
+                context: context,
+                book: testBook,
+                exportService: exportService ?? fakeExportService,
+                webDavConfig: webDavConfig,
+              );
+              onClosed?.call(result);
+            },
+            child: const Text('打开导出'),
           ),
         ),
       ),
@@ -134,6 +142,7 @@ void main() {
     Book? book,
     ExportService? exportService,
     WebDavConnection? webDavConfig,
+    ValueChanged<BookExportData?>? onClosed,
   }) async {
     tester.view.physicalSize = const Size(360, 640);
     tester.view.devicePixelRatio = 1.0;
@@ -147,8 +156,11 @@ void main() {
         book: book,
         exportService: exportService,
         webDavConfig: webDavConfig,
+        onClosed: onClosed,
       ),
     );
+    await tester.tap(find.text('打开导出'));
+    await tester.pumpAndSettle();
   }
 
   Future<Directory> selectExportDirectory(WidgetTester tester) async {
@@ -159,7 +171,7 @@ void main() {
       FilePickerPlatform.instance = original;
       directory.deleteSync(recursive: true);
     });
-    final path = find.text('点击选择导出目录');
+    final path = find.text('导出目录');
     await tester.ensureVisible(path);
     await tester.tap(path);
     await tester.pumpAndSettle();
@@ -171,7 +183,7 @@ void main() {
     WidgetTester tester,
     Directory directory,
   ) async {
-    // 文件写入走真实I/O；按实际文件内容收敛，再推进原有的自动关闭计时。
+    // 文件写入走真实I/O；按实际文件内容收敛，再验证Sheet结果返回。
     final file = File('${directory.path}${Platform.pathSeparator}测试书籍.txt');
     List<int>? bytes;
     for (var attempt = 0; attempt < 100; attempt++) {
@@ -186,8 +198,8 @@ void main() {
   }
 
   Future<void> waitForExportClose(WidgetTester tester) async {
-    // 交替处理真实I/O与测试计时器，直到现有的延迟关闭实际完成。
-    final dialog = find.byType(ExportDialog);
+    // 交替处理真实I/O与测试计时器，直到文件写入完成并返回结果。
+    final dialog = find.byType(BookExportSheet);
     for (
       var attempt = 0;
       attempt < 100 && dialog.evaluate().isNotEmpty;
@@ -201,7 +213,7 @@ void main() {
     expect(dialog, findsNothing);
   }
 
-  group('导出对话框 UI 渲染', () {
+  group('导出Sheet UI 渲染', () {
     testWidgets('无 WebDAV 配置时不显示 WebDAV 选项', (tester) async {
       await pumpTestWidget(tester, webDavConfig: null);
 
@@ -220,18 +232,20 @@ void main() {
     });
   });
 
-  group('导出对话框交互', () {
-    testWidgets('点击取消关闭对话框', (tester) async {
+  group('导出Sheet交互', () {
+    testWidgets('点击取消关闭Sheet', (tester) async {
       await pumpTestWidget(tester);
 
       await tester.tap(find.text('取消'));
       await tester.pumpAndSettle();
 
-      // 对话框应该被关闭（Navigator.pop）
+      // Sheet应该被关闭（Navigator.pop）
       expect(find.text('导出测试书籍'), findsNothing);
     });
 
     testWidgets('所选格式、目录选项和编码传给服务，文件写入后关闭', (tester) async {
+      final gate = Completer<void>();
+      fakeExportService.exportGate = gate;
       await pumpTestWidget(tester);
       await tester.tap(find.text('TXT'));
       await tester.pump();
@@ -244,12 +258,19 @@ void main() {
       await tester.pumpAndSettle();
       final directory = await selectExportDirectory(tester);
 
-      expect(find.widgetWithText(FilledButton, '确认'), findsOneWidget);
-      await tester.tap(find.text('确认'));
+      expect(find.widgetWithText(FilledButton, '导出'), findsOneWidget);
+      await tester.tap(find.text('导出'));
       await tester.pump();
 
-      // 验证导出被调用
       expect(fakeExportService.exportCalled, isTrue);
+      expect(find.text('导出中'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      expect(find.byType(BookExportSheet), findsOneWidget);
+      await tester.tap(find.text('导出中'));
+      expect(fakeExportService.exportCount, 1);
+      gate.complete();
+      await tester.pump();
       expect(fakeExportService.request, (
         format: 'txt',
         includeToc: false,
@@ -260,14 +281,14 @@ void main() {
       await waitForExportClose(tester);
     });
 
-    testWidgets('导出成功后对话框自动关闭', (tester) async {
+    testWidgets('导出成功后Sheet自动关闭', (tester) async {
       await pumpTestWidget(tester);
       final directory = await selectExportDirectory(tester);
 
-      // 确认对话框存在
+      // 确认Sheet存在
       expect(find.text('导出测试书籍'), findsOneWidget);
 
-      await tester.tap(find.text('确认'));
+      await tester.tap(find.text('导出'));
       await tester.pump();
       expect(fakeExportService.request, (
         format: 'epub',
@@ -278,18 +299,53 @@ void main() {
 
       await waitForExportClose(tester);
 
-      // 对话框应已关闭
+      // Sheet应已关闭
       expect(find.text('导出测试书籍'), findsNothing);
     });
 
     testWidgets('未选择导出目录时提示错误且不调用导出', (tester) async {
       await pumpTestWidget(tester);
-      await tester.tap(find.text('确认'));
+      await tester.tap(find.text('导出'));
       await tester.pumpAndSettle();
 
       expect(find.text('请先选择导出目录'), findsWidgets);
       expect(fakeExportService.exportCalled, isFalse);
       expect(find.text('导出测试书籍'), findsOneWidget);
+    });
+    testWidgets('WebDAV失败留在Sheet显示原因，不返回成功；重试后返回结果', (tester) async {
+      var closed = false;
+      BookExportData? returned;
+      fakeExportService.uploadFails = true;
+      await pumpTestWidget(
+        tester,
+        webDavConfig: const WebDavConnection(url: 'https://dav.example.com'),
+        onClosed: (result) {
+          closed = true;
+          returned = result;
+        },
+      );
+      await tester.ensureVisible(find.text('上传到 WebDAV'));
+      await tester.tap(find.text('上传到 WebDAV'));
+      await tester.pump();
+      await tester.tap(find.text('导出'));
+      for (
+        var i = 0;
+        i < 100 && find.textContaining('上传失败').evaluate().isEmpty;
+        i++
+      ) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+        await tester.pump();
+      }
+      expect(find.textContaining('上传失败'), findsOneWidget);
+      expect(fakeExportService.uploadedBytes, [116, 101, 115, 116]);
+      expect(closed, isFalse);
+      fakeExportService.uploadFails = false;
+      await tester.tap(find.text('导出'));
+      await waitForExportClose(tester);
+      expect(closed, isTrue);
+      expect(returned?.fileName, '测试书籍.txt');
     });
   });
 }

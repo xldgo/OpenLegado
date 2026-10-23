@@ -142,6 +142,12 @@ void main() {
       tester.widget<TextField>(find.byType(TextField)).controller!.text,
       isEmpty,
     );
+    await tester.tap(find.widgetWithText(TextButton, '导出').first);
+    await tester.pumpAndSettle();
+    expect(find.text('导出书一'), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(find.text('书一'), findsOneWidget);
     verify(() => mockApi.bookshelfRepository.getBooks()).called(1);
   });
 

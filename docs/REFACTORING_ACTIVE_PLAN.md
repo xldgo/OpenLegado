@@ -18,6 +18,11 @@
 
 ## 二、后续实现与待核验
 
+### READER-RENDER-OPTIMIZATION-20261024：阅读器绘制优化（P2，待推进）
+
+- 用户要求先登记，不立即实现。原版通过 Picture/RenderNode 录制复用及有条件整行绘制优化；HapeLee新阅读器已使用Compose图层缓存，该开关主要保留旧Android文字参数，不能把两者视为同一实现。
+- 后续先 profile 当前Flutter重绘边界、翻页快照及失效范围，找出实际重复绘制，再选Flutter原生方案；不直接复制Android开关，不在缺少测量时宣称收益。参考本地原版363540972与HapeLee c4182eb9b的CanvasRecorderFactory、TextPage/TextLine及ReaderCanvasSurface。
+
 以下保留原任务编号，合并其重复登记；接续前先核对代码和用户当前优先级。
 
 ### AUTO-TASK-EXECUTION-GAPS-20261016：自动任务实际执行（P1，已确认，后续单独实施）
@@ -59,6 +64,7 @@
 
 | 合并范围及原编号 | 现有证据 | 剩余验收与完成条件 |
 |---|---|---|
+| 离线缓存导出：OFFLINE-EXPORT-SHEET-20261024 | 单本导出已改为公用Sheet，保留格式/编码/模板/范围与目录、WebDAV参数；修复忙碌状态和上传失败误报成功，导出及离线缓存页15项定向回归通过 | 移动设备目录选择、文件写入与WebDAV真实连接；表单滚动及输入法体验。未安装或做设备验收，不重复新增控件样式测试 |
 | 源编辑框行数：SOURCE-EDITOR-LINES-20261024 | 已接通共享仓储、设置Sheet及书源/RSS多行字段；52项定向回归、改动分析与架构检查通过，`build/source-editor-lines-*.log`；语义见[设置架构](SETTINGS_ARCHITECTURE.md#源编辑框行数2026-10-24) | 主应用检查“不限”及至少10行的显示/内滚动、保存重开后生效、单行字段与完整文本保持；未安装或进行设备验收，不为通用控件新增页面测试 |
 | 音频焦点/中断/媒体会话：AUDIO-FOCUS-POLICY-20261024、TTS-INTERRUPTION-20261021、TTS-AUDIO-SESSION / AUDIO-SERVICE-20261020 | `1843f5141`及`build/audio-focus-{core-final,wiring-final,analysis-final,architecture}.log`；既有媒体服务和焦点定向验证 | Android混播、拒绝焦点、耳机拔出；iOS混音、来电/Siri后手动恢复、后台/蓝牙及锁屏媒体操作。不开启忽略时原行为保持，用户暂停不自动续播 |
 | 云TTS、HTTP音色和导入导出：TTS-*20261019/20、TTS-TRANSFER-20261019 | [朗读对齐说明](TTS_ALIGNMENT.md)，各Provider已有固定HTTP/native与表单回归 | 真实账号下的鉴权、音色/情感、输出解码及连续后台听感；火山V1/V3保持独立入口，无授权不互相替代。HTTP源登录/POST/JS及实际系统语音按可用素材复验 |
