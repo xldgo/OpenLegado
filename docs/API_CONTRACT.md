@@ -2406,7 +2406,84 @@ Rust导出、参数、返回和数据库格式保持。
 | `restore(String backupPath)` | backupPath | `Future<void>` | 恢复数据。BackupService从RestoreIgnoreRepository读取策略并预过滤本地书，先调用本方法恢复业务表，成功后由BackupPreferencesService按忽略规则应用appPrefs并检查写入结果；部分失败独立反馈，应用层集中刷新配置。Rust签名不变 |
 | `importOldData(String dirPath)` | dirPath：含旧版备份文件的目录 | `Future<OldDataImportResult>` | **P2-4（2026-08-13）**：对齐原版 `ImportOldData.importUri`。读取目录下 `myBookShelf.json` / `myBookSource.json` / `myBookReplaceRule.json`（缺文件不致命，计入 `messages`）；书架字段映射（`noteUrl`→`bookUrl`、`bookInfoBean.*` 等）；书源经 `toNewRule`/`toNewUrl`/`toNewUrls`/`uaToHeader` 迁到 3.x 规则结构；替换规则兼容新格式或旧字段（`regex`/`replaceSummary`/`useTo`/`enable`/`serialNumber`）。已存在 `bookUrl` 的书跳过。返回结构化统计：books / bookSources / replaceRules / messages |
 
-### 2.12 阅读记录（10 个方法）
+### 2.12 阅读记录（15 个方法）
+
+**记录列表下沉（RUST-BOUNDARY B7d，2026-10-23，实施前冻结）**：新增只读FRB
+`read_record_views(query: String) → Result<ReadRecordListDto, BridgeError>`，领域接口
+`getReadRecordList(String query) → Future<ReadRecordListData>`。结果含aggregate/latest两份
+列表及totalTimeMs，UI按视图选择，摘要复用latest；不另取全量明细或再做业务归并。
+条目字段为bookName/author/date（latest为null）/durationMs/lastRead；按书名+作者+日期
+归并每日正数且日期合法的明细，latest按书名+作者跨日相加。最后阅读取非负最大值，
+日期降序后按最后阅读降序，平局保持首次出现顺序。搜索trim后忽略大小写包含匹配
+书名或作者。totalTimeMs始终是未过滤累计表合计，不随搜索改变。
+沿用当前列表口径：只有原始明细中完全没有同名书时，latest才从累计记录补展示项，
+按原作者字符串归并；不拆作者集合，也不因此补造每日记录。存在无效或零时长明细
+的同名书仍抑制此回退，本批只迁移职责，不改变这条既有接受范围。
+Rust直接读取数据库，既有累计/每日/删除事务不变；时间线继续走B7a查询。Flutter保留
+日期卡片组织、文案、封面查找、选中键与导航；偏好Notifier只管偏好/搜索状态，删除
+零生产消费者的旧列表/总时长计算与写入包装，不改存储偏好键。
+查询按搜索参数缓存，成功变更和仓储替换触发失效；手动刷新及明细/首页重试须刷新
+实际查询。Mock明确不支持新列表能力，测试用结果夹具，不复制Rust聚合算法。
+本批无DB、依赖或应用版本变更，不移除原始数据Repository/FRB接口。
+
+编写者：Codex + Rust / UI / Bridge｜2026-10-23
+
+**日内小时分布下沉（RUST-BOUNDARY B7c，2026-10-23，实施前冻结）**：新增只读FRB
+`read_record_hourly(boundaries: Vec<i64>) → Result<Vec<i64>, BridgeError>`，领域接口
+`getReadRecordHourly(List<int> boundaries) → Future<List<int>>`；边界及会话单位为Unix毫秒，
+返回24个小时槽的整秒数。Flutter按当前平台本地日历构造当天0..24点共25个边界，
+不以起点加固定24小时替代；调用方保证25项非递减边界且首尾严格递增，允许夏令时
+跳时产生的零宽槽。当前唯一Flutter入口固定生成，Rust运行时形状检查按用户要求
+注释保留，不再承诺非法形状返回错误；不排序或修复输入，不在Rust另推系统时区。
+Rust仅查询与首尾半开区间相交的有效原始会话，再与每个小时槽求交集，各槽先汇总
+毫秒后取整秒；不归并设备副本、不补造历史、不从日累计推算，不改既有统计口径。
+Flutter只拼接日期坐标与返回秒数，不再读取全量会话计算。日期参数化Provider订阅
+已有成功变更通知，支持刷新与仓储替换；日周期外不订阅小时查询。
+Mock明确不支持新查询，测试注入结果；原始会话接口仍保留，无DB或版本变更。
+
+编写者：Codex + Rust / UI / Bridge｜2026-10-23
+
+**周期统计下沉（RUST-BOUNDARY B7b，2026-10-23，实施前冻结）**：新增只读FRB
+`read_record_overview(period: ReadRecordPeriodDto, reference_date: String)`及
+`read_record_books_for_day(date: String)`，领域同名getReadRecordOverview/getReadRecordBooksForDay。
+Rust直接读取每日明细、累计记录和正式书架（排除notShelf）；不接收Flutter全量历史。
+period为day/week/month/year/all，日期严格YYYY-MM-DD；周一至周日、自然月/年按日历
+运算，不用固定24小时。跨设备同日同书同作者相加，非正明细及非法明细日期不参与。
+周期毫秒、天数、本数和排行由有效明细计算；all时长仅取累计表，不能用其补造日历。
+在读数按累计表作者集合与周期书籍身份交集；读完数按同身份正式书架章节末尾且
+durChapterPos非零判定。封面仍取书架coverUrl，同日并列最长优先最后阅读较新的书。
+overview返回totalTimeMs/readingDays/totalBooks/readingBooks/finishedBooks、前十topBooks、
+日期列表days（seconds/bookCount/topBook）及周/月日点或年内月点chart；均类型化DTO。
+Dart仅将days映射为allDailyTimes/allDailyCounts/dailyTopBook，日/all的chart为空。
+当天明细返回全部同名同作者归并项，按时长降序、名称/作者排序，不限前十。
+界面保留周期选择/日期步进/图表坐标与格式化；本批日内小时柱状图继续由现有真实
+会话求交集，不借每日总量伪造小时数据。原始记录查询及写入/删除事务不变，无迁移。
+统计Provider使用查询参数和现有成功变更通知失效；书架状态变化也重新查询封面与
+完成状态，首页固定all查询且独立于总览导航。异步归属由Riverpod管理，不另加锁。
+Mock默认明确不支持新查询，测试注入结果夹具，不在Dart保留统计算法或调用FFI。
+本批新增2个FRB方法，生成绑定；保持应用版本、其他视图及UI样式。
+
+编写者：Codex + Rust / UI / Bridge｜2026-10-23
+
+**时间线归并下沉（RUST-BOUNDARY B7a，2026-10-23，实施前冻结）**：新增只读FRB
+`read_record_timeline(query: String) -> Result<Vec<ReadRecordTimelineDto>, BridgeError>`，
+领域入口`ReadRecordRepository.getReadRecordTimeline(String query)`返回归并后的时间线。
+Rust从现有数据库读取原始会话，不从Flutter回传全量历史；不修改记录或累计统计。
+过滤无效时段，书名/作者按trim后关键词忽略大小写包含匹配，空关键词不过滤；
+按startTime/id升序处理，按系统本地时区的开始日期归组，不用固定24小时推导日期。
+同日期、同书名和作者的相邻会话，间隔不超过20分钟时合并，重叠区间取最大终点；
+保留最早项的bookUrl/chapterIndex和startTime，最终按归并项开始时间倒序输出。
+重复身份为bookName/author/bookUrl/startTime/endTime/chapterIndex（与现有Dart一致，
+不含deviceId），重复仅折叠展示，所有原始id仍保留，保证删除整项不会遗漏重复副本。
+DTO字段：bookName、author、date、本项bookUrl、startTime、endTime、chapterIndex、
+sessionIds（i64列表）；展示跨度=endTime-startTime，含间隔，不用于累计/每日时长。
+既有原始会话查询和删除接口保留；删除消费归并项全部sessionIds，仍由原事务扣减。
+Flutter保留日期分组、格式化、章节名查询、选择和导航；时间线Provider订阅已存在的
+成功写入通知并跟随仓储替换，错误上抛，异步结果归属由Riverpod管理，不另设快照锁。
+Mock不联网、不调用FFI或重写归并算法：默认明确不支持，测试通过时间线夹具覆写能力。
+本批新增1个FRB方法，生成绑定；无DB迁移、写入语义、周期统计或UI样式变更。
+
+编写者：Codex + Rust / UI / Bridge｜2026-10-23
 
 > **实施补充（2026-10-13）**：保留现有按书名累计的 `readRecord` 入口；明细严格按
 > `(deviceId, bookName, bookAuthor, date)` 保存。ReadRecord 新增真实 `author` 及仅用于写入的
@@ -2453,14 +2530,19 @@ Rust导出、参数、返回和数据库格式保持。
 > `readRecordSession`；重复累计不新增会话。原有记录不补造会话。
 > 会话字段：id、deviceId、bookName、author、bookUrl、startTime、endTime、chapterIndex；
 > 时间戳为本地展示用的UTC毫秒，章节序号从0开始，时长=endTime-startTime。
-> 查询返回原始会话，UI按开始日期分组，以20分钟间隔规则合并展示，不改变存储与统计时长。
+> 原始会话查询仍保留；B7a后时间线归并由Rust查询负责，UI消费结果，不改变存储与统计时长。
 > `deleteReadRecord` 带author时只删除该作者的累计/每日/会话，省略时保留按书名全部删除语义。
 > 删除每日明细同步裁剪对应会话的当日区间；删除指定会话同步扣减每日与累计，清空覆盖四表。
 > 修改成功后广播既有变更通知，查询/删除错误直接返回，不作静默降级。
 
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
-| `getReadRecordSessions()` | 无 | `Future<List<ReadRecordSession>>` | 查询真实会话，按startTime升序，重复身份区间去重 |
+| `getReadRecordSessions()` | 无 | `Future<List<ReadRecordSession>>` | 查询原始真实会话，按startTime/id升序，保留设备副本供统计 |
+| `getReadRecordTimeline(String query)` | 搜索词 | `Future<List<ReadRecordTimelineEntry>>` | Rust只读时间线投影，保留全部原始ID及本地日期，详见B7a冻结 |
+| `getReadRecordOverview(ReadPeriod period, DateTime date)` | 周期、本地日期 | `Future<ReadRecordStatistics>` | Rust周期统计、排行与全量日历投影；小时分布仍由真实会话计算 |
+| `getReadRecordBooksForDay(DateTime date)` | 本地日期 | `Future<List<ReadBookRanking>>` | 该日全部单书归并明细，不截取前十 |
+| `getReadRecordHourly(List<int> boundaries)` | 本地0..24点共25个Unix毫秒边界 | `Future<List<int>>` | 相交真实会话汇总为24槽秒数，详见B7c冻结 |
+| `getReadRecordList(String query)` | 搜索词 | `Future<ReadRecordListData>` | 按日汇总/最后阅读及未过滤累计时长，同一只读投影 |
 | `deleteReadRecordDetail(String bookName, String author, String date)` | 名称、作者、本地YYYY-MM-DD | `Future<void>` | 删除该日单书明细，联动累计/日总数/会话区间 |
 | `deleteReadRecordSessions(List<int> ids)` | 原始会话ID列表 | `Future<void>` | 原子删除选定会话，重复/不存在ID不扣减；同步每日与累计 |
 
@@ -3386,7 +3468,7 @@ Dart 窄接口 PrivacyCredentialRepository 的 hasPassword、verify、change 分
 | 9 | 阅读器操作 | 12 |
 | 10 | 配置操作 | 4 |
 | 11 | 备份操作 | 3 |
-| 12 | 阅读记录 | 10 |
+| 12 | 阅读记录 | 15 |
 | 13 | RSS 收藏操作 | 4 |
 | 14 | 书籍分组 | 4 |
 | 15 | 搜索历史 | 5 |
@@ -3423,7 +3505,10 @@ Dart 窄接口 PrivacyCredentialRepository 的 hasPassword、verify、change 分
 | 49 | 视频弹幕数据链 | 1 |
 | 50 | 视频弹幕解析 | 1 |
 | 51 | 隐私凭据 | 3 |
-| | **合计（§2.x 附录行合计）** | **307** |
+| | **合计（§2.x 附录行合计）** | **312** |
+
+2026-10-23校准：阅读记录补计B7a时间线1项、B7b统计/当天明细2项、B7c小时分布1项和B7d列表1项，10→15。
+此处为领域方法行合计，不是FRB导出总数。
 
 > 口径说明（2026-08-15 程序化计数校准，2026-09-13 C2 批1 增 §2.45 字典规则 7 方法、书源作用域批次增 §2.8 替换规则 1 方法 `applyReplaceRulesToSource`、替换规则预览批次再增 §2.8 1 方法 `previewReplaceRule`、2026-09-24 换源预拉缓存批次增 §2.4 2 方法、2026-09-26 项 B/B1 增 §2.3 1 方法 `submitWebviewResultWithCookies`、2026-09-28 STAGE3-C2B 增 §2.16 单章缓存失效 1 方法 `clearChapterCache`、2026-09-28 P2-28c 增 §2.43 目录实时刷新 1 方法 `listCachedChapters`、2026-09-29 P2-29 增 §2.43 目录下载中态查询 1 方法 `listDownloadingChapters`、2026-09-29 P4-2a 增 §2.46 图片磁盘缓存 2 方法 `saveImageCache`/`getImageCache`、2026-10-03 cbz 批 B 增 §2.34 本地漫画页读取 1 方法 `cbzReadPage`、2026-10-04 B1 增 §2.47 音频章节文件缓存 4 方法、2026-10-03 B2 增 §2.48 音频章节预下载写入 2 方法 `audioCacheDownload`/`audioCacheCancel`、2026-10-13 UI-HOME-OVERVIEW-A1 增 §2.12 阅读记录单书每日明细 2 方法 `getReadRecordDetails`/`getAllReadRecordDetails`，取代人工统计）：
 

@@ -20,11 +20,11 @@ import '../../widgets/custom_refresh_indicator.dart';
 import 'read_record_repository_provider.dart';
 import 'read_record_notifier.dart';
 import 'read_record_state.dart';
-import 'read_record_dataset.dart';
+import '../../domain/models/read_record_list.dart';
 import 'read_record_list_provider.dart';
 import 'read_record_list_calculator.dart';
 
-/// 对齐上游阅读记录三视图；统计/合并位于计算器，持久化位于Repository。— Codex + UI
+/// 对齐上游阅读记录三视图；统计计算器与Rust时间线查询分离，持久化位于Repository。— Codex + UI
 class ReadRecordScreen extends ConsumerStatefulWidget {
   const ReadRecordScreen({super.key});
   @override
@@ -58,10 +58,14 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
   };
 
   Future<void> _refresh() async {
-    ref.invalidate(readRecordDatasetProvider);
-    ref.invalidate(readRecordSessionsProvider);
-    await ref.read(readRecordNotifierProvider.notifier).load();
-    await ref.read(readRecordDatasetProvider.future);
+    final controls = ref.read(readRecordNotifierProvider);
+    final notifier = ref.read(readRecordNotifierProvider.notifier);
+    await Future.wait<Object?>([
+      notifier.load(),
+      ref.refresh(readRecordListDataProvider(controls.searchQuery).future),
+      if (controls.displayMode == ReadRecordDisplayMode.timeline)
+        ref.refresh(readRecordTimelineProvider(controls.searchQuery).future),
+    ]);
   }
 
   void _switchMode() {
@@ -182,14 +186,10 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
   Widget build(BuildContext context) {
     final controls = ref.watch(readRecordNotifierProvider);
     final rows = ref.watch(readRecordListProvider);
-    final data = ref.watch(readRecordDatasetProvider);
-    final summary = data.asData == null
-        ? null
-        : ReadRecordListCalculator.summary(
-            records: data.asData!.value.records,
-            details: data.asData!.value.details,
-            query: controls.searchQuery,
-          );
+    final summary = ref
+        .watch(readRecordListDataProvider(controls.searchQuery))
+        .asData
+        ?.value;
     final selection = _selected.isNotEmpty;
     return PopScope(
       canPop: !selection,
@@ -331,13 +331,13 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
                       child: CustomScrollView(
                         controller: scrollController,
                         slivers: [
-                          if (summary != null && summary.books.isNotEmpty)
+                          if (summary != null && summary.latest.isNotEmpty)
                             SliverToBoxAdapter(
                               child: Padding(
                                 padding: const EdgeInsets.all(16),
                                 child: _summaryCard(
-                                  summary.books,
-                                  summary.durationMs,
+                                  summary.latest,
+                                  summary.totalTimeMs,
                                 ),
                               ),
                             ),
@@ -466,7 +466,7 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
     );
   }
 
-  Widget _summaryCard(List<ReadRecordListEntry> entries, int duration) {
+  Widget _summaryCard(List<ReadRecordBookEntry> entries, int duration) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final books = ref.watch(bookshelfNotifierProvider.select((s) => s.books));
@@ -888,8 +888,7 @@ class _TimelineRailPainter extends CustomPainter {
 
 /// 以日历日期计算天数，避免夏令时导致24小时差值偏移。
 String _friendlyDate(BuildContext context, String date) {
-  final parsed = DateTime.tryParse(date);
-  if (parsed == null) return date;
+  final parsed = DateTime.parse(date);
   final now = DateTime.now();
   final days = DateTime.utc(
     now.year,

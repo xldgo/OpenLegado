@@ -1,54 +1,8 @@
 import 'package:flutter/foundation.dart';
 
-/// 阅读统计时间周期（对齐上游 ReadPeriod）
-enum ReadPeriod { day, week, month, year, all }
-
-/// 书籍阅读排行项（对齐上游 ReadBookRanking）
-@immutable
-class ReadBookRanking {
-  final String bookName;
-  final String author;
-  final int readTimeMs;
-  final String? coverUrl;
-
-  const ReadBookRanking({
-    required this.bookName,
-    required this.author,
-    required this.readTimeMs,
-    this.coverUrl,
-  });
-
-  ReadBookRanking copyWith({
-    String? bookName,
-    String? author,
-    int? readTimeMs,
-    String? coverUrl,
-  }) {
-    return ReadBookRanking(
-      bookName: bookName ?? this.bookName,
-      author: author ?? this.author,
-      readTimeMs: readTimeMs ?? this.readTimeMs,
-      coverUrl: coverUrl ?? this.coverUrl,
-    );
-  }
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is ReadBookRanking &&
-          runtimeType == other.runtimeType &&
-          bookName == other.bookName &&
-          author == other.author &&
-          readTimeMs == other.readTimeMs &&
-          coverUrl == other.coverUrl;
-
-  @override
-  int get hashCode => Object.hash(bookName, author, readTimeMs, coverUrl);
-
-  @override
-  String toString() =>
-      'ReadBookRanking(bookName: $bookName, author: $author, readTimeMs: $readTimeMs, coverUrl: $coverUrl)';
-}
+import '../../domain/models/read_record_statistics.dart';
+export '../../domain/models/read_record_statistics.dart'
+    show ReadPeriod, ReadBookRanking;
 
 /// 阅读总览页面状态（对齐上游 ReadRecordOverviewUiState）
 @immutable

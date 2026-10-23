@@ -13,6 +13,32 @@ class _LoadedPrivacy extends PrivacyController {
 }
 
 void main() {
+  testWidgets('当天查询失败后重试刷新该日查询', (tester) async {
+    final date = DateTime(2026, 10, 13);
+    var attempts = 0;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          privacyControllerProvider.overrideWith(_LoadedPrivacy.new),
+          readRecordDayDetailsProvider(date).overrideWith((ref) async {
+            attempts++;
+            if (attempts == 1) throw StateError('加载失败');
+            return const <ReadBookRanking>[];
+          }),
+        ],
+        child: MaterialApp(
+          home: Scaffold(body: ReadRecordDayDetailsSheet(date: date)),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('阅读明细加载失败'), findsOneWidget);
+    await tester.tap(find.text('重试'));
+    await tester.pumpAndSettle();
+    expect(attempts, 2);
+    expect(find.text('当天没有阅读记录'), findsOneWidget);
+  });
+
   testWidgets('当天明细展示全部书籍与总时长，书籍不直接跳转', (tester) async {
     final date = DateTime(2026, 10, 13);
     await tester.pumpWidget(

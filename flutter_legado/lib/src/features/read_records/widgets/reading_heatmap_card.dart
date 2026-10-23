@@ -53,21 +53,9 @@ class ReadingHeatmapCard extends StatefulWidget {
     );
   }
 
-  static Map<DateTime, int> _parseStringDateMap(Map<String, int> map) {
-    final result = <DateTime, int>{};
-    for (final entry in map.entries) {
-      final parts = entry.key.split('-');
-      if (parts.length == 3) {
-        final year = int.tryParse(parts[0]);
-        final month = int.tryParse(parts[1]);
-        final day = int.tryParse(parts[2]);
-        if (year != null && month != null && day != null) {
-          result[DateTime(year, month, day)] = entry.value;
-        }
-      }
-    }
-    return result;
-  }
+  static Map<DateTime, int> _parseStringDateMap(Map<String, int> map) => {
+    for (final entry in map.entries) DateTime.parse(entry.key): entry.value,
+  };
 
   @override
   State<ReadingHeatmapCard> createState() => _ReadingHeatmapCardState();

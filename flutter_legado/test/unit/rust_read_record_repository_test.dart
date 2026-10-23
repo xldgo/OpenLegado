@@ -4,6 +4,9 @@ import 'package:flutter_legado/src/data/repositories/rust_read_record_repository
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:flutter_rust_bridge/flutter_rust_bridge.dart' show Int64List;
+import 'package:flutter_legado/src/bridge/statistics_dto.dart' as statistics;
+import 'package:flutter_legado/src/domain/models/read_record_statistics.dart';
 
 class _Bridge extends Mock implements RustLibApi {}
 
@@ -11,11 +14,173 @@ void main() {
   final repository = RustReadRecordRepository();
   late _Bridge bridge;
 
+  setUpAll(() => registerFallbackValue(Int64List.fromList([])));
+
   setUp(() {
     bridge = _Bridge();
     RustLib.initMock(api: bridge);
   });
   tearDown(RustLib.dispose);
+
+  test('列表透传搜索并映射两种视图和全量合计，错误不降为空列表', () async {
+    const row = statistics.ReadRecordListRowDto(
+      bookName: '书',
+      author: '作者',
+      date: '2026-10-13',
+      durationMs: 5000,
+      lastRead: 3000,
+    );
+    when(() => bridge.crateFfiFfiReadRecordViews(query: '作者')).thenAnswer(
+      (_) async => const statistics.ReadRecordListDto(
+        aggregate: [row],
+        latest: [],
+        totalTimeMs: 9000,
+      ),
+    );
+    final result = await repository.getReadRecordList('作者');
+    final entry = result.aggregate.single;
+    expect(
+      (
+        entry.bookName,
+        entry.author,
+        entry.date,
+        entry.durationMs,
+        entry.lastRead,
+      ),
+      ('书', '作者', '2026-10-13', 5000, 3000),
+    );
+    expect(result.latest, isEmpty);
+    expect(result.totalTimeMs, 9000);
+    final failure = StateError('列表失败');
+    when(() => bridge.crateFfiFfiReadRecordViews(query: '作者'))
+        .thenAnswer((_) async => throw failure);
+    await expectLater(
+      repository.getReadRecordList('作者'),
+      throwsA(same(failure)),
+    );
+  });
+
+  test('小时查询原样传递本地边界，仅映射秒数并保留错误', () async {
+    final boundaries = List.generate(
+      25,
+      (hour) => 1779235200000 + hour * 3600000,
+    );
+    final seconds = List.generate(24, (hour) => hour + 1);
+    when(
+      () => bridge.crateFfiFfiReadRecordHourly(
+        boundaries: any(named: 'boundaries'),
+      ),
+    ).thenAnswer((_) async => Int64List.fromList(seconds));
+    expect(await repository.getReadRecordHourly(boundaries), seconds);
+    final captured =
+        verify(
+              () => bridge.crateFfiFfiReadRecordHourly(
+                boundaries: captureAny(named: 'boundaries'),
+              ),
+            ).captured.single
+            as Int64List;
+    expect(captured.map((value) => value.toInt()).toList(), boundaries);
+    final failure = StateError('小时查询失败');
+    when(
+      () => bridge.crateFfiFfiReadRecordHourly(
+        boundaries: any(named: 'boundaries'),
+      ),
+    ).thenAnswer((_) async => throw failure);
+    await expectLater(
+      repository.getReadRecordHourly(boundaries),
+      throwsA(same(failure)),
+    );
+  });
+
+  test('周期与日期只传查询参数，统计图与日历投影直接映射，明细查询错误上抛', () async {
+    const book = statistics.ReadBookRankingDto(
+      bookName: '书',
+      author: '作者',
+      readTimeMs: 1200,
+      coverUrl: '封面',
+    );
+    when(
+      () => bridge.crateFfiFfiReadRecordOverview(
+        period: statistics.ReadRecordPeriodDto.month,
+        referenceDate: '2026-02-10',
+      ),
+    ).thenAnswer(
+      (_) async => const statistics.ReadRecordStatisticsDto(
+        totalTimeMs: 1200,
+        readingDays: 1,
+        totalBooks: 1,
+        readingBooks: 1,
+        finishedBooks: 0,
+        topBooks: [book],
+        days: [
+          statistics.ReadDayStatDto(
+            date: '2026-02-10',
+            seconds: 1,
+            bookCount: 1,
+            topBook: book,
+          ),
+        ],
+        chart: [statistics.ReadChartPointDto(date: '2026-02-10', seconds: 1)],
+      ),
+    );
+    final result = await repository.getReadRecordOverview(
+      ReadPeriod.month,
+      DateTime(2026, 2, 10, 15),
+    );
+    expect(result.totalTimeMs, 1200);
+    expect(
+      result.topBooks.single,
+      const ReadBookRanking(
+        bookName: '书',
+        author: '作者',
+        readTimeMs: 1200,
+        coverUrl: '封面',
+      ),
+    );
+    expect(result.allDailyTimes, {'2026-02-10': 1});
+    expect(result.dailyTopBook['2026-02-10']?.coverUrl, '封面');
+    expect(result.dailyTimeData, [(date: DateTime(2026, 2, 10), seconds: 1)]);
+    final failure = StateError('明细查询失败');
+    when(() => bridge.crateFfiFfiReadRecordBooksForDay(date: '2026-02-10'))
+        .thenAnswer((_) async => throw failure);
+    await expectLater(
+      repository.getReadRecordBooksForDay(DateTime(2026, 2, 10)),
+      throwsA(same(failure)),
+    );
+  });
+
+  test('时间线只传查询词，保留Rust原始ID和上下文，查询失败上抛', () async {
+    when(() => bridge.crateFfiFfiReadRecordTimeline(query: '作者')).thenAnswer(
+      (_) async => [
+        ReadRecordTimelineDto(
+          bookName: '书',
+          author: '作者',
+          date: '2026-10-13',
+          bookUrl: 'u',
+          startTime: 1000,
+          endTime: 7000,
+          chapterIndex: 2,
+          sessionIds: Int64List.fromList([9007199254740993, 2]),
+        ),
+      ],
+    );
+    final row = (await repository.getReadRecordTimeline('作者')).single;
+    expect(
+      (row.bookName, row.author, row.date, row.bookUrl, row.chapterIndex),
+      ('书', '作者', '2026-10-13', 'u', 2),
+    );
+    expect(row.sessionIds, [9007199254740993, 2]);
+    expect(row.durationMs, 6000);
+    final failure = StateError('查询失败');
+    when(() => bridge.crateFfiFfiReadRecordTimeline(query: '作者'))
+        .thenAnswer((_) async => throw failure);
+    await expectLater(
+      repository.getReadRecordTimeline('作者'),
+      throwsA(same(failure)),
+    );
+    verify(() => bridge.crateFfiFfiReadRecordTimeline(query: '作者')).called(2);
+    verifyNoMoreInteractions(bridge);
+  });
 
   test('类型化记录保留毫秒和原字段，不缓存查询结果', () async {
     when(() => bridge.crateFfiFfiReadRecordList()).thenAnswer(

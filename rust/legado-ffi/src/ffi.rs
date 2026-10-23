@@ -153,13 +153,14 @@ pub mod ffi {
     use crate::frb_generated::StreamSink;
     use crate::media_dto::*;
     use crate::source_tools_dto::*;
+    use crate::statistics_dto::*;
     use crate::task_dto::*;
     use crate::transfer_dto::{
         AnnotatedCandidateDto, BookDto, BookGroupDto, BookHighlightDto, BookSourceDto, BookmarkDto,
         ChangeSourceBatchDto, ChapterListDto, CheckProgressDto, CheckResultDto, HighlightRuleDto,
         ReadConfigDto, ReadRecordDailyDto, ReadRecordDetailDto, ReadRecordDto,
-        ReadRecordSessionDto, SearchBookDto, SearchSourceBatchDto, SourceCheckConfigDto,
-        SourceSwitchResponseDto, SwitchSearchOptionsDto, TextResponseDto,
+        ReadRecordSessionDto, ReadRecordTimelineDto, SearchBookDto, SearchSourceBatchDto,
+        SourceCheckConfigDto, SourceSwitchResponseDto, SwitchSearchOptionsDto, TextResponseDto,
     };
 
     // ─── 基础 ─────────────────────────────────────────────────
@@ -1864,6 +1865,45 @@ pub mod ffi {
             chapter_index,
         )?;
         Ok(rt)
+    }
+
+    /// 只读查询按日汇总、最后阅读及未过滤累计时长。
+    pub fn read_record_views(query: String) -> Result<ReadRecordListDto, BridgeError> {
+        Ok(crate::api::read_record_api::get_read_record_list(&query)?.into())
+    }
+
+    /// 按平台本地小时边界只读汇总真实会话，返回24个槽的秒数。
+    pub fn read_record_hourly(boundaries: Vec<i64>) -> Result<Vec<i64>, BridgeError> {
+        Ok(crate::api::read_record_api::get_read_record_hourly(
+            &boundaries,
+        )?)
+    }
+
+    /// 只读查询周期统计、排行及日历。
+    pub fn read_record_overview(
+        period: ReadRecordPeriodDto,
+        reference_date: String,
+    ) -> Result<ReadRecordStatisticsDto, BridgeError> {
+        Ok(
+            crate::api::read_record_api::get_read_record_overview(period.into(), &reference_date)?
+                .into(),
+        )
+    }
+    /// 该日全部单书统计，不截取前十。
+    pub fn read_record_books_for_day(date: String) -> Result<Vec<ReadBookRankingDto>, BridgeError> {
+        Ok(
+            crate::api::read_record_api::get_read_record_books_for_day(&date)?
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+        )
+    }
+
+    /// 只读查询已归并的阅读时间线，保留原始会话ID用于删除。
+    pub fn read_record_timeline(query: String) -> Result<Vec<ReadRecordTimelineDto>, BridgeError> {
+        Ok(crate::api::read_record_api::get_read_record_timeline(
+            &query,
+        )?)
     }
 
     /// 查询真实阅读会话（毫秒时间戳与章节序号）。

@@ -102,24 +102,29 @@ Net 的注释称 FFI 已走流式路径，与当前调用链不符。
 
 ### C1：旧音频预加载模块未找到仓库内生产消费者
 
-[audio_preload.rs](../rust/legado-core/src/audio_preload.rs) 定义了
+初次审计的`rust/legado-core/src/audio_preload.rs`（可由
+`git show 837fdf86a:rust/legado-core/src/audio_preload.rs`追溯）定义了
 `AudioPreloadStore`、`AudioDiskCache`、`PlaylistManager`。
-对这些类型逐个查找，使用点局限于该文件自身与测试；`lib.rs` 仍公开模块。
+对这些类型逐个查找，使用点局限于该文件自身与测试；当时`lib.rs`仍公开模块。
 当前正式音频缓存由 [audio_cache_service.rs](../rust/legado-engine/src/audio_cache_service.rs) 管理。
 
-后续可以作为旧代码删除候选核对，不应为了复用而强行接入正式缓存。
-仓库内无调用不等于证明不存在外部 Rust API 消费者；本轮没有删除。
+这些实现不应为了复用而强行接入正式缓存。B6再次核对引用并按用户授权清理，
+删除边界及验证见Active计划；仓库引用调查不等于对外部Rust调用方的证明。
+Server中的同名`AudioChapterInfo`是独立响应模型，不在删除范围。
 
 ### C2：旧的模板式合成入口与仍在用的缓存工具在同一文件
 
-[tts_speak.rs](../rust/legado-core/src/tts_speak.rs) 中，
+初次审计的`rust/legado-core/src/tts_speak.rs`（同一基线可追溯）中，
 `speak_text`（第 256 行）、`build_speak_url` 及其旧响应/结果类型未找到仓库内生产调用，
 相关调用局限于本文件测试；正式 HTTP TTS 已经过 Engine 和 Fetcher 的规则合成链。
 
-但同文件的 `SpeakCache`、MIME 工具仍被
+同文件的 `SpeakCache`、MIME 工具仍被
 [HTTP Fetcher](../rust/legado-fetcher/src/tts_fetcher.rs) 和
 [Cloud Fetcher](../rust/legado-fetcher/src/cloud_tts.rs) 使用。
-只能在确认后拆分和删除旧管线，不能整文件移除，也不能再造一套正式缓存。
+B6将保留部分归位到[speak_cache.rs](../rust/legado-core/src/speak_cache.rs)，
+只改模块归属，不改缓存/MIME算法、文件名或租约机制；旧管线和专属测试不保留转发。
+缓存覆盖保留原四项，旧模板键测试混入的自动任务ID断言移入其已有用例，
+没有因清理模板管线而丢掉其他功能覆盖。
 
 ## 5. Flutter 值得下沉的逻辑
 
@@ -185,5 +190,97 @@ Depth0 PROPFIND。成功200/207、认证401/403、其他HTTP、超时、网络�
 本机启用系统代理，Hosts夹具域名dav.test需要在测试子进程的NO_PROXY追加后运行；
 不修改系统代理、生产客户端或父进程环境。绑定使用固定2.13.0生成器在隔离目录产出，
 依赖锁文件保持。定向验证证据及未测边界统一回填Active计划，不另立进度源。
+
+## 9. B7a 时间线归并边界
+
+参考本地上游ReadRecordViewModel.kt的timelineMap和mergeContinuousSessions，
+及ReadRecordSession.kt的20分钟间隔常量。沿用当前产品的开始日期分组、
+书名/作者搜索、同书同作者相邻归并、首项URL/章节和最大结束时间，不改变计时数据。
+上游合并末尾直接取current.endTime，现有Flutter采用最大值，本批保留现有逻辑。
+
+Rust的[时间线查询](../rust/legado-db/src/repository/read_record_timeline.rs)从数据库
+读取原始会话，返回带date与sessionIds的投影；[页面Provider](../flutter_legado/lib/src/features/read_records/read_record_list_provider.dart)
+不再接收原始会话做归并。原始会话接口继续供小时统计等消费者使用，日期卡片、
+章节名读取、文本格式、选择和导航留Flutter。周期统计及其他列表视图本批未迁移。
+
+原Dart去重忽略deviceId且直接丢弃重复项，使展示项只携带一个副本ID；DB允许不同
+设备的相同区间并存。新查询只折叠展示，收集全部原始ID，避免删除后残留副本；
+计时扣减继续走原始会话事务，归并跨度（含中间间隔）不作为实际阅读增量。
+
+算法用例归Rust，Dart仅测试桥接、通知/仓储替换、错误和删除交互；Mock默认明确
+不支持新查询，页面测试注入类型化时间线夹具，不复制Rust归并算法。验证证据与
+完成范围见Active计划。没有DB迁移、新依赖、原生库运行或性能收益结论。
+
+## 10. B7b 周期统计与日历边界
+
+[Rust统计查询](../rust/legado-db/src/repository/read_record_statistics.rs)直接读取每日明细、
+累计记录及正式书架，统一周期时长、本数/天数、排行、日历封面与当天单书明细。
+累计总时长继续来自累计表；日历与周期排行仅由有效正数明细产生，不补造缺失历史。
+同日同名同作者跨设备归并，空作者仍构成身份；同日最长并列时保留最后阅读较新者。
+当天明细不复用前十排行，完整返回并按时长、名称、作者排序。
+
+类型化DTO分别返回days和chart，Flutter只映射成已有图表/日历模型，保留日期导航与
+文案格式。参数化Provider负责迟到查询归属，既有成功变更通知及书架变化触发失效，
+不增加另一套锁或代次。首页固定all查询，最近阅读另取累计记录，不再拉全量每日明细。
+Mock默认明确不支持统计查询，测试直接提供结果夹具，不复制Rust算法。
+
+本批不处理本地小时/DST会话求交集、记录页汇总/最后阅读列表、最近阅读开书匹配；
+不改计时写入、数据库、依赖、应用版本或UI样式。聚合算法测试归Rust，Dart保留查询
+编排、刷新/失败、导航隔离和交互回归。FRB绑定通过生成器更新，原生库未重新加载，
+设备与性能未测；具体证据及批次状态以Active计划为准。
+
+## 11. B7c 平台小时边界与会话聚合
+
+平台本地时区、夏令时及日历归Flutter：以DateTime(year,month,day,hour)生成0..24点
+共25个Unix毫秒边界，不用起点加固定24小时构造一天。Rust不再独立解析本地日期，
+直接消费边界；允许相邻边界相等的跳时槽和跨度超过一小时的回拨槽。
+
+[小时查询](../rust/legado-db/src/repository/read_record_hourly.rs)先用SQL筛选与当天半开
+范围相交的有效会话，只读取起止时间，再将各会话与24个槽求交集。各槽毫秒汇总后
+取秒，不借每日总量补造小时图，也不把时间线的设备副本折叠规则引入原有小时口径。
+查询不写会话或计时表；调用方保证边界形状，不排序、补齐或静默改时区。
+用户复核后确认唯一Flutter入口固定生成，运行时形状检查注释保留，移除其非法输入
+测试，继续验证真实的跨日、夏令时和毫秒汇总行为。
+
+Flutter的小时Provider只传时间戳和映射图表坐标，订阅既有成功变更，异步归属交由
+Riverpod；无消费者的全量会话Provider及对应转出删除，原始会话查询接口继续保留。
+原Dart小时聚合测试由Rust组合场景承接，Dart仅验证边界传递、i64列表映射、刷新与
+错误/迟到结果；不对DB约束禁止的空或倒序会话绕过约束造测试。未做多时区真机或
+性能测量，不把合成的夏令时边界用例当作平台时区验收。状态和证据统一见Active。
+
+## 12. B7d 记录列表投影与重复数据链清理
+
+[列表查询](../rust/legado-db/src/repository/read_record_list.rs)统一返回按日汇总、最后阅读
+和未过滤累计总时长；页面与摘要共用同一搜索参数查询。明细先按正时长、合法日期和
+书名/作者搜索筛选，再按身份与日期归并，保留设备时长叠加和最后阅读最大值。
+latest只在原始明细完全没有同名书时使用累计项，不因筛选结果为空而补造历史，
+累计作者集合字符串不拆分。这是现有口径的职责迁移，不是新的历史数据兼容层。
+
+新增FFI命名为read_record_views，原始read_record_list()继续返回原记录，互不替代。
+类型化列表字段含bookName/author/date/durationMs/lastRead；Flutter只做界面选中键、
+日期卡片组织/合计、格式化、书架封面匹配和导航。时间线仍由B7a单独查询，不混入
+累计或每日数据。视图切换复用同一列表投影，摘要直接使用latest和totalTimeMs。
+
+旧全量Dataset移除，最近阅读仍有消费者的累计Provider归位独立文件，不留旧路径转发。
+偏好Notifier原来的records/totalReadTimeMs、业务排序及无人调用的删除/查书包装移除，
+只保留共享偏好加载、记录开关、搜索状态和偏好持久化；计时和删除仓储事务不变。
+列表下拉刷新、当天明细重试、首页统计重试均指向实际查询，不再失效旧快照。
+
+算法组合测试由Rust承接，Dart保留查询/通知/仓储替换、偏好、删除交互与重试；Mock
+直接提供列表投影，不从其原始数据重写归并。无DB迁移、新依赖、版本变动、原生库
+加载或设备/性能验收；结果及证据统一维护于Active计划。
+
+## 13. B7e 固定输入与订阅生命周期检查精简
+
+周期标签表覆盖完整枚举，TabBar点击索引由同一表产生，移除越界回退和重复范围检查；
+仍保留索引变化才动画的条件。热力图和日期标签只消费Rust已归一化日期，直接转换，
+不再默默忽略格式错误或回退原文；日期分组仅用于汇总/时间线，移除空串兜底。
+柱状图rawMaxSec<=0与紧随其后的rawMaxSec<60返回相同值，删除被覆盖分支。
+
+六处变更通知回调均为同步处理，Provider销毁时已经调用subscription.cancel；依据
+[Dart取消订阅契约](https://api.dart.dev/dart-async/StreamSubscription/cancel.html)，调用后
+不再接收事件，Future仅表示资源清理结束，因此去掉回调内重复mounted检查。
+onDispose取消、跨await的生命周期处理及其他真实数据校验保留。这里是特定调用链
+的精简，不建立全仓禁止mounted、日期解析或输入校验的规则；验证状态见Active。
 
 编写者：Codex + Rust / UI｜2026-10-23

@@ -11,6 +11,7 @@ import '../file_dto.dart';
 import '../frb_generated.dart';
 import '../media_dto.dart';
 import '../source_tools_dto.dart';
+import '../statistics_dto.dart';
 import '../task_dto.dart';
 import '../transfer_dto.dart';
 
@@ -1355,6 +1356,33 @@ Future<PlatformInt64> readRecordRecordTime({
   bookUrl: bookUrl,
   chapterIndex: chapterIndex,
 );
+
+/// 只读查询按日汇总、最后阅读及未过滤累计时长。
+Future<ReadRecordListDto> readRecordViews({required String query}) =>
+    RustLib.instance.api.crateFfiFfiReadRecordViews(query: query);
+
+/// 按平台本地小时边界只读汇总真实会话，返回24个槽的秒数。
+Future<Int64List> readRecordHourly({required Int64List boundaries}) =>
+    RustLib.instance.api.crateFfiFfiReadRecordHourly(boundaries: boundaries);
+
+/// 只读查询周期统计、排行及日历。
+Future<ReadRecordStatisticsDto> readRecordOverview({
+  required ReadRecordPeriodDto period,
+  required String referenceDate,
+}) => RustLib.instance.api.crateFfiFfiReadRecordOverview(
+  period: period,
+  referenceDate: referenceDate,
+);
+
+/// 该日全部单书统计，不截取前十。
+Future<List<ReadBookRankingDto>> readRecordBooksForDay({
+  required String date,
+}) => RustLib.instance.api.crateFfiFfiReadRecordBooksForDay(date: date);
+
+/// 只读查询已归并的阅读时间线，保留原始会话ID用于删除。
+Future<List<ReadRecordTimelineDto>> readRecordTimeline({
+  required String query,
+}) => RustLib.instance.api.crateFfiFfiReadRecordTimeline(query: query);
 
 /// 查询真实阅读会话（毫秒时间戳与章节序号）。
 Future<List<ReadRecordSessionDto>> readRecordSessionList() =>

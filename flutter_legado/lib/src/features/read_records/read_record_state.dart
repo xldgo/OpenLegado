@@ -2,17 +2,10 @@ import '../../domain/models/read_record_settings.dart'
     show ReadRecordDisplayMode, ReadRecordSortMode;
 export '../../domain/models/read_record_settings.dart'
     show ReadRecordDisplayMode, ReadRecordSortMode;
-import '../../models/models.dart';
 import '../../domain/models/read_record_settings.dart';
 
 /// 阅读记录页状态（对齐原版 ReadRecordActivity）
 class ReadRecordState {
-  /// 当前展示列表（已按搜索/排序过滤）
-  final List<ReadRecordShow> records;
-
-  /// 全部阅读时长合计（毫秒，对齐原版 allTime）
-  final int totalReadTimeMs;
-
   /// 搜索关键词
   final String searchQuery;
 
@@ -30,8 +23,6 @@ class ReadRecordState {
   final String? error;
 
   const ReadRecordState({
-    this.records = const [],
-    this.totalReadTimeMs = 0,
     this.searchQuery = '',
     this.sortMode = ReadRecordSortMode.name,
     this.displayMode = ReadRecordDisplayMode.aggregate,
@@ -41,8 +32,6 @@ class ReadRecordState {
   });
 
   ReadRecordState copyWith({
-    List<ReadRecordShow>? records,
-    int? totalReadTimeMs,
     String? searchQuery,
     ReadRecordSortMode? sortMode,
     ReadRecordDisplayMode? displayMode,
@@ -52,8 +41,6 @@ class ReadRecordState {
     bool clearError = false,
   }) {
     return ReadRecordState(
-      records: records ?? this.records,
-      totalReadTimeMs: totalReadTimeMs ?? this.totalReadTimeMs,
       searchQuery: searchQuery ?? this.searchQuery,
       sortMode: sortMode ?? this.sortMode,
       displayMode: displayMode ?? this.displayMode,

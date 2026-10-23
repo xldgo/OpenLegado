@@ -1,130 +1,138 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../models/models.dart';
+import '../../domain/contracts/read_record_changes.dart';
+import '../../domain/models/read_record_statistics.dart';
 import '../bookshelf/bookshelf.dart';
-import 'read_record_dataset.dart';
+import 'read_record_repository_provider.dart';
 import 'read_record_overview_calculator.dart';
 import 'read_record_overview_state.dart';
 
-/// 周期选择独立于记录页搜索；所有数据来自真实、未过滤的存储快照。— Codex + UI
-class ReadRecordOverviewNotifier extends Notifier<ReadRecordOverviewState> {
-  int _requestGeneration = 0;
+/// 周期与日期是页面状态，查询与迟到结果归属交给Riverpod。— Codex + UI
+class _OverviewSelection extends Notifier<(ReadPeriod, DateTime)> {
+  @override
+  (ReadPeriod, DateTime) build() {
+    final now = DateTime.now();
+    return (ReadPeriod.day, DateTime(now.year, now.month, now.day));
+  }
 
+  void select(ReadPeriod period, DateTime date) => state = (period, date);
+}
+
+final _selectionProvider =
+    NotifierProvider<_OverviewSelection, (ReadPeriod, DateTime)>(
+      _OverviewSelection.new,
+    );
+
+final readRecordStatisticsProvider = FutureProvider.autoDispose
+    .family<ReadRecordStatistics, (ReadPeriod, DateTime)>((ref, query) {
+      final repository = ref.watch(readRecordRepositoryProvider);
+      // 封面和读完状态由DB读取；书架写回后的状态变化触发重新查询。
+      ref.watch(bookshelfNotifierProvider.select((state) => state.books));
+      if (repository is ReadRecordChangeSource) {
+        final subscription = (repository as ReadRecordChangeSource).changes
+            .listen((_) {
+              ref.invalidateSelf();
+            });
+        ref.onDispose(subscription.cancel);
+      }
+      return repository.getReadRecordOverview(query.$1, query.$2);
+    });
+
+/// 只传本地日历边界，不把全量原始会话带回Flutter。— Codex + UI
+final readRecordHourlyProvider = FutureProvider.autoDispose
+    .family<List<({DateTime date, int seconds})>, DateTime>((ref, date) async {
+      final repository = ref.watch(readRecordRepositoryProvider);
+      if (repository is ReadRecordChangeSource) {
+        final subscription = (repository as ReadRecordChangeSource).changes
+            .listen((_) {
+              ref.invalidateSelf();
+            });
+        ref.onDispose(subscription.cancel);
+      }
+      final boundaries = ReadRecordOverviewCalculator.hourBoundaries(date);
+      final seconds = await repository.getReadRecordHourly(
+        boundaries.map((date) => date.millisecondsSinceEpoch).toList(),
+      );
+      return List.generate(
+        24,
+        (hour) => (date: boundaries[hour], seconds: seconds[hour]),
+      );
+    });
+
+ReadRecordOverviewState _overviewState(
+  ReadPeriod period,
+  DateTime date,
+  AsyncValue<ReadRecordStatistics> result,
+) {
+  final data = result.asData?.value;
+  return ReadRecordOverviewState(
+    period: period,
+    referenceDate: date,
+    totalTimeMs: data?.totalTimeMs ?? 0,
+    readingDays: data?.readingDays ?? 0,
+    totalBooks: data?.totalBooks ?? 0,
+    finishedBooks: data?.finishedBooks ?? 0,
+    readingBooks: data?.readingBooks ?? 0,
+    topBooks: data?.topBooks ?? const [],
+    dailyTimeData: data?.dailyTimeData ?? const [],
+    dailyTopBook: data?.dailyTopBook ?? const {},
+    allDailyTimes: data?.allDailyTimes ?? const {},
+    allDailyCounts: data?.allDailyCounts ?? const {},
+    isLoading: result.isLoading,
+    error: result.error?.toString(),
+  );
+}
+
+class ReadRecordOverviewNotifier extends Notifier<ReadRecordOverviewState> {
   @override
   ReadRecordOverviewState build() {
-    final data = ref.watch(readRecordDatasetProvider);
-    final sessions = ref.watch(readRecordSessionsProvider);
-    final books = ref.watch(bookshelfNotifierProvider.select((s) => s.books));
-    final previous =
-        stateOrNull ?? ReadRecordOverviewState(referenceDate: DateTime.now());
-    if (data.asData case final snapshot?) {
-      return computeOverview(
-        period: previous.period,
-        referenceDate: previous.referenceDate,
-        details: snapshot.value.details,
-        records: snapshot.value.records,
-        shelfBooks: books,
-        sessions: sessions.asData?.value ?? const [],
-      ).copyWith(
-        isLoading:
-            data.isLoading ||
-            (previous.period == ReadPeriod.day && sessions.isLoading),
-        error: previous.period == ReadPeriod.day
-            ? sessions.error?.toString()
-            : null,
-      );
-    }
-    return previous.copyWith(
-      isLoading: data.isLoading,
-      error: data.error?.toString(),
-      clearError: !data.hasError,
+    final query = ref.watch(_selectionProvider);
+    final result = ref.watch(readRecordStatisticsProvider(query));
+    final value = _overviewState(query.$1, query.$2, result);
+    if (query.$1 != ReadPeriod.day) return value;
+    final hourly = ref.watch(readRecordHourlyProvider(query.$2));
+    return value.copyWith(
+      dailyTimeData: hourly.asData?.value ?? const [],
+      isLoading: result.isLoading || hourly.isLoading,
+      error: result.error?.toString() ?? hourly.error?.toString(),
     );
   }
 
   void setPeriod(ReadPeriod period) {
-    if (state.period == period) return;
-    _select(period, state.referenceDate);
-  }
-
-  void previousPeriod() => _select(
-    state.period,
-    ReadRecordOverviewCalculator.stepDate(
-      state.period,
-      state.referenceDate,
-      -1,
-    ),
-  );
-
-  void nextPeriod() => _select(
-    state.period,
-    ReadRecordOverviewCalculator.stepDate(state.period, state.referenceDate, 1),
-  );
-
-  void _select(ReadPeriod period, DateTime date) {
-    final snapshot = ref.read(readRecordDatasetProvider).asData?.value;
-    final sessions = ref.read(readRecordSessionsProvider);
-    state = snapshot == null
-        ? state.copyWith(period: period, referenceDate: date)
-        : computeOverview(
-            period: period,
-            referenceDate: date,
-            details: snapshot.details,
-            records: snapshot.records,
-            shelfBooks: ref.read(bookshelfNotifierProvider).books,
-            sessions: sessions.asData?.value ?? const [],
-          ).copyWith(
-            isLoading: period == ReadPeriod.day && sessions.isLoading,
-            error: period == ReadPeriod.day ? sessions.error?.toString() : null,
-          );
-  }
-
-  /// 明确重新查询；重叠请求、销毁和数据源替换后的旧结果不回写。
-  Future<void> refresh() async {
-    final generation = ++_requestGeneration;
-    state = state.copyWith(isLoading: true, clearError: true);
-    try {
-      final results = await Future.wait<Object>([
-        ref.refresh(readRecordDatasetProvider.future),
-        ref.refresh(readRecordSessionsProvider.future),
-      ]);
-      final snapshot = results[0] as ReadRecordDataset;
-      final sessions = results[1] as List<ReadRecordSession>;
-      if (!ref.mounted || generation != _requestGeneration) return;
-      state = computeOverview(
-        period: state.period,
-        referenceDate: state.referenceDate,
-        details: snapshot.details,
-        records: snapshot.records,
-        shelfBooks: ref.read(bookshelfNotifierProvider).books,
-        sessions: sessions,
-      );
-    } catch (error) {
-      if (ref.mounted && generation == _requestGeneration) {
-        state = state.copyWith(isLoading: false, error: error.toString());
-      }
+    if (state.period != period) {
+      ref.read(_selectionProvider.notifier).select(period, state.referenceDate);
     }
   }
 
-  static ReadRecordOverviewState computeOverview({
-    required ReadPeriod period,
-    required DateTime referenceDate,
-    required List<ReadRecordDetail> details,
-    required List<ReadRecord> records,
-    required List<Book> shelfBooks,
-    List<ReadRecordSession> sessions = const [],
-  }) => ReadRecordOverviewCalculator.compute(
-    period: period,
-    referenceDate: referenceDate,
-    details: details,
-    records: records,
-    shelfBooks: shelfBooks,
-    sessions: sessions,
-  );
+  void previousPeriod() => _step(-1);
+  void nextPeriod() => _step(1);
+  void _step(int step) => ref
+      .read(_selectionProvider.notifier)
+      .select(
+        state.period,
+        ReadRecordOverviewCalculator.stepDate(
+          state.period,
+          state.referenceDate,
+          step,
+        ),
+      );
+
+  Future<void> refresh() async {
+    final query = ref.read(_selectionProvider);
+    final requests = <Future<Object?>>[
+      ref.refresh(readRecordStatisticsProvider(query).future),
+      if (query.$1 == ReadPeriod.day)
+        ref.refresh(readRecordHourlyProvider(query.$2).future),
+    ];
+    // 错误由当前查询的AsyncValue呈现，不将旧查询的失败写到新页面选择。
+    await Future.wait(requests)
+        .then<void>((_) {}, onError: (Object _, StackTrace _) {});
+  }
 
   static (DateTime, DateTime) getPeriodRange(
     ReadPeriod period,
-    DateTime refDate,
-  ) => ReadRecordOverviewCalculator.getPeriodRange(period, refDate);
+    DateTime date,
+  ) => ReadRecordOverviewCalculator.getPeriodRange(period, date);
 }
 
 final readRecordOverviewNotifierProvider =
@@ -132,23 +140,13 @@ final readRecordOverviewNotifierProvider =
       ReadRecordOverviewNotifier.new,
     );
 
-/// 首页固定展示累计排行及当月日历，不跟随总览页的日期导航。— Codex + UI
+/// 首页固定all查询，独立于总览页导航。
 final homeReadRecordOverviewProvider = Provider<ReadRecordOverviewState>((ref) {
-  final snapshot = ref.watch(readRecordDatasetProvider);
-  final books = ref.watch(bookshelfNotifierProvider.select((s) => s.books));
-  final today = DateTime.now();
-  final data = snapshot.asData?.value;
-  return data == null
-      ? ReadRecordOverviewState(
-          referenceDate: today,
-          isLoading: snapshot.isLoading,
-          error: snapshot.error?.toString(),
-        )
-      : ReadRecordOverviewCalculator.compute(
-          period: ReadPeriod.all,
-          referenceDate: today,
-          details: data.details,
-          records: data.records,
-          shelfBooks: books,
-        );
+  final now = DateTime.now();
+  final date = DateTime(now.year, now.month, now.day);
+  return _overviewState(
+    ReadPeriod.all,
+    date,
+    ref.watch(readRecordStatisticsProvider((ReadPeriod.all, date))),
+  );
 });

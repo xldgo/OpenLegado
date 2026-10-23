@@ -107,6 +107,18 @@ pub fn get_read_record_sessions() -> LegadoResult<Vec<legado_db::ReadRecordSessi
     with_database(|db| ReadRecordRepository::new(db.connection()).list_read_sessions())
 }
 
+pub fn get_read_record_timeline(
+    query: &str,
+) -> LegadoResult<Vec<crate::transfer_dto::ReadRecordTimelineDto>> {
+    with_database(|db| {
+        Ok(ReadRecordRepository::new(db.connection())
+            .list_read_timeline(query)?
+            .into_iter()
+            .map(Into::into)
+            .collect())
+    })
+}
+
 pub fn delete_read_record_detail(name: &str, author: &str, date: &str) -> LegadoResult<bool> {
     with_database(|db| {
         ReadRecordRepository::new(db.connection()).delete_read_detail(name, author, date)
@@ -136,6 +148,39 @@ pub fn clear_read_records() -> LegadoResult<bool> {
         let repo = ReadRecordRepository::new(db.connection());
         repo.clear_all()?;
         Ok(true)
+    })
+}
+
+/// 列表与摘要共用只读投影。
+pub fn get_read_record_list(
+    query: &str,
+) -> LegadoResult<legado_db::repository::read_record_list::ReadRecordList> {
+    with_database(|db| {
+        legado_db::repository::read_record_list::query_read_list(db.connection(), query)
+    })
+}
+
+/// 按平台给定的小时边界汇总真实会话。
+pub fn get_read_record_hourly(boundaries: &[i64]) -> LegadoResult<Vec<i64>> {
+    with_database(|db| {
+        legado_db::repository::read_record_hourly::query_read_hourly(db.connection(), boundaries)
+    })
+}
+
+/// 按周期读取真实明细及累计记录，不写回统计快照。
+pub fn get_read_record_overview(
+    period: legado_db::repository::read_record_statistics::ReadRecordPeriod,
+    date: &str,
+) -> LegadoResult<legado_db::repository::read_record_statistics::ReadRecordStatistics> {
+    with_database(|db| {
+        legado_db::repository::read_record_statistics::query_overview(db.connection(), period, date)
+    })
+}
+pub fn get_read_record_books_for_day(
+    date: &str,
+) -> LegadoResult<Vec<legado_db::repository::read_record_statistics::ReadBookRanking>> {
+    with_database(|db| {
+        legado_db::repository::read_record_statistics::query_books_for_day(db.connection(), date)
     })
 }
 

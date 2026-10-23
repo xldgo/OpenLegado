@@ -91,6 +91,35 @@ pub struct ReadRecordDailyDto {
     pub seconds: i64,
 }
 
+/// 时间线投影保留原始ID集合；展示跨度不写入累计计时。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReadRecordTimelineDto {
+    pub book_name: String,
+    pub author: String,
+    pub date: String,
+    pub book_url: String,
+    pub start_time: i64,
+    pub end_time: i64,
+    pub chapter_index: i32,
+    pub session_ids: Vec<i64>,
+}
+impl From<legado_db::repository::read_record_timeline::ReadRecordTimelineEntry>
+    for ReadRecordTimelineDto
+{
+    fn from(value: legado_db::repository::read_record_timeline::ReadRecordTimelineEntry) -> Self {
+        Self {
+            book_name: value.book_name,
+            author: value.author,
+            date: value.date,
+            book_url: value.book_url,
+            start_time: value.start_time,
+            end_time: value.end_time,
+            chapter_index: value.chapter_index,
+            session_ids: value.session_ids,
+        }
+    }
+}
+
 /// 真实阅读会话；不在桥接层重新分片或折算时间。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReadRecordSessionDto {

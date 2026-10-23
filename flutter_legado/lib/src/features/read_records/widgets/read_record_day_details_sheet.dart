@@ -6,7 +6,6 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../widgets/book_cover.dart';
 import '../../../widgets/bottom_sheet_widget.dart';
-import '../read_record_dataset.dart';
 import '../read_record_day_details_provider.dart';
 import '../read_record_screen.dart' show formatDuring;
 
@@ -43,7 +42,8 @@ class ReadRecordDayDetailsSheet extends ConsumerWidget {
           error: (error, stack) => [
             const Text('阅读明细加载失败'),
             TextButton(
-              onPressed: () => ref.invalidate(readRecordDatasetProvider),
+              onPressed: () =>
+                  ref.invalidate(readRecordDayDetailsProvider(date)),
               child: const Text('重试'),
             ),
           ],

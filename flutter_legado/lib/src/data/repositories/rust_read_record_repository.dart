@@ -9,6 +9,10 @@ import '../../domain/contracts/read_record_changes.dart';
 import '../../models/misc.dart';
 import '../../models/read_record_detail.dart';
 import '../../models/read_record_session.dart';
+import '../../domain/models/read_record_timeline_entry.dart';
+import '../../domain/models/read_record_statistics.dart';
+import '../../domain/models/read_record_list.dart';
+import '../../bridge/statistics_dto.dart' as statistics;
 import '../bridge/reading_dto_mapping.dart';
 
 /// 直接调用已有 FRB；复用应用已初始化的运行时和数据库。— Codex + Bridge
@@ -118,6 +122,116 @@ final class RustReadRecordRepository
       () => bridge.readRecordSessionList(),
       operation: 'readRecordSessionList',
     )).map(readRecordSessionFromDto).toList();
+  }
+
+  @override
+  Future<List<ReadRecordTimelineEntry>> getReadRecordTimeline(
+    String query,
+  ) async =>
+      (await rustFuture(
+            () => bridge.readRecordTimeline(query: query),
+            operation: 'readRecordTimeline',
+          ))
+          .map(
+            (row) => ReadRecordTimelineEntry(
+              bookName: row.bookName,
+              author: row.author,
+              date: row.date,
+              bookUrl: row.bookUrl,
+              startTime: row.startTime,
+              endTime: row.endTime,
+              chapterIndex: row.chapterIndex,
+              sessionIds: List.unmodifiable(
+                row.sessionIds.map((id) => id.toInt()),
+              ),
+            ),
+          )
+          .toList();
+
+  ReadRecordBookEntry _listEntry(statistics.ReadRecordListRowDto row) =>
+      ReadRecordBookEntry(
+        bookName: row.bookName,
+        author: row.author,
+        date: row.date,
+        durationMs: row.durationMs,
+        lastRead: row.lastRead,
+      );
+
+  @override
+  Future<ReadRecordListData> getReadRecordList(String query) async {
+    final result = await rustFuture(
+      () => bridge.readRecordViews(query: query),
+      operation: 'readRecordList',
+    );
+    return ReadRecordListData(
+      aggregate: result.aggregate.map(_listEntry).toList(),
+      latest: result.latest.map(_listEntry).toList(),
+      totalTimeMs: result.totalTimeMs,
+    );
+  }
+
+  @override
+  Future<List<int>> getReadRecordHourly(List<int> boundaries) async =>
+      (await rustFuture(
+        () =>
+            bridge.readRecordHourly(boundaries: Int64List.fromList(boundaries)),
+        operation: 'readRecordHourly',
+      )).map((seconds) => seconds.toInt()).toList();
+
+  String _dateKey(DateTime date) =>
+      '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  ReadBookRanking _ranking(statistics.ReadBookRankingDto row) =>
+      ReadBookRanking(
+        bookName: row.bookName,
+        author: row.author,
+        readTimeMs: row.readTimeMs,
+        coverUrl: row.coverUrl,
+      );
+  @override
+  Future<List<ReadBookRanking>> getReadRecordBooksForDay(DateTime date) async =>
+      (await rustFuture(
+        () => bridge.readRecordBooksForDay(date: _dateKey(date)),
+        operation: 'readRecordBooksForDay',
+      )).map(_ranking).toList();
+  @override
+  Future<ReadRecordStatistics> getReadRecordOverview(
+    ReadPeriod period,
+    DateTime date,
+  ) async {
+    final result = await rustFuture(
+      () => bridge.readRecordOverview(
+        period: switch (period) {
+          ReadPeriod.day => statistics.ReadRecordPeriodDto.day,
+          ReadPeriod.week => statistics.ReadRecordPeriodDto.week,
+          ReadPeriod.month => statistics.ReadRecordPeriodDto.month,
+          ReadPeriod.year => statistics.ReadRecordPeriodDto.year,
+          ReadPeriod.all => statistics.ReadRecordPeriodDto.all,
+        },
+        referenceDate: _dateKey(date),
+      ),
+      operation: 'readRecordOverview',
+    );
+    return ReadRecordStatistics(
+      totalTimeMs: result.totalTimeMs,
+      readingDays: result.readingDays,
+      totalBooks: result.totalBooks,
+      finishedBooks: result.finishedBooks,
+      readingBooks: result.readingBooks,
+      topBooks: result.topBooks.map(_ranking).toList(),
+      dailyTimeData: result.chart
+          .map((p) => (date: DateTime.parse(p.date), seconds: p.seconds))
+          .toList(),
+      allDailyTimes: {for (final day in result.days) day.date: day.seconds},
+      allDailyCounts: {for (final day in result.days) day.date: day.bookCount},
+      dailyTopBook: {
+        for (final day in result.days)
+          day.date: (
+            bookName: day.topBook.bookName,
+            author: day.topBook.author,
+            coverUrl: day.topBook.coverUrl,
+          ),
+      },
+    );
   }
 
   @override

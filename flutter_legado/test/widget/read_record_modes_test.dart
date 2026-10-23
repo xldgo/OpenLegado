@@ -16,13 +16,104 @@ import 'package:flutter_legado/src/widgets/app_animated_text_line.dart';
 
 import '../mocks/mocks.dart';
 
+import 'package:flutter_legado/src/domain/models/read_record_timeline_entry.dart';
+import 'package:flutter_legado/src/domain/models/read_record_list.dart';
+
+ReadRecordBookEntry fixtureEntry(
+  String name,
+  DateTime date, {
+  String author = '作者',
+  int duration = 60000,
+}) => ReadRecordBookEntry(
+  bookName: name,
+  author: author,
+  date:
+      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}',
+  durationMs: duration,
+  lastRead: date.millisecondsSinceEpoch,
+);
+
+// 直接提供查询投影，不从Mock原始记录重新执行归并算法。
+ReadRecordListData listFixture(
+  List<ReadRecordBookEntry> rows, {
+  int total = 60000,
+}) => ReadRecordListData(
+  aggregate: rows,
+  latest: [
+    for (final row in rows)
+      ReadRecordBookEntry(
+        bookName: row.bookName,
+        author: row.author,
+        durationMs: row.durationMs,
+        lastRead: row.lastRead,
+      ),
+  ],
+  totalTimeMs: total,
+);
+
+/// 归并结果由夹具直接提供，不在Mock中重写Rust算法。
+class _TimelineRepository extends MockReadRecordRepository {
+  ReadRecordListData listData = const ReadRecordListData();
+  @override
+  Future<ReadRecordListData> getReadRecordList(String query) async => listData;
+  @override
+  Future<void> clearReadRecords() async {
+    listData = const ReadRecordListData();
+    await super.clearReadRecords();
+  }
+
+  @override
+  Future<void> deleteReadRecord(String name, {String? author}) async {
+    listData = const ReadRecordListData();
+    await super.deleteReadRecord(name, author: author);
+  }
+
+  @override
+  Future<void> deleteReadRecordDetail(
+    String name,
+    String author,
+    String date,
+  ) async {
+    listData = const ReadRecordListData();
+    await super.deleteReadRecordDetail(name, author, date);
+  }
+
+  List<ReadRecordTimelineEntry> timeline = [];
+  List<int>? deletedIds;
+  @override
+  Future<List<ReadRecordTimelineEntry>> getReadRecordTimeline(
+    String query,
+  ) async => timeline;
+  @override
+  Future<void> deleteReadRecordSessions(List<int> ids) async {
+    deletedIds = List.of(ids);
+    timeline = timeline
+        .where((row) => !row.sessionIds.any(ids.contains))
+        .toList();
+    if (timeline.isEmpty) listData = const ReadRecordListData();
+    await super.deleteReadRecordSessions(ids);
+  }
+}
+
+ReadRecordTimelineEntry _lateTimelineFixture(int end) =>
+    ReadRecordTimelineEntry(
+      bookName: '测试小说',
+      author: '作者',
+      date: '2026-10-13',
+      bookUrl: 'u',
+      startTime: end - 60000,
+      endTime: end,
+      chapterIndex: 2,
+      sessionIds: const [2],
+    );
+
 void main() {
   setUpAll(registerFallbacks);
-  late MockReadRecordRepository repo;
+  late _TimelineRepository repo;
   late MockRustApi api;
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
-    repo = MockReadRecordRepository();
+    repo = _TimelineRepository();
     api = MockRustApi();
     when(() => api.bookshelfRepository.getBooks()).thenAnswer((_) async => []);
     when(() => api.bookGroupRepository.getBookGroups())
@@ -30,6 +121,9 @@ void main() {
     when(() => api.readingRepository.getChapters(any()))
         .thenAnswer((_) async => [const BookChapter(index: 2, title: '第三章')]);
     final end = DateTime(2026, 10, 13, 12).millisecondsSinceEpoch;
+    repo.listData = listFixture([
+      fixtureEntry('测试小说', DateTime(2026, 10, 13, 12)),
+    ]);
     await repo.putReadRecord(
       ReadRecord(
         bookName: '测试小说',
@@ -41,6 +135,18 @@ void main() {
       bookUrl: 'u',
       chapterIndex: 2,
     );
+    repo.timeline = [
+      ReadRecordTimelineEntry(
+        bookName: '测试小说',
+        author: '作者',
+        date: '2026-10-13',
+        bookUrl: 'u',
+        startTime: end - 60000,
+        endTime: end,
+        chapterIndex: 2,
+        sessionIds: const [1],
+      ),
+    ];
   });
   Future<void> pump(
     WidgetTester tester, {
@@ -109,6 +215,10 @@ void main() {
         lastRead: end,
       ),
     );
+    repo.listData = listFixture([
+      ...repo.listData.aggregate,
+      fixtureEntry('第二本小说', DateTime(2026, 10, 13, 12)),
+    ], total: 120000);
     await pump(tester);
     expect(titleText('阅读记录'), findsOneWidget);
     expect(titleText('汇总视图'), findsOneWidget);
@@ -222,6 +332,9 @@ void main() {
         ),
       );
     }
+    repo.listData = listFixture([
+      for (final name in ['当天甲书', '当天乙书']) fixtureEntry(name, day),
+    ], total: 120000);
     await pump(tester);
     final date =
         '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
@@ -267,6 +380,9 @@ void main() {
           lastRead: day.millisecondsSinceEpoch,
         ),
       );
+      repo.listData = listFixture([
+        fixtureEntry('长时长样例', day, author: '', duration: duration),
+      ], total: duration);
       await pump(tester, width: size.$1, textScale: size.$2);
       final date =
           '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
@@ -303,6 +419,7 @@ void main() {
           lastRead: day.millisecondsSinceEpoch,
         ),
       );
+      repo.listData = listFixture([fixtureEntry('日期样例', day, author: '')]);
       await pump(tester);
       final date =
           '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
@@ -337,6 +454,7 @@ void main() {
       bookUrl: 'u',
       chapterIndex: 2,
     );
+    repo.timeline.insert(0, _lateTimelineFixture(end));
     await pump(tester);
     await tester.tap(find.byTooltip('切换阅读记录视图'));
     await tester.pumpAndSettle();
@@ -387,6 +505,7 @@ void main() {
       bookUrl: 'u',
       chapterIndex: 2,
     );
+    repo.timeline.insert(0, _lateTimelineFixture(end));
     await pump(tester);
     await tester.tap(find.byTooltip('切换阅读记录视图'));
     await tester.pumpAndSettle();
@@ -450,6 +569,46 @@ void main() {
     expect(await repo.getReadRecords(), isEmpty);
     expect(await repo.getReadRecordSessions(), isEmpty);
     expect(await repo.getAllReadRecordDetails(), isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('时间线删除传递整个归并项的原始ID，成功后刷新为空', (tester) async {
+    final end = DateTime(2026, 10, 13, 12).millisecondsSinceEpoch;
+    await repo.putReadRecord(
+      ReadRecord(
+        bookName: '测试小说',
+        author: '作者',
+        readTime: 120000,
+        startTime: end + 240000,
+        lastRead: end + 300000,
+      ),
+      bookUrl: 'u',
+      chapterIndex: 3,
+    );
+    repo.timeline = [
+      ReadRecordTimelineEntry(
+        bookName: '测试小说',
+        author: '作者',
+        date: '2026-10-13',
+        bookUrl: 'u',
+        startTime: end - 60000,
+        endTime: end + 300000,
+        chapterIndex: 2,
+        sessionIds: const [1, 2],
+      ),
+    ];
+    await pump(tester);
+    await tester.tap(find.byTooltip('切换阅读记录视图'));
+    await tester.pumpAndSettle();
+    await tester.longPress(find.text('测试小说'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('删除'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+    expect(repo.deletedIds, [1, 2]);
+    expect(find.text('测试小说'), findsNothing);
+    expect(await repo.getReadRecordSessions(), isEmpty);
     expect(tester.takeException(), isNull);
   });
 

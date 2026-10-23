@@ -4,8 +4,8 @@ use futures::future::BoxFuture;
 use legado_core::{
     LegadoError, LegadoResult,
     cloud_tts::*,
+    speak_cache::{SpeakCache, content_type_from_ext},
     tts_cache::{AudioLease, TtsCache},
-    tts_speak::{SpeakCache, content_type_from_ext},
 };
 use std::{
     path::{Path, PathBuf},

@@ -1597,6 +1597,10 @@ mod tests {
 
     #[test]
     fn test_book_update_task_id_deterministic() {
+        assert_eq!(
+            book_update_task_id("https://example.com/书/一"),
+            "book_update:250ab46402d9fa19"
+        );
         let id1 = book_update_task_id("https://example.com/book/1");
         let id2 = book_update_task_id("https://example.com/book/1");
         assert_eq!(id1, id2);

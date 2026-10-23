@@ -26,7 +26,6 @@ class ReadingTimeBarChartCard extends StatelessWidget {
 
   /// 向上取整计算最大时长对齐单位（秒）
   static int calculateRoundedMaxSeconds(int rawMaxSec) {
-    if (rawMaxSec <= 0) return 60;
     if (rawMaxSec < 60) return 60;
     if (rawMaxSec < 10 * 60) {
       return ((rawMaxSec + 59) ~/ 60) * 60;
