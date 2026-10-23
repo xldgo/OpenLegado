@@ -617,6 +617,15 @@ Future<void> readerSetChineseConvert({required int convertType}) => RustLib
     .api
     .crateFfiFfiReaderSetChineseConvert(convertType: convertType);
 
+/// 解析书籍的有效替换开关，不要求入库，也不写配置。
+Future<bool> readerResolveReplaceRule({
+  required BookDto book,
+  required bool defaultEnabled,
+}) => RustLib.instance.api.crateFfiFfiReaderResolveReplaceRule(
+  book: book,
+  defaultEnabled: defaultEnabled,
+);
+
 /// 获取当前繁简转换类型（0=不转换 / 1=繁转简 t2s / 2=简转繁 s2t）
 Future<int> readerGetChineseConvert() =>
     RustLib.instance.api.crateFfiFfiReaderGetChineseConvert();

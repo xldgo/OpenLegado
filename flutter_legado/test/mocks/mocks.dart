@@ -352,6 +352,13 @@ class MockRustApi extends Mock implements TestApi {
   @override
   final WebDavService webDavService = WebDavServiceMock();
   MockRustApi() {
+    registerFallbackValue(const Book());
+    // 默认只提供普通文字书和显式覆盖；类型判定由正式 Rust 测试覆盖。
+    when(() => readingRepository.resolveReplaceRule(any(), any())).thenAnswer(
+      (call) async =>
+          (call.positionalArguments[0] as Book).readConfig?.useReplaceRule ??
+          call.positionalArguments[1] as bool,
+    );
     // 默认夹具只返回既有媒体位，源识别结果由对应场景显式配置。
     when(() => bookSourceQueryService.resolveReadingType(any(), any()))
         .thenAnswer(

@@ -2976,7 +2976,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get advancedReplaceByDefault => '默认启用替换净化';
 
   @override
-  String get advancedReplaceByDefaultDescription => '新加入书架的书是否启用替换净化';
+  String get advancedReplaceByDefaultDescription =>
+      '未单独设置的书籍默认使用替换净化，图片书和 EPUB 默认关闭';
 
   @override
   String get advancedHeadsetAlways => '全程响应耳机按键';

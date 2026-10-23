@@ -1,6 +1,7 @@
 import 'package:flutter_legado/src/bridge/transfer_dto.dart';
 import 'package:flutter_legado/src/data/bridge/entity_dto_mapping.dart';
 import 'package:flutter_legado/src/models/book_chapter.dart';
+import 'package:flutter_legado/src/models/book.dart';
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
 import 'package:flutter_legado/src/data/repositories/rust_reading_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,6 +26,24 @@ void main() {
     );
   });
   tearDown(RustLib.dispose);
+
+  test('菜单有效状态只消费Rust判定，不以书级空值覆盖返回结果', () async {
+    const book = Book(bookUrl: 'menu-book', origin: 'source');
+    final dto = bookToDto(book);
+    when(
+      () => bridge.crateFfiFfiReaderResolveReplaceRule(
+        book: dto,
+        defaultEnabled: true,
+      ),
+    ).thenAnswer((_) async => false);
+    expect(await repository.resolveReplaceRule(book, true), isFalse);
+    verify(
+      () => bridge.crateFfiFfiReaderResolveReplaceRule(
+        book: dto,
+        defaultEnabled: true,
+      ),
+    ).called(1);
+  });
 
   test('读取与刷新目录直接映射类型化列表，不调用平台动作', () async {
     when(() => bridge.crateFfiFfiReaderGetChapters(bookUrl: 'book')).thenAnswer(

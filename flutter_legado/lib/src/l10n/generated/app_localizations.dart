@@ -5586,7 +5586,7 @@ abstract class AppLocalizations {
   /// 高级设置文案；对应 HapeLee replace_enable_default_s
   ///
   /// In zh, this message translates to:
-  /// **'新加入书架的书是否启用替换净化'**
+  /// **'未单独设置的书籍默认使用替换净化，图片书和 EPUB 默认关闭'**
   String get advancedReplaceByDefaultDescription;
 
   /// 高级设置文案；对应 HapeLee media_button_on_exit_title

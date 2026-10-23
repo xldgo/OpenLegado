@@ -11,12 +11,14 @@ class TocOverflowMenu extends StatelessWidget {
     required this.tab,
     required this.isLocalTxt,
     required this.readConfig,
+    this.replaceEnabled,
     required this.loadWordCount,
     required this.onSelected,
   });
   final int tab;
   final bool isLocalTxt, loadWordCount;
   final ReadConfig? readConfig;
+  final bool? replaceEnabled;
   final ValueChanged<String> onSelected;
   @override
   Widget build(BuildContext context) => AppMenuButton<String>(
@@ -52,7 +54,8 @@ class TocOverflowMenu extends StatelessWidget {
         AppMenuItem(
           value: 'useReplace',
           // useReplaceRule 存于 ReadConfig（对齐原版 Book.ReadConfig.useReplaceRule）
-          checked: readConfig?.useReplaceRule ?? true,
+          checked: replaceEnabled,
+          enabled: replaceEnabled != null,
           child: Text(context.l10n.readerUseReplaceRule),
         ),
       );

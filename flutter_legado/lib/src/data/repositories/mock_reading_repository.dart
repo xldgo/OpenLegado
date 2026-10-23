@@ -1,9 +1,15 @@
 import '../../domain/contracts/reading_repository.dart';
+import '../../models/book.dart';
 import '../../models/book_chapter.dart';
 import 'mock_bookshelf_repository.dart';
 
 /// 与Mock根实例共用书架、目录和正文，不建立独立进度副本。— Codex + Bridge
 final class MockReadingRepository implements ReadingRepository {
+  /// Mock 仅提供普通文字书与显式覆盖夹具，类型语义由 Rust 回归验证。
+  @override
+  Future<bool> resolveReplaceRule(Book book, bool defaultEnabled) async =>
+      book.readConfig?.useReplaceRule ?? defaultEnabled;
+
   MockReadingRepository({
     required this._books,
     required this._chapters,

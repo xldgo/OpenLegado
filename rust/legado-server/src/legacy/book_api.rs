@@ -8,7 +8,7 @@
 //! - P1-2：`/cover`、`/image` 本地路径读取白名单（目录 + 扩展名 + 魔数），
 //!   见 `read_local_image`；
 //! - P1-3：净化替换规则按 `Book.getUseReplaceRule()` 门控（epub/图片书默认
-//!   关闭），见 `use_replace_rule`。
+//!   关闭），复用 Core 的 `Book::use_replace_rule`。
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -60,39 +60,6 @@ fn is_local_book(book: &Book) -> bool {
     }
     book.book_type & book_type::LOCAL > 0
 }
-
-/// 对齐 Kotlin `Book.isEpub`（BookExtensions.kt:61-62：本地书 + 文件名 .epub）
-fn is_epub_book(book: &Book) -> bool {
-    is_local_book(book) && book.origin_name.to_lowercase().ends_with(".epub")
-}
-
-/// 对齐 Kotlin `Book.isImage`（BookExtensions.kt:47-48：`type and BookType.image > 0`）
-fn is_image_book(book: &Book) -> bool {
-    book.book_type & book_type::IMAGE_BIT > 0
-}
-
-/// 原版 `Book.getUseReplaceRule()`（Book.kt:226-236）
-///
-/// - `readConfig.useReplaceRule` 非空 → 取该值（含 false）；
-/// - 否则图片类书源 / epub 本地书默认**关闭**净化；
-/// - 其余回退 `AppConfig.replaceEnableDefault`（AppConfig.kt:680，默认 true；
-///   Rust Web 服务无 Android 偏好读取桥，固定取其默认值——登记差异）。
-fn use_replace_rule(book: &Book) -> bool {
-    if let Some(value) = book
-        .read_config
-        .as_ref()
-        .and_then(|config| config.use_replace_rule)
-    {
-        return value;
-    }
-    if is_image_book(book) || is_epub_book(book) {
-        return false;
-    }
-    REPLACE_ENABLE_DEFAULT
-}
-
-/// `AppConfig.replaceEnableDefault` 的 Kotlin 默认值（AppConfig.kt:680 第二参 true）
-const REPLACE_ENABLE_DEFAULT: bool = true;
 
 fn is_local_path(path: &str) -> bool {
     let lower = path.to_lowercase();
@@ -546,7 +513,11 @@ async fn purify_content(
     chapter_title: &str,
     raw_content: &str,
 ) -> String {
-    let replace_enabled = use_replace_rule(book);
+    let default_enabled = legado_engine::reading_service::ContentProcessing::new(Some(
+        state.engine.storage().clone(),
+    ))
+    .get_replace_enable_default();
+    let replace_enabled = book.use_replace_rule(default_enabled);
     let rules = {
         state
             .with_database(move |db| {
@@ -1071,65 +1042,6 @@ mod tests {
             ..Book::default()
         };
         assert!(!is_local_book(&book));
-    }
-
-    /// P1-3：`Book.getUseReplaceRule()`（Book.kt:226-236）对齐
-    #[test]
-    fn test_use_replace_rule_gating() {
-        // 未设置：普通在线文字书 → 回退 AppConfig.replaceEnableDefault(true)
-        let text = Book {
-            origin: "https://src".to_string(),
-            book_type: book_type::TEXT,
-            ..Book::default()
-        };
-        assert!(use_replace_rule(&text));
-
-        // epub 本地书 → 默认关闭
-        let epub = Book {
-            origin: "loc_book".to_string(),
-            origin_name: "book.epub".to_string(),
-            book_type: book_type::LOCAL,
-            ..Book::default()
-        };
-        assert!(is_epub_book(&epub));
-        assert!(!use_replace_rule(&epub));
-
-        // 本地图片书（IMAGE_BIT 位域）→ 默认关闭
-        let image = Book {
-            origin: "loc_book".to_string(),
-            book_type: book_type::LOCAL | book_type::IMAGE_BIT,
-            ..Book::default()
-        };
-        assert!(is_image_book(&image));
-        assert!(!use_replace_rule(&image));
-
-        // 在线图片书源（type 数值域 IMAGE=2 不属位域 64）→ 不误判
-        let online_image = Book {
-            origin: "https://src".to_string(),
-            book_type: book_type::IMAGE,
-            ..Book::default()
-        };
-        assert!(!is_image_book(&online_image));
-        assert!(use_replace_rule(&online_image));
-
-        // readConfig.useReplaceRule 非空 → 取该值（含对 epub 显式开启）
-        let epub_on = Book {
-            read_config: Some(legado_core::models::ReadConfig {
-                use_replace_rule: Some(true),
-                ..Default::default()
-            }),
-            ..epub.clone()
-        };
-        assert!(use_replace_rule(&epub_on));
-
-        let text_off = Book {
-            read_config: Some(legado_core::models::ReadConfig {
-                use_replace_rule: Some(false),
-                ..Default::default()
-            }),
-            ..text
-        };
-        assert!(!use_replace_rule(&text_off));
     }
 
     /// P1-2：本地图片扩展名白名单

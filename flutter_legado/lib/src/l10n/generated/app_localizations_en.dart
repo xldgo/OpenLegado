@@ -3163,7 +3163,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get advancedReplaceByDefaultDescription =>
-      'Apply replacement rules to newly added books';
+      'Use replacement rules by default for books without an individual setting. Image books and EPUBs default to off.';
 
   @override
   String get advancedHeadsetAlways => 'Always respond to headset buttons';

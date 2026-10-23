@@ -2,6 +2,7 @@ import '../../../utils/error_message.dart';
 import '../../../app/bootstrap/audio_session_settings.dart';
 import '../../audio/application/read_aloud_preferences.dart';
 import '../../../providers/domain_config_provider.dart';
+import '../../../providers/content_processing_provider.dart';
 import '../../../providers/config_settings_provider.dart'
     show serviceSettingsRepositoryProvider;
 import '../../../providers/local_server_provider.dart';
@@ -66,7 +67,6 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
       ref.read(generalSettingsRepositoryProvider).current.defaultBookTreeUri;
   int _sourceEditMaxLine = 99;
   bool _antiAlias = false;
-  bool _replaceEnableDefault = true;
   bool _mediaButtonOnExit = true;
   bool _readAloudByMediaButton = false;
   bool _savingAudioFocus = false;
@@ -131,10 +131,6 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
       defaultValue: 99,
     );
     _antiAlias = await s.getBoolPref(PrefKeys.antiAlias, defaultValue: false);
-    _replaceEnableDefault = await s.getBoolPref(
-      PrefKeys.replaceEnableDefault,
-      defaultValue: true,
-    );
     _mediaButtonOnExit = await s.getBoolPref(
       PrefKeys.mediaButtonOnExit,
       defaultValue: true,
@@ -233,6 +229,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
     final audioPreferences = ref.watch(readAloudPreferencesProvider);
 
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
+    final replaceDefault = ref.watch(replaceEnableDefaultProvider);
     return AppScaffold(
       topBar: LegadoAppBar(title: Text(context.l10n.advanced)),
       body: SettingsBody(
@@ -360,11 +357,31 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                 ),
                 SettingSwitchRow(
                   title: context.l10n.advancedReplaceByDefault,
-                  subtitle: _pendingDescription(
-                    context.l10n.advancedReplaceByDefaultDescription,
-                  ),
-                  value: _replaceEnableDefault,
-                  onChanged: null,
+                  subtitle: replaceDefault.hasError
+                      ? '替换净化设置读取失败：${errorMessage(replaceDefault.error!)}'
+                      : context.l10n.advancedReplaceByDefaultDescription,
+                  value: replaceDefault.value ?? true,
+                  onChanged: replaceDefault.hasValue
+                      ? (value) async {
+                          try {
+                            await ref
+                                .read(
+                                  contentProcessingSettingsRepositoryProvider,
+                                )
+                                .update((_) => value);
+                          } catch (error) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    '替换净化设置保存失败：${errorMessage(error)}',
+                                  ),
+                                ),
+                              );
+                            }
+                          }
+                        }
+                      : null,
                 ),
                 SettingSwitchRow(
                   title: context.l10n.advancedHeadsetAlways,

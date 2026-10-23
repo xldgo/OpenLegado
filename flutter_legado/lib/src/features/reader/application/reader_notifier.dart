@@ -21,6 +21,7 @@ import '../../../data/repositories/reader_position_store.dart';
 import '../layout/paragraph_layout_engine.dart';
 import '../../../providers/providers.dart';
 import '../../../providers/reading_provider.dart';
+import '../../../providers/content_processing_provider.dart';
 import '../../../providers/theme/theme_notifier.dart';
 import '../../../providers/ui_settings/ui_settings_notifier.dart';
 import 'reader_state.dart';
@@ -74,6 +75,13 @@ class ReaderNotifier extends Notifier<ReaderState> {
 
   @override
   ReaderState build() {
+    ref.listen(replaceEnableDefaultProvider, (previous, next) {
+      if (previous?.value != null &&
+          next.hasValue &&
+          previous!.value != next.value) {
+        unawaited(_sessionController?.reloadChapterContent());
+      }
+    });
     final repository = ref.watch(readerSettingsRepositoryProvider);
     final subscription = repository.watch().listen((settings) {
       if (!ref.mounted) return;

@@ -3495,7 +3495,7 @@
   "@advancedReplaceByDefault": {
     "description": "高级设置文案；对应 HapeLee replace_enable_default_t"
   },
-  "advancedReplaceByDefaultDescription": "新加入书架的书是否启用替换净化",
+  "advancedReplaceByDefaultDescription": "未单独设置的书籍默认使用替换净化，图片书和 EPUB 默认关闭",
   "@advancedReplaceByDefaultDescription": {
     "description": "高级设置文案；对应 HapeLee replace_enable_default_s"
   },

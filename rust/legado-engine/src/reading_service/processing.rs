@@ -136,6 +136,16 @@ impl ContentProcessing {
             .ok_or_else(|| LegadoError::Database("数据库尚未初始化，请先调用 db_open".into()))?
             .with_database(f)
     }
+    /// 与通用 configGet/configSet 共用同一持久化键，不维护运行时副本。
+    pub fn get_replace_enable_default(&self) -> bool {
+        self.with_database(|db| {
+            CacheRepository::new(db.connection()).get("config:replaceEnableDefault")
+        })
+        .ok()
+        .flatten()
+        .and_then(|v| v.parse::<bool>().ok())
+        .unwrap_or(true)
+    }
     pub fn get_chinese_convert_type(&self) -> i32 {
         self.with_database(|db| {
             Ok(CacheRepository::new(db.connection())
@@ -281,14 +291,20 @@ impl ContentProcessing {
             let rule_repo = ReplaceRuleRepository::new(db.connection());
             let rules = rule_repo.get_enabled_rules()?;
             let book_repo = BookRepository::new(db.connection());
-            let book_name = book_repo
-                .find_by_url(book_url)?
-                .map(|b| b.name)
-                .unwrap_or_default();
-            Ok((rules, book_name))
+            let book = book_repo.find_by_url(book_url)?;
+            let default_enabled = CacheRepository::new(db.connection())
+                .get("config:replaceEnableDefault")?
+                .and_then(|v| v.parse::<bool>().ok())
+                .unwrap_or(true);
+            let replace_enabled = book
+                .as_ref()
+                .map(|b| b.use_replace_rule(default_enabled))
+                .unwrap_or(default_enabled);
+            let book_name = book.map(|b| b.name).unwrap_or_default();
+            Ok((rules, book_name, replace_enabled))
         });
 
-        let (rules, book_name) = match loaded {
+        let (rules, book_name, replace_enabled) = match loaded {
             Ok(v) => v,
             // 数据库不可用或查询失败时，退化为不净化（与无规则时行为一致）
             Err(_) => return raw_content.to_string(),
@@ -316,7 +332,7 @@ impl ContentProcessing {
             chapter_title,
             &rules,
             &book_name,
-            apply_replace_rules,
+            apply_replace_rules && replace_enabled,
             chinese_convert,
             remove_duplicate_title,
         )

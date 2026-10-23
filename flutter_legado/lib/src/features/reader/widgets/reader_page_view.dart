@@ -1,6 +1,7 @@
 import '../../../app/routing/app_navigation.dart';
 import '../application/reader_pagination_policy.dart';
 import '../../../providers/chapter_content_provider.dart';
+import '../../../providers/content_processing_provider.dart';
 import '../../../platform/display/battery_level_monitor.dart';
 import '../../../domain/models/read_aloud_content.dart';
 
@@ -1162,6 +1163,16 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(replaceEnableDefaultProvider, (previous, next) {
+      if (previous?.value != null &&
+          next.hasValue &&
+          previous!.value != next.value) {
+        setState(() {
+          _layoutCache.clear();
+          _paginationSignature = null;
+        });
+      }
+    });
     final corners = ReaderFooterGeometry.maybeOf(context)?.corners;
     if (corners != _footerCorners) {
       _footerCorners = corners;
@@ -1182,6 +1193,12 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     final state = ref.watch(readerNotifierProvider);
     final notifier = ref.read(readerNotifierProvider.notifier);
     ref.listen(readerNotifierProvider, (previous, next) {
+      if (previous != null &&
+          previous.currentBook?.readConfig?.useReplaceRule !=
+              next.currentBook?.readConfig?.useReplaceRule) {
+        _layoutCache.clear();
+        _paginationSignature = null;
+      }
       if (previous != null &&
           previous.currentChapterIndex != next.currentChapterIndex &&
           _speechChapterTarget == null) {
