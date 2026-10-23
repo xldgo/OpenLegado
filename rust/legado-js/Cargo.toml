@@ -4,8 +4,8 @@ version = "0.2.0"
 edition.workspace = true
 
 [dependencies]
-legado-core = { path = "../legado-core" }
-legado-parser = { path = "../legado-parser" }
+legado-core = { workspace = true }
+legado-parser = { workspace = true }
 
 # rquickjs 是重型依赖（需编译 QuickJS C 代码），设为可选 feature
 # 启用方式: cargo build --features quickjs
@@ -13,7 +13,7 @@ legado-parser = { path = "../legado-parser" }
 # 保留 QuickJS OOM 重入、内存限制与超时恢复回归，升级时不关闭沙箱限制。
 # 注意：禁止启用 rust-alloc/allocator feature——换分配器会使 JS_SetMemoryLimit
 # （SandboxConfig.max_memory_bytes 的执行路径）失效为 no-op（rquickjs raw.rs 文档）。
-rquickjs = { version = "0.14", features = ["parallel", "classes", "properties", "loader", "chrono", "macro"], optional = true }
+rquickjs = { workspace = true, features = ["parallel", "classes", "properties", "loader", "chrono", "macro"], optional = true }
 
 
 # 编解码与加密 crate（sha2/base64 为字体反爬 cmap 解析必需，非可选；其余随 quickjs feature 启用）
@@ -22,44 +22,43 @@ md-5     = { version = "0.10", features = ["oid"], optional = true }
 sha1     = { version = "0.10", features = ["oid"], optional = true }
 sha2     = { version = "0.10", features = ["oid"] }
 hmac     = { version = "0.12", optional = true }
-base64   = { workspace = true }
+base64 = { workspace = true }
 hex      = { version = "0.4", optional = true }
 
 # RSA 非对称加密/签名（对齐 Kotlin AsymmetricCrypto / Sign，hutool 语义）
 # signature 2、rand_core 0.6 是 RSA 0.9 的公共接口约束。
 rsa       = { version = "0.9", features = ["pem", "hazmat"], optional = true }
 signature = { version = "2", optional = true }
-rand_core = { version = "0.6", features = ["getrandom"], optional = true }
-lru      = { version = "0.19" }
+rand_core = { workspace = true, optional = true }
+lru = { workspace = true }
 percent-encoding = { version = "2", optional = true }
 
 # 新增：字符串、JSON、正则、时间、UUID 工具
-encoding_rs   = { version = "0.8", optional = true }
-regex         = { version = "1", optional = true }
-chrono        = { version = "0.4", optional = true }
-serde_json    = { version = "1" }
-serde         = { version = "1", features = ["derive"] }
+encoding_rs = { workspace = true, optional = true }
+regex = { workspace = true, optional = true }
+chrono = { workspace = true, optional = true, default-features = true }
+serde_json = { workspace = true }
+serde = { workspace = true }
 # 1.x 移除书源使用的后缀 length()、中缀过滤等语法，需单独迁移方言后再升级。
-jsonpath-rust = { version = "0.7", optional = true }
-uuid          = { version = "1", features = ["v4"], optional = true }
-url           = { version = "2", optional = true }
+jsonpath-rust = { workspace = true, optional = true }
+uuid = { workspace = true, optional = true }
+url = { workspace = true, optional = true }
 
 # 解压缩（ZIP / 7z / RAR）
-zip           = { version = "9.0.1", optional = true }
+zip = { workspace = true, optional = true }
 sevenz-rust2  = { version = "0.24", optional = true }
-# 纯 Rust raw-deflate 解压（P2-9 ①：java.util.zip.Inflater 语料面
-# java.inflateRawBytes 宿主桥；版本锁定 1.1.9 复用 Cargo.lock 既有传递依赖）
-flate2        = { version = "1", optional = true }
+# 纯 Rust raw-deflate 解压（java.util.zip.Inflater / java.inflateRawBytes 宿主桥）。
+flate2 = { workspace = true, optional = true }
 
 # futures 流式并发（用于 ajaxAll 有界并发）
-futures       = { version = "0.3", optional = true }
+futures = { workspace = true, optional = true }
 
 # HTML 解析（java.getElement/getString 桥：漫画源目录/正文规则依赖）
-scraper       = { version = "0.29", optional = true }
+scraper = { workspace = true, optional = true }
 
 # tokio 运行时桥接（用于在 JS 线程中调用 legado-net 异步 API）
-tokio         = { version = "1", features = ["rt-multi-thread", "sync", "time"], optional = true }
-legado-net    = { path = "../legado-net", optional = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time"], optional = true }
+legado-net = { workspace = true, optional = true }
 
 [features]
 default = []
@@ -93,10 +92,10 @@ quickjs = [
 [dev-dependencies]
 # P0-B 集成测试需经 `JsExecutor` trait 调用 `QuickJsExecutor::execute_js`
 # （trait 定义在 legado-parser；普通依赖不对 tests/ 集成目标可见，须显式声明）
-legado-parser = { path = "../legado-parser" }
+legado-parser = { workspace = true }
 
 # 非 Windows 目标生成当前 QuickJS 绑定，需要宿主 libclang 与目标平台头文件。
 [target.'cfg(not(target_os = "windows"))'.dependencies.rquickjs]
-version = "0.14"
+workspace = true
 optional = true
 features = ["bindgen"]

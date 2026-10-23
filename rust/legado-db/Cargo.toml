@@ -6,16 +6,16 @@ edition.workspace = true
 [dependencies]
 # 保留系统随机盐策略，不启用新库内部的另一条随机数生成路径。
 argon2 = { version = "0.6", default-features = false, features = ["alloc", "password-hash"] }
-rand_core = { version = "0.6", features = ["getrandom"] }
-legado-core = { path = "../legado-core" }
-log = "0.4"
-rusqlite = { version = "0.40.2", features = ["bundled"] }
-r2d2 = "0.8"
-r2d2_sqlite = "0.35"
-serde = { workspace = true }
+rand_core = { workspace = true }
+legado-core = { workspace = true }
+log = { workspace = true }
+rusqlite = { workspace = true }
+r2d2 = { workspace = true }
+r2d2_sqlite = { workspace = true }
+serde = { workspace = true, features = ["rc"] }
 serde_json = { workspace = true }
 regex = { workspace = true }
-chrono = "0.4"
+chrono = { workspace = true, default-features = true }
 
 # 音色稳定标识与上游 SpeechIdentity 一致，复用锁定的 SHA-256 crate。
-sha2 = "0.11"
+sha2 = { workspace = true }

@@ -53,6 +53,36 @@
 
 编写者：Codex + UI｜2026-10-24
 
+### SQLITE-BUNDLED-SIZE-20261024：SQLite 链接方式体积对照（P2，已关闭：Windows 实验完成）
+
+- 用户要求实测移除 bundled 的体积收益；在 feature/rust-workspace-deps / 960b3492d 的忽略目录 build/sqlite-size-20261024/project/rust 复制源码，两组沿用相同锁定包版本及 release/thin LTO/quickjs 构建。正式依赖配置不变，不推送、不安装、不提升版本。
+- 对照为内置 SQLite 与 Windows 系统 winsqlite3.dll；系统组显式保留 modern_sqlite 绑定，SDK 导入库仅在实验目录以 sqlite3.lib 名称提供，检查实际 PE 导入而不声称只删功能就能自动链接系统库。记录真实 legado_ffi.dll 及其 ZIP 压缩体积，并执行独立加载与临时数据库迁移/事务读写探针。仅此定向实验，不运行全量测试；结果不能直接当作 Android/iOS 或整包收益。
+
+- 结果：完整 DLL 46.31→44.76 MiB，减少 1.55 MiB / 3.35%；ZIP 减少 0.86 MiB / 5.10%。两组完整 DLL 独立加载及正式 Database::open 迁移/事务探针通过；PE 确认系统组导入 winsqlite3.dll。系统组因移除 C 编译仅删除锁文件的一条 cc 构建依赖边，所有包版本、来源及校验和相同；正式清单和锁文件逐字节不变。
+- 方法及原始字节数据见 [SQLite体积实验](SQLITE_BUNDLED_SIZE_EXPERIMENT_20261024.md)，本地原始产物/脚本/日志在 build/sqlite-size-20261024/。冷/热缓存不同，不比较构建速度；未做移动平台、整包、性能或全量业务验收，正式策略保持 bundled。单代理复核、diff 检查通过，仅提交文档，不推送或合并。
+
+编写者：Codex + Rust｜2026-10-24
+
+### RUST-WORKSPACE-DEPS-20261024：统一共享依赖版本声明（P2，已关闭：配置与解析一致性验证完成）
+
+- 用户授权从 dev / 97b49dd0e 创建 feature/rust-workspace-deps，工作目录 build/worktrees/rust-workspace-deps；主目录未提交的 Flutter 测试及计划改动不带入、不覆盖。单代理，本地提交，不推送、构建设备或提升应用版本。
+- 共用兼容版本集中到 rust/Cargo.toml，各 crate 继承并保留自身功能、可选及平台条件；单独依赖与 RSA 所需的旧版 MD5/SHA/HMAC 留在所属 crate。serde 的原继承功能移至使用方，避免 JS 独立构建多启用 rc；chrono 在根关闭默认功能，各使用方显式保持原选择。
+- urlencoding 统一采用既有多数声明的 2.1 下限（Parser 原为 2），不升级已锁版本。验收比较 Cargo 实际解析的依赖、功能及各 crate 声明，锁文件须逐字节不变；不新增文本守卫测试或默认运行全量业务测试。
+
+- 结果：根清单新增20项共享声明，共31项；11个成员清单改为继承，对不兼容加密版本不合并。Cargo 展开的189条成员依赖声明（含依赖类型、平台条件、可选性、默认功能及功能集合）除已记录的 urlencoding 下限收敛外一致；重复 derive 按集合去重，不改变启用功能。Windows 默认与全功能解析图分别390/426项完全一致，Cargo.lock 逐字节不变；git diff --check 通过。
+- 限制：Linux 完整 metadata 首次离线检查缺缓存，联网恢复下载又遇到本机 Schannel SEC_E_NO_CREDENTIALS，未完成非 Windows 解析图检查；平台条件已包含在全部成员声明对照中，不据此声称跨平台编译通过。此次只改清单，没有运行全量业务测试、原生构建或新增机械测试，单代理复核，无独立审查。
+- 证据：本 worktree 的 build/workspace-deps/verification.json、metadata-{before,after}-windows-{default,all}.json 与下载失败日志；原清单和锁文件快照在同目录，仅作本次核对、不入库。主目录修改不变，应用版本不变，本地提交，不推送。
+
+- 后续整理：按用户确认，将 rusqlite 的 bundled 作为全项目统一 SQLite 构建策略移至 workspace 根声明，DB/Engine/FFI 三处仅继承。Windows 默认及全功能 Cargo metadata 修改前后完整一致，锁文件逐字节不变，diff 检查通过；证据 build/workspace-deps/bundled/verification.json。不新增测试、不构建设备，本地单独提交。
+
+- 共有配置收口：按用户确认，将 serde/derive、uuid/v4、rand_core/getrandom、reqwest 四项公共功能集中到根声明，并统一9个内部 crate 的依赖路径。使用方保留 serde/rc、网络压缩代理、可选性和平台条件，未统一包版本或不同加密版本。Windows 默认/全功能 Cargo 解析图完全一致，展开的成员声明在功能集合和规范化路径下等价，Cargo.lock 逐字节不变；diff 检查通过。证据 build/workspace-deps/common/verification.json 及前后 metadata；未运行全量测试、非 Windows 构建或新增专项用例，单代理复核，仅本地提交。
+
+- 可读性整理：按用户要求，将根共享依赖分为序列化/日志/错误处理、异步、网络、文本与脚本、加密与编解码、数据库与缓存、归档、时间与标识、内部模块9组。仅调整顺序、注释和空行，Python tomllib 解析的完整清单修改前后相等，diff 检查通过；不重复运行已通过的依赖解析或业务测试，本地提交。
+
+- 集成：按用户要求合并至主目录 dev / 825d03d48，保留双方 Active 新增记录及主目录现行规范；Rust 清单无冲突，与已验证分支清单一致，锁文件不变。合并后复核默认/全功能解析，未重复业务测试、不推送。
+
+编写者：Codex + Rust｜2026-10-24
+
 ### FRB-STALE-OUTPUTS-20261023：清理旧绑定与导出（P2，清理及定向验证完成）
 
 - 用户同意删除已确认无消费者的五个FRB2.11.1残留：bridge/lib.dart及api下book_import/reader/rss/search.dart。删除四条旧export，保留18个正式适配器使用的手写rust_lib.dart，仅纠正其自动生成误注释及规范中的全目录生成物口径。

@@ -5,8 +5,8 @@ edition.workspace = true
 
 [dependencies]
 # 阅读状态消费排版结果的原文页范围类型，不在 core 内执行排版。
-legado-layout = { path = "../legado-layout" }
-serde = { workspace = true }
+legado-layout = { workspace = true }
+serde = { workspace = true, features = ["rc"] }
 serde_json = { workspace = true }
 # 复用锁文件已有依赖，保留书源字段及嵌套规则的错误路径。
 serde_path_to_error = "0.1.20"
@@ -19,16 +19,16 @@ des = { workspace = true }
 base64 = { workspace = true }
 md-5 = { workspace = true }
 # 云端 Provider 地址解析和缓存摘要，沿用已锁定依赖版本。
-url = "2"
-uuid = { version = "1", features = ["v4"] }
-sha2 = "0.11"
+url = { workspace = true }
+uuid = { workspace = true }
+sha2 = { workspace = true }
 hmac = "0.13"
-chrono = { version = "0.4", default-features = false, features = ["clock"] }
-regex = "1"
+chrono = { workspace = true, default-features = false, features = ["clock"] }
+regex = { workspace = true }
 # 复用锁文件已有版本，朗读请求按完整字形簇切分。
 unicode-segmentation = "=1.13.3"
 # 安全正则编译缓存的 LRU 淘汰（任务 #60 ④，与 legado-js 同版本）
-lru = "0.19"
+lru = { workspace = true }
 # Java 正则方言支持（lookbehind / backreference / 原子组等 regex crate 不支持的语法）
 fancy-regex = "0.19.0"
 

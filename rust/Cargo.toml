@@ -18,17 +18,66 @@ members = [
 edition = "2024"
 
 [workspace.dependencies]
-md-5 = "0.11"
-serde = { version = "1", features = ["derive", "rc"] }
+# 共用依赖在此维护版本、共有功能与构建策略；各 crate 保留差异功能、optional 与平台条件。
+# 实际解析版本由 Cargo.lock 锁定；仅局部使用或不兼容的版本可留在所属 crate。
+
+# 序列化、日志与错误处理
+log = "0.4"
+serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tokio = "1"
 thiserror = "2"
-aes = "0.9"
-cbc = "0.2"
-ecb = "0.2"
-des = "0.9"
-base64 = "0.23"
+
+# 异步运行时与并发
+futures = "0.3"
+tokio = "1"
+
+# 网络请求与地址处理
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls-no-provider", "http2", "charset"] }
+url = "2"
+urlencoding = "2.1"
+
+# 文本解析与脚本
+encoding_rs = "0.8"
+jsonpath-rust = "0.7"
+quick-xml = "0.42"
 regex = "1"
+rquickjs = "0.14"
+scraper = "0.29"
+
+# 加密、摘要与编解码
+aes = "0.9"
+base64 = "0.23"
+cbc = "0.2"
+des = "0.9"
+ecb = "0.2"
+md-5 = "0.11"
+rand_core = { version = "0.6", features = ["getrandom"] }
+sha2 = "0.11"
+
+# 数据库与缓存
+lru = "0.19"
+r2d2 = "0.8"
+r2d2_sqlite = "0.35"
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+
+# 压缩与归档
+flate2 = "1"
+zip = "9.0.1"
+
+# 时间与标识
+chrono = { version = "0.4", default-features = false }
+uuid = { version = "1", features = ["v4"] }
+
+# 内部模块（路径以工作区根目录为基准）
+legado-book = { path = "legado-book" }
+legado-core = { path = "legado-core" }
+legado-db = { path = "legado-db" }
+legado-engine = { path = "legado-engine" }
+legado-fetcher = { path = "legado-fetcher" }
+legado-js = { path = "legado-js" }
+legado-layout = { path = "legado-layout" }
+legado-net = { path = "legado-net" }
+legado-parser = { path = "legado-parser" }
 
 # 发布档只显式声明非默认项：opt-level = 3、panic = "unwind"、codegen-units = 16
 # 都是 Cargo 的 release 默认值，不重复写。
