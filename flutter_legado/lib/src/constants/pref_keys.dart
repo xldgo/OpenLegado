@@ -179,7 +179,7 @@ class PrefKeys {
   /// 默认书籍保存位置
   static const defaultBookTreeUri = 'defaultBookTreeUri';
 
-  /// 源编辑框最大行数（默认 99）
+  /// 源编辑框最大可见行数（0为不限）
   static const sourceEditMaxLine = 'sourceEditMaxLine';
 
   /// 图片抗锯齿（默认 false）

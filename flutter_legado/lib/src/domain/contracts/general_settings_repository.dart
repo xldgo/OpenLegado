@@ -11,5 +11,6 @@ abstract interface class GeneralSettingsRepository {
     bool? showAddToShelfAlert,
     int? webPort,
     bool? defaultToRead,
+    int? sourceEditMaxLines,
   });
 }

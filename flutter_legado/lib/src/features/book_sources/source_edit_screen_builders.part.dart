@@ -245,6 +245,8 @@ extension _SourceEditBuilders on _SourceEditScreenState {
       key: _fieldKeys.putIfAbsent(field.key, GlobalKey.new),
       child: SourceEditorField(
         spec: field,
+        maxLines:
+            ref.watch(generalSettingsProvider).value?.sourceEditMaxLines ?? 0,
         controller: _ctrl(field.key),
         focusNode: _focus(field.key),
       ),

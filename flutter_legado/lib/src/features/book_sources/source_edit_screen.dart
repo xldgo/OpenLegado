@@ -2,6 +2,7 @@ import '../../app/routing/app_navigation.dart';
 import '../../app/routing/route_names.dart';
 import 'book_source_repository_provider.dart';
 import '../../providers/network_provider.dart';
+import '../../providers/general_settings_provider.dart';
 import '../../providers/source_interaction_provider.dart';
 import '../../l10n/app_localization.dart';
 import '../../widgets/app_menu.dart';
@@ -187,66 +188,58 @@ class _SourceEditScreenState extends ConsumerState<SourceEditScreen>
       'bookSourceUrl',
       l10n.editorFieldLabel(l10n.editorSourceUrl, 'sourceUrl'),
       required: true,
-      maxLines: 1,
+      singleLine: true,
     ),
     SourceEditorFieldSpec(
       'bookSourceName',
       l10n.editorFieldLabel(l10n.editorSourceName, 'sourceName'),
       required: true,
-      maxLines: 1,
+      singleLine: true,
     ),
     SourceEditorFieldSpec(
       'bookSourceGroup',
       l10n.editorFieldLabel(l10n.editorSourceGroup, 'sourceGroup'),
-      maxLines: 1,
+      singleLine: true,
     ),
     SourceEditorFieldSpec(
       'bookSourceComment',
       l10n.editorFieldLabel(l10n.editorSourceComment, 'sourceComment'),
-      maxLines: 3,
     ),
     SourceEditorFieldSpec(
       'loginUrl',
       l10n.editorFieldLabel(l10n.editorLoginUrl, 'loginUrl'),
-      maxLines: 3,
     ),
     SourceEditorFieldSpec(
       'loginUi',
       l10n.editorFieldLabel(l10n.editorLoginUi, 'loginUi'),
-      maxLines: 4,
     ),
     SourceEditorFieldSpec(
       'loginCheckJs',
       l10n.editorFieldLabel(l10n.editorLoginCheckJs, 'loginCheckJs'),
-      maxLines: 4,
     ),
     SourceEditorFieldSpec(
       'coverDecodeJs',
       l10n.editorFieldLabel(l10n.editorCoverDecode, 'coverDecodeJs'),
-      maxLines: 4,
     ),
     SourceEditorFieldSpec(
       'bookUrlPattern',
       l10n.editorFieldLabel(l10n.editorBookUrlPattern, 'bookUrlPattern'),
-      maxLines: 2,
     ),
     SourceEditorFieldSpec(
       'header',
       l10n.editorFieldLabel(l10n.editorHeader, 'header'),
       hint: l10n.editorJsonHint,
-      maxLines: 3,
     ),
     SourceEditorFieldSpec(
       'variableComment',
       l10n.editorFieldLabel(l10n.editorVariableComment, 'variableComment'),
-      maxLines: 2,
     ),
     SourceEditorFieldSpec(
       'concurrentRate',
       l10n.editorFieldLabel(l10n.editorConcurrentRate, 'concurrentRate'),
-      maxLines: 1,
+      singleLine: true,
     ),
-    SourceEditorFieldSpec('jsLib', 'jsLib', maxLines: 8),
+    SourceEditorFieldSpec('jsLib', 'jsLib'),
   ];
 
   // ─── 搜索规则字段（对齐原版 searchEntities 顺序/标签） ──────────
@@ -254,7 +247,7 @@ class _SourceEditScreenState extends ConsumerState<SourceEditScreen>
     SourceEditorFieldSpec(
       'searchUrl',
       l10n.editorFieldLabel(l10n.editorSearchUrl, 'url'),
-      maxLines: 1,
+      singleLine: true,
       hint: l10n.editorSearchUrlHint,
     ),
     SourceEditorFieldSpec(
@@ -304,7 +297,6 @@ class _SourceEditScreenState extends ConsumerState<SourceEditScreen>
     SourceEditorFieldSpec(
       'exploreUrl',
       l10n.editorFieldLabel(l10n.editorExploreUrl, 'url'),
-      maxLines: 3,
       hint: l10n.editorExploreUrlHint,
     ),
     SourceEditorFieldSpec(
@@ -442,7 +434,6 @@ class _SourceEditScreenState extends ConsumerState<SourceEditScreen>
     SourceEditorFieldSpec(
       'c_content',
       l10n.editorFieldLabel(l10n.editorContent, 'content'),
-      maxLines: 3,
     ),
     SourceEditorFieldSpec(
       'c_nextContentUrl',
@@ -455,7 +446,6 @@ class _SourceEditScreenState extends ConsumerState<SourceEditScreen>
     SourceEditorFieldSpec(
       'c_replaceRegex',
       l10n.editorFieldLabel(l10n.editorReplaceRegex, 'replaceRegex'),
-      maxLines: 4,
     ),
     SourceEditorFieldSpec(
       'c_title',
@@ -476,7 +466,6 @@ class _SourceEditScreenState extends ConsumerState<SourceEditScreen>
     SourceEditorFieldSpec(
       'c_webJs',
       l10n.editorFieldLabel(l10n.editorWebJs, 'webJs'),
-      maxLines: 4,
     ),
     SourceEditorFieldSpec(
       'c_payAction',
@@ -550,7 +539,6 @@ class _SourceEditScreenState extends ConsumerState<SourceEditScreen>
     SourceEditorFieldSpec(
       'r_detailContentRule',
       l10n.editorFieldLabel(l10n.editorCommentContent, 'detailContentRule'),
-      maxLines: 3,
     ),
     SourceEditorFieldSpec(
       'r_reviewQuoteUrl',
@@ -579,7 +567,6 @@ class _SourceEditScreenState extends ConsumerState<SourceEditScreen>
     SourceEditorFieldSpec(
       'r_replyContentRule',
       l10n.editorFieldLabel(l10n.editorReplyContent, 'replyContentRule'),
-      maxLines: 3,
     ),
   ];
 

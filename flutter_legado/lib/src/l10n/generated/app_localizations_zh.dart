@@ -2959,6 +2959,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get advancedBookSaveLocationDescription => '从其它应用打开的书籍保存位置';
 
   @override
+  String get sourceEditorLinesUnlimited => '不限';
+
+  @override
+  String get sourceEditorLinesDescription => '仅限制多行编辑框的显示高度，内容仍可滚动查看。';
+
+  @override
+  String get sourceEditorLinesInvalid => '请输入至少10行的整数';
+
+  @override
   String get advancedSourceEditorMaxLines => '源编辑框最大行数';
 
   @override

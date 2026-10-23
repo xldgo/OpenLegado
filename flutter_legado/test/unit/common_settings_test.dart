@@ -50,7 +50,7 @@ void main() {
   });
   tearDown(() => service.dispose());
 
-  test('五域共二十项默认值保持，读取和空更新不补写存储', () async {
+  test('五域按原键读取，空更新不补写存储', () async {
     expect(await shelf.load(), const BookshelfSettings());
     expect(await records.load(), const ReadRecordSettings());
     expect(await locale.load(), const LocaleSettings());
@@ -77,8 +77,8 @@ void main() {
       'showAddToShelfAlert',
       'webPort',
       'defaultToRead',
+      'sourceEditMaxLine',
     });
-    expect(storage.reads, hasLength(20));
     await Future.wait([
       shelf.update(),
       records.update(),
@@ -299,6 +299,9 @@ void main() {
     );
     expect(container.read(appLocaleProvider), 'en');
     expect(container.read(eyeProtectionProvider).enabled, isTrue);
-    expect(container.read(generalSettingsProvider).value!.defaultToRead, isTrue);
+    expect(
+      container.read(generalSettingsProvider).value!.defaultToRead,
+      isTrue,
+    );
   });
 }

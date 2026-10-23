@@ -37,7 +37,7 @@ void main() {
   });
   tearDown(() => service.dispose());
 
-  test('八项默认值按原键读取，不补写存储或扫描凭据', () async {
+  test('普通偏好按原键读取，不补写默认值或扫描凭据', () async {
     storage.values['sync_webdav_password'] = '保留的凭据';
     expect(await general.load(), const GeneralSettings());
     expect(await backup.load(), const BackupSettings());
@@ -46,6 +46,7 @@ void main() {
       'showAddToShelfAlert',
       'webPort',
       'defaultToRead',
+      'sourceEditMaxLine',
       'app_backup_path',
       'sync_book_progress',
       'sync_auto',
@@ -117,22 +118,50 @@ void main() {
   });
 
   test('保存失败回退，重试与恢复重读更新同一快照', () async {
-    storage.values.addAll({'webPort': 4321, 'sync_book_progress': false});
+    storage.values.addAll({
+      'webPort': 4321,
+      'sync_book_progress': false,
+      'sourceEditMaxLine': 20,
+    });
     await general.load();
     await backup.load();
     storage.writeFailure = true;
     await expectLater(general.update(webPort: 5000), throwsStateError);
+    await expectLater(general.update(sourceEditMaxLines: 30), throwsStateError);
     await expectLater(backup.update(syncBookProgress: true), throwsStateError);
     expect(general.current.webPort, 4321);
+    expect(general.current.sourceEditMaxLines, 20);
     expect(backup.current.syncBookProgress, isFalse);
     storage.writeFailure = false;
     await general.update(webPort: 5000);
+    await general.update(sourceEditMaxLines: 0);
+    expect(storage.values['sourceEditMaxLine'], 0);
     storage.values['webPort'] = 6000;
+    storage.values['sourceEditMaxLine'] = 40;
     storage.values['sync_book_progress'] = true;
     await general.reload();
     await backup.reload();
     expect(general.current.webPort, 6000);
+    expect(general.current.sourceEditMaxLines, 40);
     expect(backup.current.syncBookProgress, isTrue);
+  });
+
+  test('编辑行数仅接受不限或至少10行，非法写入不覆盖保存值', () async {
+    storage.values['sourceEditMaxLine'] = 9;
+    await general.load();
+    expect(general.current.sourceEditMaxLines, 0);
+    expect(storage.writes, isEmpty);
+    await general.update(sourceEditMaxLines: 10);
+    expect(storage.values['sourceEditMaxLine'], 10);
+    for (final invalid in [-1, 1, 9]) {
+      expect(
+        () => general.update(sourceEditMaxLines: invalid),
+        throwsArgumentError,
+      );
+    }
+    expect(general.current.sourceEditMaxLines, 10);
+    await general.update(sourceEditMaxLines: 0);
+    expect(general.current.sourceEditMaxLines, 0);
   });
 
   test('多键保存保持已成功路径，仅失败的开关回退', () async {

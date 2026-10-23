@@ -8,14 +8,14 @@ class SourceEditorFieldSpec {
     this.key,
     this.label, {
     this.hint,
-    this.maxLines = 2,
+    this.singleLine = false,
     this.required = false,
   });
 
   final String key;
   final String label;
   final String? hint;
-  final int maxLines;
+  final bool singleLine;
   final bool required;
 }
 
@@ -26,11 +26,13 @@ class SourceEditorField extends StatelessWidget {
     required this.spec,
     required this.controller,
     required this.focusNode,
+    this.maxLines = 0,
   });
 
   final SourceEditorFieldSpec spec;
   final TextEditingController controller;
   final FocusNode focusNode;
+  final int maxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -41,12 +43,12 @@ class SourceEditorField extends StatelessWidget {
         controller: controller,
         focusNode: focusNode,
         minLines: 1,
-        maxLines: spec.maxLines,
+        maxLines: spec.singleLine ? 1 : (maxLines == 0 ? null : maxLines),
         decoration: InputDecoration(
           filled: false,
           labelText: spec.required ? '${spec.label} *' : spec.label,
           floatingLabelBehavior: FloatingLabelBehavior.auto,
-          alignLabelWithHint: spec.maxLines > 1,
+          alignLabelWithHint: !spec.singleLine,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 12,
             vertical: 12,

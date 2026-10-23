@@ -5547,6 +5547,24 @@ abstract class AppLocalizations {
   /// **'从其它应用打开的书籍保存位置'**
   String get advancedBookSaveLocationDescription;
 
+  /// No description provided for @sourceEditorLinesUnlimited.
+  ///
+  /// In zh, this message translates to:
+  /// **'不限'**
+  String get sourceEditorLinesUnlimited;
+
+  /// No description provided for @sourceEditorLinesDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅限制多行编辑框的显示高度，内容仍可滚动查看。'**
+  String get sourceEditorLinesDescription;
+
+  /// No description provided for @sourceEditorLinesInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入至少10行的整数'**
+  String get sourceEditorLinesInvalid;
+
   /// 高级设置文案；对应 HapeLee source_edit_text_max_line
   ///
   /// In zh, this message translates to:

@@ -1,6 +1,7 @@
 import '../../../widgets/app_snack_bar.dart';
 import '../../../app/routing/app_navigation.dart';
 import '../../../providers/network_provider.dart';
+import '../../../providers/general_settings_provider.dart';
 import '../../../providers/rss_repository_provider.dart';
 import '../../../l10n/app_localization.dart';
 import '../../../widgets/app_menu.dart';
@@ -46,62 +47,66 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
   // ===== 字段定义（对标原版 sourceEntities 4 Tab 分组） =====
 
   static List<SourceEditorFieldSpec> _baseFields(AppLocalizations l10n) => [
-    SourceEditorFieldSpec('sourceName', l10n.editorSourceName, maxLines: 1),
+    SourceEditorFieldSpec(
+      'sourceName',
+      l10n.editorSourceName,
+      singleLine: true,
+    ),
     SourceEditorFieldSpec(
       'sourceUrl',
       l10n.editorSourceUrl,
       hint: 'https://example.com/feed',
-      maxLines: 1,
+      singleLine: true,
     ),
     SourceEditorFieldSpec(
       'sourceIcon',
       l10n.editorIcon,
       hint: l10n.editorIconUrl,
-      maxLines: 1,
+      singleLine: true,
     ),
     SourceEditorFieldSpec(
       'sourceGroup',
       l10n.editorSourceGroup,
       hint: l10n.editorGroupHint,
-      maxLines: 1,
+      singleLine: true,
     ),
     SourceEditorFieldSpec('sourceComment', l10n.editorSourceComment),
-    SourceEditorFieldSpec('searchUrl', l10n.editorSearchUrl, maxLines: 1),
+    SourceEditorFieldSpec('searchUrl', l10n.editorSearchUrl, singleLine: true),
     SourceEditorFieldSpec(
       'sortUrl',
       l10n.editorSortUrl,
       hint: l10n.editorSortHint,
     ),
-    SourceEditorFieldSpec('loginUrl', l10n.editorLoginUrl, maxLines: 1),
-    SourceEditorFieldSpec('loginUi', l10n.editorLoginUi, maxLines: 1),
+    SourceEditorFieldSpec('loginUrl', l10n.editorLoginUrl, singleLine: true),
+    SourceEditorFieldSpec('loginUi', l10n.editorLoginUi, singleLine: true),
     SourceEditorFieldSpec(
       'loginCheckJs',
       l10n.editorLoginDetectionJs,
-      maxLines: 1,
+      singleLine: true,
     ),
     SourceEditorFieldSpec(
       'coverDecodeJs',
       l10n.editorCoverDecodeJs,
-      maxLines: 1,
+      singleLine: true,
     ),
-    SourceEditorFieldSpec('header', l10n.editorHeader, maxLines: 1),
+    SourceEditorFieldSpec('header', l10n.editorHeader, singleLine: true),
     SourceEditorFieldSpec(
       'variableComment',
       l10n.editorRssVariableComment,
       hint: 'variableComment',
-      maxLines: 1,
+      singleLine: true,
     ),
     SourceEditorFieldSpec(
       'concurrentRate',
       l10n.editorConcurrentRate,
       hint: l10n.editorRateHint,
-      maxLines: 1,
+      singleLine: true,
     ),
     SourceEditorFieldSpec(
       'jsLib',
       l10n.editorJsLibrary,
       hint: l10n.editorJsLibraryHint,
-      maxLines: 1,
+      singleLine: true,
     ),
   ];
 
@@ -110,7 +115,7 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
       'startHtml',
       l10n.editorStartHtml,
       hint: 'startHtml',
-      maxLines: 1,
+      singleLine: true,
     ),
     SourceEditorFieldSpec(
       'startStyle',
@@ -121,13 +126,13 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
       'startJs',
       l10n.editorStartJs,
       hint: 'startJs',
-      maxLines: 1,
+      singleLine: true,
     ),
     SourceEditorFieldSpec(
       'preloadJs',
       l10n.editorPreloadJs,
       hint: 'preloadJs',
-      maxLines: 1,
+      singleLine: true,
     ),
   ];
 
@@ -136,43 +141,43 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
       'ruleArticles',
       l10n.editorArticleList,
       hint: l10n.editorArticlesHint,
-      maxLines: 1,
+      singleLine: true,
     ),
     SourceEditorFieldSpec(
       'ruleNextPage',
       l10n.editorNextPage,
       hint: 'ruleNextPage',
-      maxLines: 1,
+      singleLine: true,
     ),
     SourceEditorFieldSpec(
       'ruleTitle',
       l10n.editorTitleRule,
       hint: 'ruleTitle',
-      maxLines: 1,
+      singleLine: true,
     ),
     SourceEditorFieldSpec(
       'rulePubDate',
       l10n.editorDateRule,
       hint: 'rulePubDate',
-      maxLines: 1,
+      singleLine: true,
     ),
     SourceEditorFieldSpec(
       'ruleDescription',
       l10n.editorDescriptionRule,
       hint: 'ruleDescription',
-      maxLines: 1,
+      singleLine: true,
     ),
     SourceEditorFieldSpec(
       'ruleImage',
       l10n.editorImageRule,
       hint: 'ruleImage',
-      maxLines: 1,
+      singleLine: true,
     ),
     SourceEditorFieldSpec(
       'ruleLink',
       l10n.editorLinkRule,
       hint: 'ruleLink',
-      maxLines: 1,
+      singleLine: true,
     ),
   ];
 
@@ -181,32 +186,32 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
       'ruleContent',
       l10n.editorContentRule,
       hint: 'ruleContent',
-      maxLines: 1,
+      singleLine: true,
     ),
     SourceEditorFieldSpec('style', l10n.editorStyle, hint: l10n.editorCssHint),
     SourceEditorFieldSpec(
       'injectJs',
       l10n.editorInjectJs,
       hint: 'injectJs',
-      maxLines: 1,
+      singleLine: true,
     ),
     SourceEditorFieldSpec(
       'contentWhitelist',
       l10n.editorContentWhitelist,
       hint: 'contentWhitelist',
-      maxLines: 1,
+      singleLine: true,
     ),
     SourceEditorFieldSpec(
       'contentBlacklist',
       l10n.editorContentBlacklist,
       hint: 'contentBlacklist',
-      maxLines: 1,
+      singleLine: true,
     ),
     SourceEditorFieldSpec(
       'shouldOverrideUrlLoading',
       l10n.editorOverrideUrl,
       hint: 'shouldOverrideUrlLoading',
-      maxLines: 1,
+      singleLine: true,
     ),
   ];
 
@@ -876,6 +881,8 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
   Widget _field(SourceEditorFieldSpec spec) {
     return SourceEditorField(
       spec: spec,
+      maxLines:
+          ref.watch(generalSettingsProvider).value?.sourceEditMaxLines ?? 0,
       controller: _ctrls[spec.key]!,
       focusNode: _focusNodeFor(spec.key),
     );

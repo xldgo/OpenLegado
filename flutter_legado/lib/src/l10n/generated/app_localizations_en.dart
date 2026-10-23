@@ -3145,6 +3145,17 @@ class AppLocalizationsEn extends AppLocalizations {
       'Where books opened from other apps are saved';
 
   @override
+  String get sourceEditorLinesUnlimited => 'Unlimited';
+
+  @override
+  String get sourceEditorLinesDescription =>
+      'Limits only the height of multiline fields. All content remains scrollable.';
+
+  @override
+  String get sourceEditorLinesInvalid =>
+      'Enter an integer of at least 10 lines';
+
+  @override
   String get advancedSourceEditorMaxLines => 'Maximum source editor lines';
 
   @override

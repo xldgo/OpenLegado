@@ -3471,6 +3471,9 @@
   "@advancedBookSaveLocationDescription": {
     "description": "高级设置文案；对应 HapeLee book_tree_uri_s"
   },
+  "sourceEditorLinesUnlimited": "不限",
+  "sourceEditorLinesDescription": "仅限制多行编辑框的显示高度，内容仍可滚动查看。",
+  "sourceEditorLinesInvalid": "请输入至少10行的整数",
   "advancedSourceEditorMaxLines": "源编辑框最大行数",
   "@advancedSourceEditorMaxLines": {
     "description": "高级设置文案；对应 HapeLee source_edit_text_max_line"

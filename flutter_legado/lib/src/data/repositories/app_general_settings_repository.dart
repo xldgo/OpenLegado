@@ -18,6 +18,7 @@ final class AppGeneralSettingsRepository implements GeneralSettingsRepository {
     _address(PrefKeys.showAddToShelfAlert),
     _address(PrefKeys.webPort),
     _address(PrefKeys.defaultToRead),
+    _address(PrefKeys.sourceEditMaxLine),
   };
 
   T _read<T>(AppSettingsSnapshot snapshot, String key, T fallback) {
@@ -30,6 +31,13 @@ final class AppGeneralSettingsRepository implements GeneralSettingsRepository {
     showAddToShelfAlert: _read(snapshot, PrefKeys.showAddToShelfAlert, true),
     webPort: _read(snapshot, PrefKeys.webPort, 1122),
     defaultToRead: _read(snapshot, PrefKeys.defaultToRead, false),
+    sourceEditMaxLines: switch (snapshot[_address(
+      PrefKeys.sourceEditMaxLine,
+    )]) {
+      final int lines when lines >= GeneralSettings.minimumSourceEditMaxLines =>
+        lines,
+      _ => 0,
+    },
   );
 
   @override
@@ -60,13 +68,26 @@ final class AppGeneralSettingsRepository implements GeneralSettingsRepository {
     bool? showAddToShelfAlert,
     int? webPort,
     bool? defaultToRead,
-  }) => _service.update({
-    if (defaultBookTreeUri != null)
-      _address(PrefKeys.defaultBookTreeUri): defaultBookTreeUri.isEmpty
-          ? null
-          : defaultBookTreeUri,
-    _address(PrefKeys.showAddToShelfAlert): ?showAddToShelfAlert,
-    _address(PrefKeys.webPort): ?webPort,
-    _address(PrefKeys.defaultToRead): ?defaultToRead,
-  });
+    int? sourceEditMaxLines,
+  }) {
+    if (sourceEditMaxLines != null &&
+        sourceEditMaxLines != 0 &&
+        sourceEditMaxLines < GeneralSettings.minimumSourceEditMaxLines) {
+      throw ArgumentError.value(
+        sourceEditMaxLines,
+        'sourceEditMaxLines',
+        '至少10行或0表示不限',
+      );
+    }
+    return _service.update({
+      if (defaultBookTreeUri != null)
+        _address(PrefKeys.defaultBookTreeUri): defaultBookTreeUri.isEmpty
+            ? null
+            : defaultBookTreeUri,
+      _address(PrefKeys.showAddToShelfAlert): ?showAddToShelfAlert,
+      _address(PrefKeys.webPort): ?webPort,
+      _address(PrefKeys.defaultToRead): ?defaultToRead,
+      _address(PrefKeys.sourceEditMaxLine): ?sourceEditMaxLines,
+    });
+  }
 }

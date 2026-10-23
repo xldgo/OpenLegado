@@ -32,6 +32,8 @@ import '../../book_sources/application/source_check/check_source_notifier.dart';
 import '../../../services/crash_log_service.dart';
 import '../../../services/settings_service.dart';
 import '../../../widgets/settings_widgets.dart';
+import '../../../widgets/bottom_sheet_widget.dart';
+import 'source_editor_lines_sheet.dart';
 import '../../video/widgets/video_settings_dialog.dart';
 
 /// 其他设置页面（对齐原版 OtherConfigFragment）
@@ -65,7 +67,6 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
   bool _savingWebAutoStart = false;
   String get _defaultBookTreeUri =>
       ref.read(generalSettingsRepositoryProvider).current.defaultBookTreeUri;
-  int _sourceEditMaxLine = 99;
   bool _antiAlias = false;
   bool _replaceEnableDefault = true;
   bool _mediaButtonOnExit = true;
@@ -127,10 +128,6 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
     _webServiceWakeLock = await s.getBoolPref(
       PrefKeys.webServiceWakeLock,
       defaultValue: false,
-    );
-    _sourceEditMaxLine = await s.getIntPref(
-      PrefKeys.sourceEditMaxLine,
-      defaultValue: 99,
     );
     _antiAlias = await s.getBoolPref(PrefKeys.antiAlias, defaultValue: false);
     _replaceEnableDefault = await s.getBoolPref(
@@ -229,7 +226,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     ref.watch(appLocaleProvider);
-    ref.watch(generalSettingsProvider);
+    final general = ref.watch(generalSettingsProvider);
     final mainPrefs = ref.watch(mainPrefsProvider);
     final mainPrefsNotifier = ref.read(mainPrefsProvider.notifier);
     final audioPreferences = ref.watch(readAloudPreferencesProvider);
@@ -351,10 +348,12 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                 ),
                 SettingTile(
                   title: context.l10n.advancedSourceEditorMaxLines,
-                  value: '$_sourceEditMaxLine',
-                  onTap: null,
-                  enabled: false,
-                  subtitle: '待实现',
+                  value: (general.value?.sourceEditMaxLines ?? 0) == 0
+                      ? context.l10n.sourceEditorLinesUnlimited
+                      : '${general.value!.sourceEditMaxLines}',
+                  onTap: general.hasValue ? _showSourceEditorLines : null,
+                  enabled: general.hasValue,
+                  subtitle: context.l10n.sourceEditorLinesDescription,
                 ),
                 SettingTile(
                   title: context.l10n.advancedCheckSourceSettings,
@@ -565,6 +564,20 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
       debugPrint('主界面设置保存失败：$error');
       if (mounted) _toast(context.l10n.loginSaveFailed);
     }
+  }
+
+  Future<void> _showSourceEditorLines() async {
+    final repository = ref.read(generalSettingsRepositoryProvider);
+    final value = await AppBottomSheet.showContent<int>(
+      context: context,
+      builder: (_) => SourceEditorLinesSheet(
+        initial: repository.current.sourceEditMaxLines,
+      ),
+    );
+    if (value == null || !mounted) return;
+    await _saveMainPreferences(
+      () => repository.update(sourceEditMaxLines: value),
+    );
   }
 
   /// 默认书籍保存位置（对齐原版 defaultBookTreeUri 目录选择）
