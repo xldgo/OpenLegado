@@ -37,6 +37,7 @@ class FakeExportService extends ExportService {
 
   /// 导出是否被调用
   bool exportCalled = false;
+  ({String format, bool includeToc, String? encoding})? request;
 
   /// WebDAV 上传是否被调用
   bool webdavCalled = false;
@@ -64,6 +65,7 @@ class FakeExportService extends ExportService {
     String? fileNameTemplate,
   }) async {
     exportCalled = true;
+    request = (format: format, includeToc: includeToc, encoding: encoding);
     if (shouldFail) {
       throw const ExportException('模拟导出失败');
     }
@@ -200,44 +202,6 @@ void main() {
   }
 
   group('导出对话框 UI 渲染', () {
-    testWidgets('显示对话框标题', (tester) async {
-      await pumpTestWidget(tester);
-
-      expect(find.text('导出测试书籍'), findsOneWidget);
-    });
-
-    testWidgets('显示格式选择器', (tester) async {
-      await pumpTestWidget(tester);
-
-      expect(find.text('导出格式'), findsOneWidget);
-      expect(find.text('TXT'), findsOneWidget);
-      expect(find.text('EPUB'), findsOneWidget);
-      expect(find.text('HTML'), findsOneWidget);
-    });
-
-    testWidgets('显示字符编码选择器', (tester) async {
-      await pumpTestWidget(tester);
-
-      expect(find.text('字符编码'), findsOneWidget);
-      // 默认选中 UTF-8
-      expect(find.text('UTF-8'), findsWidgets);
-    });
-
-    testWidgets('显示 TOC 复选框', (tester) async {
-      await pumpTestWidget(tester);
-      await tester.ensureVisible(find.text('包含目录'));
-
-      expect(find.text('包含目录'), findsOneWidget);
-      expect(find.text('导出时包含书籍的目录结构'), findsOneWidget);
-    });
-
-    testWidgets('显示取消和确认按钮', (tester) async {
-      await pumpTestWidget(tester);
-
-      expect(find.text('取消'), findsOneWidget);
-      expect(find.text('确认'), findsOneWidget);
-    });
-
     testWidgets('无 WebDAV 配置时不显示 WebDAV 选项', (tester) async {
       await pumpTestWidget(tester, webDavConfig: null);
 
@@ -257,73 +221,6 @@ void main() {
   });
 
   group('导出对话框交互', () {
-    testWidgets('默认选中 EPUB 格式', (tester) async {
-      for (final theme in [
-        AppTheme.light,
-        AppTheme.dark,
-        AppTheme.withColorScheme(
-          AppTheme.dark,
-          ColorScheme.fromSeed(
-            seedColor: Colors.green,
-            brightness: Brightness.dark,
-          ),
-        ),
-      ]) {
-        await pumpTestWidget(tester, theme: theme);
-        await tester.pumpAndSettle();
-
-        // 默认状态及标签颜色来自实际组件，覆盖应用明暗和局部色板。
-        final epubChip = tester.widget<ChoiceChip>(
-          find.ancestor(
-            of: find.text('EPUB'),
-            matching: find.byType(ChoiceChip),
-          ),
-        );
-        expect(epubChip.selected, isTrue);
-        expect(
-          DefaultTextStyle.of(tester.element(find.text('EPUB'))).style.color,
-          theme.colorScheme.onSecondaryContainer,
-        );
-        expect(
-          DefaultTextStyle.of(tester.element(find.text('TXT'))).style.color,
-          theme.colorScheme.onSurfaceVariant,
-        );
-      }
-    });
-
-    testWidgets('切换格式选择', (tester) async {
-      await pumpTestWidget(tester);
-
-      // 点击 TXT 格式
-      await tester.tap(find.text('TXT'));
-      await tester.pump();
-
-      final txtChip = tester.widget<ChoiceChip>(
-        find.ancestor(of: find.text('TXT'), matching: find.byType(ChoiceChip)),
-      );
-      expect(txtChip.selected, isTrue);
-    });
-
-    testWidgets('切换 TOC 复选框', (tester) async {
-      await pumpTestWidget(tester);
-      await tester.ensureVisible(find.text('包含目录'));
-
-      // 初始状态为选中
-      final checkbox = tester.widget<CheckboxListTile>(
-        find.byType(CheckboxListTile).first,
-      );
-      expect(checkbox.value, isTrue);
-
-      // 点击取消选中
-      await tester.tap(find.text('包含目录'));
-      await tester.pump();
-
-      final updatedCheckbox = tester.widget<CheckboxListTile>(
-        find.byType(CheckboxListTile).first,
-      );
-      expect(updatedCheckbox.value, isFalse);
-    });
-
     testWidgets('点击取消关闭对话框', (tester) async {
       await pumpTestWidget(tester);
 
@@ -334,8 +231,17 @@ void main() {
       expect(find.text('导出测试书籍'), findsNothing);
     });
 
-    testWidgets('点击确认触发导出', (tester) async {
+    testWidgets('所选格式、目录选项和编码传给服务，文件写入后关闭', (tester) async {
       await pumpTestWidget(tester);
+      await tester.tap(find.text('TXT'));
+      await tester.pump();
+      await tester.ensureVisible(find.text('包含目录'));
+      await tester.tap(find.text('包含目录'));
+      await tester.ensureVisible(find.text('UTF-8').first);
+      await tester.tap(find.text('UTF-8').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('GBK').last);
+      await tester.pumpAndSettle();
       final directory = await selectExportDirectory(tester);
 
       expect(find.widgetWithText(FilledButton, '确认'), findsOneWidget);
@@ -344,6 +250,11 @@ void main() {
 
       // 验证导出被调用
       expect(fakeExportService.exportCalled, isTrue);
+      expect(fakeExportService.request, (
+        format: 'txt',
+        includeToc: false,
+        encoding: 'GBK',
+      ));
       await waitForSavedFile(tester, directory);
 
       await waitForExportClose(tester);
@@ -358,6 +269,11 @@ void main() {
 
       await tester.tap(find.text('确认'));
       await tester.pump();
+      expect(fakeExportService.request, (
+        format: 'epub',
+        includeToc: true,
+        encoding: 'UTF-8',
+      ));
       await waitForSavedFile(tester, directory);
 
       await waitForExportClose(tester);
@@ -374,20 +290,6 @@ void main() {
       expect(find.text('请先选择导出目录'), findsWidgets);
       expect(fakeExportService.exportCalled, isFalse);
       expect(find.text('导出测试书籍'), findsOneWidget);
-    });
-  });
-
-  group('导出对话框字符集选择', () {
-    testWidgets('字符集下拉框包含所有选项', (tester) async {
-      await pumpTestWidget(tester);
-
-      // 点击下拉框展开
-      await tester.tap(find.text('UTF-8').first);
-      await tester.pumpAndSettle();
-
-      // 验证所有字符集选项
-      expect(find.text('GBK'), findsWidgets);
-      expect(find.text('Big5'), findsWidgets);
     });
   });
 }

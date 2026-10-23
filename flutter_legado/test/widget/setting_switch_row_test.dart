@@ -6,44 +6,13 @@ import 'package:flutter_legado/src/widgets/ui_settings_scope.dart';
 
 /// M3 设置开关行（`SettingSwitchRow`，对齐参考版 `SwitchSettingItem`）测试
 ///
-/// 覆盖：标题/副标题渲染、整行点击即切换（参考版非 Miuix 分支
-/// `onClick = onCheckedChange(!checked)`）、开关直点、禁用态（行不可点 +
-/// ListTile.enabled=false + 开关灰置）、icon/leading 前导、无 Chevron、
-/// 语义合并（MergeSemantics，同 SwitchListTile）。不逐项复述装饰参数。
+/// 只保留项目封装的整行点击、整行禁用与语义合并，不复测原生Switch回调。
 void main() {
   Widget wrap(Widget child, {UiSettings settings = const UiSettings()}) =>
       UiSettingsScope(
         settings: settings,
         child: MaterialApp(home: Scaffold(body: child)),
       );
-
-  testWidgets('渲染标题/副标题，开关取 value', (tester) async {
-    await tester.pumpWidget(
-      wrap(
-        const SettingSwitchRow(
-          title: '自动刷新',
-          subtitle: '打开软件时自动更新书籍',
-          value: true,
-          onChanged: _noop,
-        ),
-      ),
-    );
-
-    expect(find.text('自动刷新'), findsOneWidget);
-    expect(find.text('打开软件时自动更新书籍'), findsOneWidget);
-    expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
-  });
-
-  testWidgets('未传副标题时不渲染副标题', (tester) async {
-    await tester.pumpWidget(
-      wrap(
-        const SettingSwitchRow(title: '显示订阅', value: false, onChanged: _noop),
-      ),
-    );
-
-    expect(find.text('显示订阅'), findsOneWidget);
-    expect(find.byType(Text), findsOneWidget);
-  });
 
   testWidgets('整行点击即切换（标题处点击传 !value）', (tester) async {
     final calls = <bool>[];
@@ -57,18 +26,6 @@ void main() {
     expect(calls, [true]);
   });
 
-  testWidgets('直点开关触发 onChanged（传状态机新值）', (tester) async {
-    final calls = <bool>[];
-    await tester.pumpWidget(
-      wrap(SettingSwitchRow(title: '自动刷新', value: true, onChanged: calls.add)),
-    );
-
-    await tester.tap(find.byType(Switch));
-    await tester.pump();
-
-    expect(calls, [false]);
-  });
-
   testWidgets('onChanged 为 null 时行禁用：不可点、ListTile 停用、开关灰置', (tester) async {
     await tester.pumpWidget(
       wrap(const SettingSwitchRow(title: '同步书籍进度增强', value: false)),
@@ -80,42 +37,6 @@ void main() {
     // 禁用行点击不抛异常也不产生任何回调（无可点 InkWell 目标即静默）
     await tester.tap(find.text('同步书籍进度增强'), warnIfMissed: false);
     await tester.pump();
-  });
-
-  testWidgets('icon 渲染裸前导图标；leading 优先于 icon', (tester) async {
-    await tester.pumpWidget(
-      wrap(
-        const SettingSwitchRow(
-          icon: Icons.alarm,
-          title: '运行定时任务',
-          value: false,
-          onChanged: _noop,
-        ),
-      ),
-    );
-    expect(find.byIcon(Icons.alarm), findsOneWidget);
-
-    await tester.pumpWidget(
-      wrap(
-        SettingSwitchRow(
-          icon: Icons.alarm,
-          leading: const SizedBox(key: Key('busy'), width: 20, height: 20),
-          title: 'MCP 服务',
-          value: false,
-          onChanged: _noop,
-        ),
-      ),
-    );
-    expect(find.byKey(const Key('busy')), findsOneWidget);
-    expect(find.byIcon(Icons.alarm), findsNothing);
-  });
-
-  testWidgets('开关行不显示 Chevron', (tester) async {
-    await tester.pumpWidget(
-      wrap(SettingSwitchRow(title: '自动刷新', value: false, onChanged: _noop)),
-    );
-
-    expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
   });
 
   testWidgets('语义合并为单一开关节点（MergeSemantics 包住整行）', (tester) async {

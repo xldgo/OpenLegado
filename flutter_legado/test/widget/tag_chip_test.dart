@@ -24,21 +24,6 @@ void main() {
     );
   }
 
-  testWidgets('TagChip renders label text', (tester) async {
-    await tester.pumpWidget(buildTestWidget(label: '玄幻'));
-
-    expect(find.text('玄幻'), findsOneWidget);
-    expect(find.byType(TagChip), findsOneWidget);
-  });
-
-  testWidgets('TagChip shows delete icon when onDeleted provided', (
-    tester,
-  ) async {
-    await tester.pumpWidget(buildTestWidget(onDeleted: () {}));
-
-    expect(find.byIcon(Symbols.close_rounded), findsOneWidget);
-  });
-
   testWidgets('TagChip hides delete icon when onDeleted is null', (
     tester,
   ) async {

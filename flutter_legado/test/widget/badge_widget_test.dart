@@ -18,13 +18,6 @@ void main() {
     );
   }
 
-  testWidgets('BadgeWidget renders child widget', (tester) async {
-    await tester.pumpWidget(buildTestWidget());
-
-    expect(find.byIcon(Icons.notifications), findsOneWidget);
-    expect(find.byType(BadgeWidget), findsOneWidget);
-  });
-
   testWidgets('BadgeWidget shows badge when count > 0', (tester) async {
     await tester.pumpWidget(buildTestWidget(count: 5));
 

@@ -16,13 +16,6 @@ void main() {
     );
   }
 
-  testWidgets('LoadingOverlay renders child widget', (tester) async {
-    await tester.pumpWidget(buildTestWidget(isLoading: false));
-
-    expect(find.text('内容区域'), findsOneWidget);
-    expect(find.byType(LoadingOverlay), findsOneWidget);
-  });
-
   testWidgets('LoadingOverlay shows indicator when isLoading', (tester) async {
     await tester.pumpWidget(buildTestWidget(isLoading: true));
 

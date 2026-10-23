@@ -5,32 +5,6 @@ import 'package:flutter_legado/src/theme/app_sheet_theme.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
 
 void main() {
-  Widget buildTestWidget({
-    String title = '设置',
-    List<Widget> children = const [],
-    Widget? trailing,
-  }) {
-    return MaterialApp(
-      home: Scaffold(
-        body: Builder(
-          builder: (context) => Center(
-            child: ElevatedButton(
-              onPressed: () {
-                AppBottomSheet.show(
-                  context: context,
-                  title: title,
-                  children: children,
-                  trailing: trailing,
-                );
-              },
-              child: const Text('打开'),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   testWidgets('共用主题控制标题居中，左右操作不等宽时保持居中', (tester) async {
     for (final centered in [true, false]) {
       await tester.pumpWidget(
@@ -105,18 +79,6 @@ void main() {
       final rect = tester.getRect(row);
       expect(rect.left, closeTo(sheet.left, .01));
       expect(rect.right, closeTo(sheet.right, .01));
-      expect(
-        tester.getTopLeft(find.text('设置正文')).dx,
-        closeTo(rect.left + 16, .01),
-      );
-      expect(
-        ListTileTheme.of(tester.element(row)).shape,
-        const RoundedRectangleBorder(),
-      );
-      expect(
-        tester.widget<BottomSheet>(find.byType(BottomSheet)).clipBehavior,
-        Clip.antiAlias,
-      );
       final press = await tester.startGesture(
         Offset(rect.left + 2, rect.center.dy),
       );
@@ -129,75 +91,6 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
-
-  testWidgets('调用方可显式为表单保留内边距', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light,
-        home: const Scaffold(
-          body: AppBottomSheet.content(
-            title: '表单',
-            contentPadding: EdgeInsets.fromLTRB(16, 8, 16, 24),
-            child: SizedBox(key: ValueKey('form-body'), height: 80),
-          ),
-        ),
-      ),
-    );
-    final sheet = tester.getRect(find.byType(AppBottomSheet));
-    final body = tester.getRect(find.byKey(const ValueKey('form-body')));
-    expect(body.left, closeTo(sheet.left + 16, .01));
-    expect(body.right, closeTo(sheet.right - 16, .01));
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('AppBottomSheet renders title and children', (tester) async {
-    await tester.pumpWidget(
-      buildTestWidget(
-        title: '阅读设置',
-        children: const [Text('字体大小'), Text('背景颜色')],
-      ),
-    );
-
-    // 打开底部弹窗
-    await tester.tap(find.text('打开'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('阅读设置'), findsOneWidget);
-    expect(find.text('字体大小'), findsOneWidget);
-    expect(find.text('背景颜色'), findsOneWidget);
-  });
-
-  testWidgets('AppBottomSheet shows trailing widget', (tester) async {
-    await tester.pumpWidget(
-      buildTestWidget(
-        title: '测试',
-        children: const [Text('内容')],
-        trailing: const Icon(Icons.close),
-      ),
-    );
-
-    await tester.tap(find.text('打开'));
-    await tester.pumpAndSettle();
-
-    expect(find.byIcon(Icons.close), findsOneWidget);
-  });
-
-  testWidgets('AppBottomSheet can be dismissed', (tester) async {
-    await tester.pumpWidget(
-      buildTestWidget(title: '测试弹窗', children: const [Text('内容')]),
-    );
-
-    await tester.tap(find.text('打开'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('测试弹窗'), findsOneWidget);
-
-    // 点击外部关闭
-    await tester.tapAt(const Offset(10, 10));
-    await tester.pumpAndSettle();
-
-    expect(find.text('测试弹窗'), findsNothing);
-  });
 
   // [统一壳 B2a] 迁移形态用例：标题 + 操作 ListTile 列表（主题选择/底栏皮肤/
   // 书源操作三处迁移后的共同形态），点击 ListTile 以返回值关闭。

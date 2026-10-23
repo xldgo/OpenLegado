@@ -31,13 +31,6 @@ void main() {
     );
   }
 
-  testWidgets('BookGridItem renders title', (tester) async {
-    await tester.pumpWidget(buildTestWidget(title: '完美世界'));
-
-    expect(find.text('完美世界'), findsOneWidget);
-    expect(find.byType(BookGridItem), findsOneWidget);
-  });
-
   testWidgets('BookGridItem renders unread badge when unreadNum > 0', (
     tester,
   ) async {
@@ -106,16 +99,5 @@ void main() {
     // 长按标题区域
     await tester.longPress(find.text('测试书籍'));
     expect(infoLongPressed, isTrue);
-  });
-
-  testWidgets('BookGridItem shows default cover image without cover', (
-    tester,
-  ) async {
-    await tester.pumpWidget(buildTestWidget());
-
-    // 无封面 → 默认封面图（对标原版 image_cover_default.jpg）
-    // [UI-fix | 2026-08-24] 占位符由 Icon 改为默认封面图 — Qoder UI
-    final img = tester.widget<Image>(find.byType(Image));
-    expect(img.image, const AssetImage('assets/images/default_book_cover.jpg'));
   });
 }

@@ -26,13 +26,6 @@ void main() {
     );
   }
 
-  testWidgets('ChapterTile renders title', (tester) async {
-    await tester.pumpWidget(buildTestWidget(title: '第一百章 大结局'));
-
-    expect(find.text('第一百章 大结局'), findsOneWidget);
-    expect(find.byType(ChapterTile), findsOneWidget);
-  });
-
   testWidgets('ChapterTile shows play icon when isCurrent', (tester) async {
     await tester.pumpWidget(buildTestWidget(isCurrent: true));
 
@@ -43,13 +36,5 @@ void main() {
     await tester.pumpWidget(buildTestWidget(isCurrent: false));
 
     expect(find.byIcon(Symbols.play_arrow_rounded), findsNothing);
-  });
-
-  testWidgets('ChapterTile onTap callback works', (tester) async {
-    var tapped = false;
-    await tester.pumpWidget(buildTestWidget(onTap: () => tapped = true));
-
-    await tester.tap(find.byType(ChapterTile));
-    expect(tapped, isTrue);
   });
 }

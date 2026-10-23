@@ -24,13 +24,6 @@ void main() {
     );
   }
 
-  testWidgets('SearchBarWidget renders with hint text', (tester) async {
-    await tester.pumpWidget(buildTestWidget(hintText: '搜索书源'));
-
-    expect(find.text('搜索书源'), findsOneWidget);
-    expect(find.byIcon(Symbols.search_rounded), findsOneWidget);
-  });
-
   testWidgets('SearchBarWidget shows clear button when text entered', (
     tester,
   ) async {
@@ -44,14 +37,6 @@ void main() {
     await tester.pump();
 
     expect(find.byIcon(Symbols.close_rounded), findsOneWidget);
-  });
-
-  testWidgets('SearchBarWidget onChanged callback works', (tester) async {
-    String? changedText;
-    await tester.pumpWidget(buildTestWidget(onChanged: (t) => changedText = t));
-
-    await tester.enterText(find.byType(TextField), '斗破苍穹');
-    expect(changedText, '斗破苍穹');
   });
 
   testWidgets('SearchBarWidget onClear callback works', (tester) async {

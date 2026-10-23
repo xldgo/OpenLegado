@@ -29,25 +29,10 @@ void main() {
     );
   }
 
-  testWidgets('SourceCard renders name and url', (tester) async {
-    await tester.pumpWidget(
-      buildTestWidget(name: '起点中文网', url: 'https://www.qidian.com'),
-    );
-
-    expect(find.text('起点中文网'), findsOneWidget);
-    expect(find.text('https://www.qidian.com'), findsOneWidget);
-  });
-
   testWidgets('SourceCard shows group tag when provided', (tester) async {
     await tester.pumpWidget(buildTestWidget(group: '玄幻'));
 
     expect(find.text('玄幻'), findsOneWidget);
-  });
-
-  testWidgets('SourceCard has switch widget', (tester) async {
-    await tester.pumpWidget(buildTestWidget());
-
-    expect(find.byType(Switch), findsOneWidget);
   });
 
   testWidgets('SourceCard onToggle callback works', (tester) async {

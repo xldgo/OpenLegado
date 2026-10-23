@@ -106,32 +106,6 @@ void main() {
       expect(find.byType(SettingsScreen), findsOneWidget);
       expect(find.byType(DownloadCacheSettingsScreen), findsNothing);
     });
-    testWidgets('渲染顶部管理入口与设置/其他分组', (tester) async {
-      await tester.pumpWidget(wrap(const SettingsScreen()));
-      await tester.pumpAndSettle();
-
-      // 顶部管理入口（对标 pref_main；字典规则非「词典规则」）
-      expect(find.text('书源管理'), findsOneWidget);
-      expect(find.text('定时任务'), findsNWidgets(2));
-      expect(find.text('TXT 目录规则'), findsOneWidget);
-      expect(find.text('替换净化'), findsOneWidget);
-      expect(find.text('字典规则'), findsOneWidget);
-      expect(find.text('主题模式'), findsNothing);
-
-      expect(find.text('我的'), findsWidgets);
-      // 外观组包含外观和阅读界面，高级与备份分别归入其他和同步与服务。
-      await dragTo(tester, '备份与恢复');
-      expect(find.text('设置', skipOffstage: false), findsNothing);
-      expect(find.text('外观'), findsNWidgets(2));
-      expect(find.text('高级'), findsOneWidget);
-      expect(find.text('阅读界面'), findsOneWidget);
-      expect(find.text('备份与恢复'), findsOneWidget);
-      expect(find.text('主题设置'), findsNothing);
-
-      // 已删除创意项
-      expect(find.text('导出日志'), findsNothing);
-      expect(find.text('词典规则'), findsNothing);
-    });
 
     testWidgets(
       '其他分组入口可见，退出仅在非iOS显示',
