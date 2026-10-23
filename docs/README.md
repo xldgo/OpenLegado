@@ -17,8 +17,7 @@
 
 ## 基准口径
 
-- **功能基准 = Android 原版与参考版共同核对**（任一侧存在即应有能力）；**参考版负责用户可见行为和视觉目标**，**Android 原版用于语义交叉核对**；两者存在实质差异时暂停该项并提交证据与选项，由用户裁决（见 [SCREEN_1TO1_PARITY_SPEC_20260914.md](SCREEN_1TO1_PARITY_SPEC_20260914.md) §一）。
-- **视觉验收 = 参考版截图**（`io.legato.kazusa` 实机截图），逐屏方法与台账见 [SCREEN_1TO1_PARITY_SPEC_20260914.md](SCREEN_1TO1_PARITY_SPEC_20260914.md) / [SCREEN_1TO1_PARITY_LEDGER_20260914.md](SCREEN_1TO1_PARITY_LEDGER_20260914.md)；深色基准见 [DARK_THEME_PARITY_LEDGER_20260920.md](DARK_THEME_PARITY_LEDGER_20260920.md)。
+- 功能与行为核对见 [重构工作流](REFACTORING_WORKFLOW.md)，UI目标与验收见 [设计系统](design_system.md)；本索引不另立比对口径。
 - 历史截图目录（`baseline_android/`、`baseline_flutter/`、`baseline_reference/`、`parity_shots/` 等）所载采集日期、工具与模拟器信息为**历史取证事实，不代表当前设备状态**。
 - 当前设备任务必须以执行前实时探测为准（MuMu/官方模拟器在线实例、ADB 端点、网络与应用变体）；不把文档中的固定端口或旧设备可用记录当作当前保证。
 
@@ -55,9 +54,6 @@
 | 文档 | 说明 |
 | --- | --- |
 | [design_system.md](design_system.md) | Legado 设计系统与组件设计规范 |
-| [SCREEN_1TO1_PARITY_SPEC_20260914.md](SCREEN_1TO1_PARITY_SPEC_20260914.md) | 参考版视觉一比一比对规范 |
-| [SCREEN_1TO1_PARITY_LEDGER_20260914.md](SCREEN_1TO1_PARITY_LEDGER_20260914.md) | 一比一视觉比对台账（逐屏状态，完成回写 Active） |
-| [DARK_THEME_PARITY_LEDGER_20260920.md](DARK_THEME_PARITY_LEDGER_20260920.md) | 深色主题视觉比对台账 |
 | [READING_FLOW_DEFECT_HUNT_PLAN_20260924.md](READING_FLOW_DEFECT_HUNT_PLAN_20260924.md) | 阅读主流程缺陷发现与取证方法 |
 | [READER_LAYOUT_CONTRACT_20261012.md](READER_LAYOUT_CONTRACT_20261012.md) | 排版渲染核心契约 |
 | [READER_LAYOUT_PROFILE_20261012.md](READER_LAYOUT_PROFILE_20261012.md) | 阅读排版性能剖析与基线测试规范 |
@@ -83,6 +79,7 @@
 所有已交付结束的历史批次材料（含已结项专项计划、阶段性审计报告、单次技术调研、Code Review 结论等）已统一归档至 **[docs/过期文档/](过期文档/README.md)**，仅供追溯与参考，不再作为当前开发依据。
 
 - [过期文档索引与替代关系](过期文档/README.md)
+- 已废止的[一比一规范](SCREEN_1TO1_PARITY_SPEC_20260914.md)、[视觉台账](SCREEN_1TO1_PARITY_LEDGER_20260914.md)与[深色台账](DARK_THEME_PARITY_LEDGER_20260920.md)保留原路径供旧引用追溯，不属于现行规范或待办来源。
 
 ---
 
@@ -96,4 +93,4 @@
 4. **引用路径**：跨目录引用文档时使用正确的相对路径（如 `docs/` 内文档引用 `rust/` 下文档应写为 `../rust/xxx.md`）。
 5. **及时归档**：阶段性任务结项或被新方案取代后，应及时将历史过程报告移动至 `docs/过期文档/`，保持主目录仅保留当前有效事实与规范。
 
-修订者：Codex 主代理｜2026-10-16（完成历史批次材料全面归档与目录结构梳理）
+修订者：Codex｜2026-10-24（更新现行UI验收入口，旧视觉比对材料只作历史追溯）

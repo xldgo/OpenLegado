@@ -23,7 +23,6 @@
 |---|---|
 | Rust/Flutter边界、领域接口、Mock、FRB/native | [双轨规范](docs/TWO_TRACK_DEV_SPEC.md)、[API契约](docs/API_CONTRACT.md)；先冻结变更契约，再实现 |
 | UI组件、主题与交互 | [设计系统](docs/design_system.md) |
-| 参考版视觉比对 | [逐屏规范](docs/SCREEN_1TO1_PARITY_SPEC_20260914.md)、[比对台账](docs/SCREEN_1TO1_PARITY_LEDGER_20260914.md) |
 | 阅读主流程缺陷 | [缺陷取证流程](docs/READING_FLOW_DEFECT_HUNT_PLAN_20260924.md) |
 | CI、测试分组与手动构建 | [CI编排说明](docs/CI_ORCHESTRATION_20261010.md) |
 | Python生成与Android FFI | [构建入口](docs/PYTHON_FFI_BUILD_20261011.md)、[Gradle接线](docs/PYTHON_GRADLE_FFI_20261011.md) |

@@ -1,10 +1,10 @@
 # 双轨协作开发规范（UI 轨与 Rust 轨）
 
-**日期**: 2026-10-19
-**版本**: v1.4
+**日期**: 2026-10-24
+**版本**: v1.5
 **维护人**: Legado 开发团队
 
-> 本文只规定 Rust/Flutter 双轨边界、Mock 与 FFI/codegen/native 构建专项步骤。通用任务优先级、Agent 派发、当前分支策略、常规验证、证据和关闭流程统一见 [REFACTORING_WORKFLOW.md](REFACTORING_WORKFLOW.md)、根目录 [AGENTS.md](../AGENTS.md) 与[通用开发规范](DEVELOPMENT_CONVENTIONS.md)；视觉目标见 [SCREEN_1TO1_PARITY_SPEC_20260914.md](SCREEN_1TO1_PARITY_SPEC_20260914.md)。
+> 本文只规定 Rust/Flutter 双轨边界、Mock 与 FFI/codegen/native 构建专项步骤。通用任务优先级、Agent 派发、当前分支策略、常规验证、证据和关闭流程统一见 [REFACTORING_WORKFLOW.md](REFACTORING_WORKFLOW.md)、根目录 [AGENTS.md](../AGENTS.md) 与[通用开发规范](DEVELOPMENT_CONVENTIONS.md)；UI目标与验收见 [设计系统](design_system.md)。
 
 > **内容边界**：本文只写「怎么做」——边界、规则、流程、命令。
 > 「为什么这样规定」见 [TWO_TRACK_DEV_RATIONALE.md](TWO_TRACK_DEV_RATIONALE.md)（章节号与本文对应）；
@@ -252,7 +252,7 @@ flutter run -d windows --dart-define=USE_MOCK=true
 ### 5.2 日常流程
 
 1. 启动 Mock 模式。
-2. 按 `SCREEN_1TO1_PARITY_SPEC_20260914.md` 和对应屏幕台账对照参考版截图；状态以 Active 计划为准。
+2. 按设计系统和当前任务验证界面与交互；上游仅作行为参考，状态以Active计划为准。
 3. 使用 `flutter analyze` 确保静态分析无错误。
 4. 编写 / 更新 `flutter_legado/test/` 下对应 Widget 测试。
 5. 按根目录 `AGENTS.md` 当前分支和提交策略交付，不沿用本文件旧分支示例。
