@@ -24,6 +24,7 @@ import 'media_dto.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_web.dart';
 
 import 'read_aloud_dto.dart';
+import 'search_aggregate_dto.dart';
 import 'source_tools_dto.dart';
 import 'statistics_dto.dart';
 import 'task_dto.dart';
@@ -40,6 +41,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CrossPlatformFinalizerArg
   get rust_arc_decrement_strong_count_LayoutSessionPtr => wire
       .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession;
+
+  CrossPlatformFinalizerArg
+  get rust_arc_decrement_strong_count_SearchAggregationPtr => wire
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSearchAggregation;
 
   CrossPlatformFinalizerArg
   get rust_arc_decrement_strong_count_StreamRequestPtr => wire
@@ -59,6 +64,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  SearchAggregation
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSearchAggregation(
+    dynamic raw,
+  );
+
+  @protected
   StreamRequest
   dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
     dynamic raw,
@@ -73,6 +84,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   LayoutSession
   dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+    dynamic raw,
+  );
+
+  @protected
+  SearchAggregation
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSearchAggregation(
     dynamic raw,
   );
 
@@ -109,6 +126,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   LayoutSession
   dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+    dynamic raw,
+  );
+
+  @protected
+  SearchAggregation
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSearchAggregation(
     dynamic raw,
   );
 
@@ -789,6 +812,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<RuleSubscriptionDto> dco_decode_list_rule_subscription_dto(dynamic raw);
 
   @protected
+  List<SearchAggregateInputDto> dco_decode_list_search_aggregate_input_dto(
+    dynamic raw,
+  );
+
+  @protected
+  List<SearchAggregateResultDto> dco_decode_list_search_aggregate_result_dto(
+    dynamic raw,
+  );
+
+  @protected
+  List<SearchAggregateRetainedDto>
+  dco_decode_list_search_aggregate_retained_dto(dynamic raw);
+
+  @protected
   List<SearchBookDto> dco_decode_list_search_book_dto(dynamic raw);
 
   @protected
@@ -1063,6 +1100,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RuleSubscriptionDto dco_decode_rule_subscription_dto(dynamic raw);
 
   @protected
+  SearchAggregateInputDto dco_decode_search_aggregate_input_dto(dynamic raw);
+
+  @protected
+  SearchAggregateResultDto dco_decode_search_aggregate_result_dto(dynamic raw);
+
+  @protected
+  SearchAggregateRetainedDto dco_decode_search_aggregate_retained_dto(
+    dynamic raw,
+  );
+
+  @protected
   SearchBookDto dco_decode_search_book_dto(dynamic raw);
 
   @protected
@@ -1192,6 +1240,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  SearchAggregation
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSearchAggregation(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   StreamRequest
   sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
     SseDeserializer deserializer,
@@ -1206,6 +1260,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   LayoutSession
   sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SearchAggregation
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSearchAggregation(
     SseDeserializer deserializer,
   );
 
@@ -1248,6 +1308,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   LayoutSession
   sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SearchAggregation
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSearchAggregation(
     SseDeserializer deserializer,
   );
 
@@ -2150,6 +2216,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<SearchAggregateInputDto> sse_decode_list_search_aggregate_input_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<SearchAggregateResultDto> sse_decode_list_search_aggregate_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<SearchAggregateRetainedDto>
+  sse_decode_list_search_aggregate_retained_dto(SseDeserializer deserializer);
+
+  @protected
   List<SearchBookDto> sse_decode_list_search_book_dto(
     SseDeserializer deserializer,
   );
@@ -2520,6 +2600,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  SearchAggregateInputDto sse_decode_search_aggregate_input_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SearchAggregateResultDto sse_decode_search_aggregate_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SearchAggregateRetainedDto sse_decode_search_aggregate_retained_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   SearchBookDto sse_decode_search_book_dto(SseDeserializer deserializer);
 
   @protected
@@ -2694,6 +2789,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSearchAggregation(
+    SearchAggregation self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
   sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
     StreamRequest self,
     SseSerializer serializer,
@@ -2710,6 +2812,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void
   sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
     LayoutSession self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSearchAggregation(
+    SearchAggregation self,
     SseSerializer serializer,
   );
 
@@ -2761,6 +2870,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void
   sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
     LayoutSession self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSearchAggregation(
+    SearchAggregation self,
     SseSerializer serializer,
   );
 
@@ -3904,6 +4020,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_search_aggregate_input_dto(
+    List<SearchAggregateInputDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_search_aggregate_result_dto(
+    List<SearchAggregateResultDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_search_aggregate_retained_dto(
+    List<SearchAggregateRetainedDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_search_book_dto(
     List<SearchBookDto> self,
     SseSerializer serializer,
@@ -4369,6 +4503,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_search_aggregate_input_dto(
+    SearchAggregateInputDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_search_aggregate_result_dto(
+    SearchAggregateResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_search_aggregate_retained_dto(
+    SearchAggregateRetainedDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_search_book_dto(SearchBookDto self, SseSerializer serializer);
 
   @protected
@@ -4595,6 +4747,22 @@ class RustLibWire implements BaseWire {
       );
 
   void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSearchAggregation(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSearchAggregation(
+        ptr,
+      );
+
+  void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSearchAggregation(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSearchAggregation(
+        ptr,
+      );
+
+  void
   rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
     int ptr,
   ) => wasmModule
@@ -4640,6 +4808,16 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
 
   external void
   rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+    int ptr,
+  );
+
+  external void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSearchAggregation(
+    int ptr,
+  );
+
+  external void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSearchAggregation(
     int ptr,
   );
 

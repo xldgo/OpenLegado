@@ -11,9 +11,13 @@ import 'media_dto.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 import 'read_aloud_dto.dart';
+import 'search_aggregate_dto.dart';
 
 // These functions are ignored because they are not marked as `pub`: `run_webbook_blocking`, `to_json`, `wait_cancelled`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`, `fmt`, `from`, `from`
+
+Future<SearchAggregation> searchAggregationBegin({required String keyword}) =>
+    RustLib.instance.api.crateFfiSearchAggregationBegin(keyword: keyword);
 
 /// 创建独立排版句柄；配置按结构传递。
 Future<LayoutSession> readerLayoutBegin({required LayoutConfigDto config}) =>
@@ -62,6 +66,17 @@ Future<bool> privacySetPassword({
   currentPassword: currentPassword,
   password: password,
 );
+
+// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<SearchAggregation>>
+abstract class SearchAggregation implements RustOpaqueInterface {
+  Future<List<SearchAggregateRetainedDto>> add({
+    required List<SearchAggregateInputDto> books,
+  });
+
+  Future<void> close();
+
+  Future<List<SearchAggregateResultDto>> snapshot({required bool keepOther});
+}
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<StreamRequest>>
 abstract class StreamRequest implements RustOpaqueInterface {

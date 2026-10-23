@@ -1,9 +1,9 @@
 //! 跨端夹具校验（队列⑩a P1-1 项2，2026-09-22）
 //!
-//! 验证「Rust 跨源聚合结果 == Dart 现行 `applyPrecisionSearch` 期望」：
-//! 本测试与 Dart 侧 `flutter_legado/test/unit/search_aggregate_fixture_test.dart`
+//! 验证Rust聚合结果与历史Dart行为冻结夹具一致：
+//! 原Dart侧重复算法用例已在B9移除；本测试继续
 //! 读同一夹具 `tests/fixtures/search_aggregate/cross_source_merge.json`，
-//! 各自跑本端聚合实现并与夹具 `expected` 逐条比对：
+//! 执行共享Core聚合实现并与夹具 `expected` 逐条比对：
 //! - `name`/`author`/`origin`/`originName`/`bookUrl`/`kind`/`hasReadRecord`
 //!   按索引顺序敏感比对（`kind` 缺失/`null` 视同 None）；
 //! - `origins` 按序比对（首次出现序为契约：Dart `Set<String>` 为

@@ -1,6 +1,5 @@
 import '../fixtures/app_test_api.dart';
 
-import 'package:flutter_legado/src/domain/services/search_result_aggregator.dart';
 import 'package:flutter_legado/src/domain/models/search_batch.dart';
 import 'package:flutter_legado/src/data/bridge/search_batch_decode.dart';
 
@@ -1167,223 +1166,7 @@ void main() {
     });
   });
 
-  group('applyPrecisionSearch 精准搜索（fix34：对齐原版 SearchModel 语义）', () {
-    SearchResult mk(
-      String name,
-      String author, {
-      String? kind,
-      String origin = '',
-      String sourceName = '',
-    }) => SearchResult(
-      book: Book(name: name, author: author, kind: kind, origin: origin),
-      sourceName: sourceName.isEmpty ? origin : sourceName,
-      origins: origin.isEmpty ? const {} : {origin},
-    );
-
-    test('同名/同作者精确命中保留且排最前（equal 桶）', () {
-      final results = [
-        mk('重生1990', '张三', origin: 'a'),
-        mk('重生', '李四', origin: 'b'),
-        mk('某书', '重生', origin: 'c'),
-      ];
-
-      final out = applyPrecisionSearch(results, '重生');
-
-      expect(out, hasLength(3));
-      expect(out.map((r) => r.book.name), equals(['重生', '某书', '重生1990']));
-      expect(out.first.book.name, equals('重生'));
-    });
-
-    test('书名/作者包含关键词保留（contains 桶，非精确相等）', () {
-      final results = [
-        mk('重生之门', '王五', origin: 'a'),
-        mk('平凡之路', '重生者', origin: 'b'),
-      ];
-
-      final out = applyPrecisionSearch(results, '重生');
-
-      expect(out, hasLength(2));
-      expect(out[0].book.name, equals('重生之门'));
-      expect(out[1].book.name, equals('平凡之路'));
-    });
-
-    test('kind 标签包含关键词保留（tags 桶，顺序 equal→tags→contains）', () {
-      final results = [
-        mk('重生之路', '甲', origin: 'a'), // contains
-        mk('都市情缘', '乙', kind: '重生,都市', origin: 'b'), // tags
-        mk('重生', '丙', origin: 'c'), // equal
-      ];
-
-      final out = applyPrecisionSearch(results, '重生');
-
-      expect(out.map((r) => r.book.name), equals(['重生', '都市情缘', '重生之路']));
-    });
-
-    test('无关项（other 桶）精准模式（keepOther: false）被丢弃', () {
-      final results = [
-        mk('重生', '甲', origin: 'a'),
-        mk('斗破苍穹', '天蚕土豆', kind: '玄幻', origin: 'b'),
-      ];
-
-      final out = applyPrecisionSearch(results, '重生', keepOther: false);
-
-      expect(out, hasLength(1));
-      expect(out.single.book.name, equals('重生'));
-    });
-
-    test('无关项（other 桶）默认模式（keepOther: true）保留且排在末尾', () {
-      // [UI-fix v2.0.10 | 2026-08-10] 对齐原版 mergeItems：默认搜索保留
-      // other 桶（追加末尾），仅精准模式丢弃 — Reasonix
-      final results = [
-        mk('重生', '甲', origin: 'a'),
-        mk('斗破苍穹', '天蚕土豆', kind: '玄幻', origin: 'b'),
-      ];
-
-      final out = applyPrecisionSearch(results, '重生');
-
-      expect(out, hasLength(2));
-      expect(out.first.book.name, equals('重生'));
-      expect(out.last.book.name, equals('斗破苍穹'));
-    });
-
-    test('归一化一致：kind 为 null 不抛错且按空串处理', () {
-      final results = [
-        mk('重生之门', '甲', origin: 'a'), // kind null
-        mk('斗破', '乙', origin: 'b'),
-      ];
-
-      final out = applyPrecisionSearch(results, '重生', keepOther: false);
-
-      expect(out, hasLength(1));
-      expect(out.single.book.name, equals('重生之门'));
-    });
-
-    test('关键词为空返回原列表', () {
-      final results = [mk('斗破苍穹', '天蚕土豆', origin: 'a')];
-
-      expect(applyPrecisionSearch(results, ''), same(results));
-    });
-
-    test('同名同作者多源聚合为一条且 originsCount 累加（对齐 mergeItems.addOrigin）', () {
-      final results = [
-        mk('一人之下', '米二', origin: 'https://a.com', sourceName: '源A'),
-        mk('一人之下', '米二', origin: 'https://b.com', sourceName: '源B'),
-        mk('一人之下', '米二', origin: 'https://c.com', sourceName: '源C'),
-        mk('一人之下番外', '米二', origin: 'https://d.com', sourceName: '源D'),
-      ];
-
-      final out = applyPrecisionSearch(results, '一人之下');
-
-      expect(out, hasLength(2));
-      expect(out.first.book.name, equals('一人之下'));
-      expect(out.first.originsCount, equals(3));
-      expect(
-        out.first.effectiveOrigins,
-        containsAll(['https://a.com', 'https://b.com', 'https://c.com']),
-      );
-      // 多源条排在单源 contains 之前（equal 桶内按 origins 降序）
-      expect(out.last.book.name, equals('一人之下番外'));
-      expect(out.last.originsCount, equals(1));
-    });
-
-    test('作者字段带「作者：」前缀时与纯作者名聚合为一条（对齐 formatBookAuthor）', () {
-      final results = [
-        mk('斗破苍穹', '天蚕土豆', origin: 'https://a.com'),
-        mk('斗破苍穹', '作者：天蚕土豆', origin: 'https://b.com'),
-        mk('斗破苍穹', '作者: 天蚕土豆', origin: 'https://c.com'),
-        mk('斗破苍穹 作者天蚕土豆', '天蚕土豆', origin: 'https://d.com'),
-      ];
-
-      final out = applyPrecisionSearch(results, '斗破苍穹');
-
-      expect(out, hasLength(1));
-      expect(out.single.book.name, equals('斗破苍穹'));
-      expect(out.single.book.author, equals('天蚕土豆'));
-      expect(out.single.originsCount, equals(4));
-    });
-
-    test('formatBookName / formatBookAuthor 对齐 AppPattern', () {
-      expect(formatBookName('斗破苍穹 作者天蚕土豆'), equals('斗破苍穹'));
-      expect(formatBookName('凡人修仙传 忘语 著'), equals('凡人修仙传'));
-      expect(formatBookAuthor('作者：天蚕土豆'), equals('天蚕土豆'));
-      expect(formatBookAuthor('天蚕土豆 著'), equals('天蚕土豆'));
-    });
-
-    test('多源条按 originsCount 降序（同桶）', () {
-      final results = [
-        mk('一人之下', '甲', origin: 'https://1.com'),
-        mk('一人之下', '乙', origin: 'https://2a.com'),
-        mk('一人之下', '乙', origin: 'https://2b.com'),
-        mk('一人之下', '乙', origin: 'https://2c.com'),
-      ];
-
-      final out = applyPrecisionSearch(results, '一人之下');
-
-      expect(out.first.book.author, equals('乙'));
-      expect(out.first.originsCount, equals(3));
-      expect(out.last.book.author, equals('甲'));
-      expect(out.last.originsCount, equals(1));
-    });
-  });
-
-  group('applyPrecisionSearch 跨桶预去重（P2-20：三条路径统一语义，2026-09-22）', () {
-    SearchResult mk(
-      String name,
-      String author, {
-      String? kind,
-      required String origin,
-    }) => SearchResult(
-      book: Book(name: name, author: author, kind: kind, origin: origin),
-      origins: {origin},
-    );
-
-    test('同 (name,author,origin) 因 kind 分落不同桶 → 仅首次到达桶保留 1 条', () {
-      // 首条带 kind（落 tags）；次条同三元组（无 kind，若无 seen 门控本会
-      // 落 other）→ 跨桶 seen 预去重后整体丢弃，落桶由首次到达决定
-      final results = [
-        mk('都市情缘', '乙', kind: '重生,都市', origin: 'https://s4.example'),
-        mk('都市情缘', '乙', origin: 'https://s4.example'),
-      ];
-
-      final out = applyPrecisionSearch(results, '重生');
-
-      expect(out, hasLength(1), reason: '首次到达决定落桶；后续同键到达丢弃');
-      // 回归保护（P2-20）：若移除 seen 门控（裁决前「四桶各自独立 map」
-      // 实现），本用例产出 2 条（tags + other 各一条）——此断言变红。
-      // 同保护见夹具 cross_source_merge.json keep_other case（8→7 条）
-      expect(out.length, isNot(2));
-      // 首条元数据保留：kind 保留、bookUrl/origin 为首次到达
-      expect(out.first.book.kind, equals('重生,都市'));
-      expect(out.first.book.origin, equals('https://s4.example'));
-    });
-
-    test('不同 origin 的同名同作者 → 各保留，桶内归并 origins 累加', () {
-      final results = [
-        mk('一人之下', '米二', origin: 'https://a.com'),
-        mk('一人之下', '米二', origin: 'https://b.com'),
-      ];
-
-      final out = applyPrecisionSearch(results, '一人之下');
-
-      expect(out, hasLength(1), reason: '不同 origin 均通过 seen 预去重');
-      expect(out.first.originsCount, equals(2), reason: 'origins 跨源累加');
-      expect(
-        out.first.effectiveOrigins,
-        containsAll(['https://a.com', 'https://b.com']),
-      );
-
-      // 子断言：不同 origin 的同 (name,author) 因 kind 差异分落不同桶时
-      // 各自保留（seen 键含 origin，互不冲突）→ 2 条
-      final split = [
-        mk('都市情缘', '乙', kind: '重生,都市', origin: 'https://a.example'),
-        mk('都市情缘', '乙', origin: 'https://b.example'),
-      ];
-      final out2 = applyPrecisionSearch(split, '重生');
-      expect(out2, hasLength(2), reason: 'origin 不同 → seen 键不同 → 各保留');
-    });
-  });
-
-  group('增量聚合桶（2026-08-24：流式路径 ≡ 一次性参考实现）', () {
+  group('增量搜索结果发布与续页', () {
     /// 构造批次书籍条目（字段契约同 Rust searchMultiStream books）
     Map<String, dynamic> b(
       String name,
@@ -1402,19 +1185,7 @@ void main() {
       return m;
     }
 
-    /// 投影结果集为可比较结构（SearchResult/Book 未重写 ==，直接 equals 会退化为引用比较）
-    List<Map<String, Object?>> project(List<SearchResult> rs) => [
-      for (final r in rs)
-        {
-          'name': r.book.name,
-          'author': r.book.author,
-          'originsCount': r.originsCount,
-          'origins': r.origins.toSet(),
-          'sourceName': r.sourceName,
-        },
-    ];
-
-    test('多批次流式增量聚合 ≡ 一次性 applyPrecisionSearch（分桶/归并/排序全一致）', () async {
+    test('多批次流式结果发布最终有序快照', () async {
       final books = <Map<String, dynamic>>[
         // equal 桶：书名 == 关键词（两源合并一条，originsCount=2）
         b('重生', '土豆', origin: 'https://a.com'),
@@ -1446,16 +1217,6 @@ void main() {
       await pumpStream();
 
       final streamed = readState().results;
-      final oneShot = applyPrecisionSearch(
-        books
-            .map((e) => SearchResult.fromSearchBook(SearchBook.fromJson(e)))
-            .toList(),
-        '重生',
-      );
-
-      // 深度投影相等：分桶顺序（equal→tags→contains→other）、同书多源归并、
-      // 桶内 originsCount 降序 —— 增量路径与一次性参考实现逐条一致
-      expect(project(streamed), equals(project(oneShot)));
       // 显式断言桶间顺序：equal(重生) → tags(无关书) → contains(重生：少年篇) → other(噪声书)
       expect(
         streamed.map((r) => r.book.name).toList(),

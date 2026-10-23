@@ -10,6 +10,85 @@
 
 use legado_core::error::{LegadoError, LegadoResult};
 
+/// 会话自身拥有聚合桶，不使用进程级标识表。完整首条元数据由Dart按ID持有。
+#[flutter_rust_bridge::frb(opaque)]
+pub struct SearchAggregation {
+    inner: std::sync::Mutex<Option<legado_core::search_aggregate::SearchAggregation>>,
+}
+pub fn search_aggregation_begin(keyword: String) -> SearchAggregation {
+    SearchAggregation {
+        inner: std::sync::Mutex::new(Some(legado_core::search_aggregate::SearchAggregation::new(
+            keyword,
+        ))),
+    }
+}
+impl SearchAggregation {
+    pub fn add(
+        &self,
+        books: Vec<crate::search_aggregate_dto::SearchAggregateInputDto>,
+    ) -> Result<Vec<crate::search_aggregate_dto::SearchAggregateRetainedDto>, BridgeError> {
+        let books = books
+            .into_iter()
+            .map(|b| legado_core::models::SearchBook {
+                name: b.name,
+                author: b.author,
+                origin: b.origin,
+                kind: b.kind,
+                origins: b.origins,
+                has_read_record: b.has_read_record,
+                ..Default::default()
+            })
+            .collect::<Vec<_>>();
+        let mut inner = self.inner.lock().map_err(|_| BridgeError {
+            message: "搜索聚合会话锁损坏".into(),
+        })?;
+        let aggregation = inner.as_mut().ok_or_else(|| BridgeError {
+            message: "搜索聚合会话已关闭".into(),
+        })?;
+        Ok(aggregation
+            .add(&books)
+            .into_iter()
+            .map(|(input_index, representative_id)| {
+                crate::search_aggregate_dto::SearchAggregateRetainedDto {
+                    input_index,
+                    representative_id,
+                }
+            })
+            .collect())
+    }
+    pub fn snapshot(
+        &self,
+        keep_other: bool,
+    ) -> Result<Vec<crate::search_aggregate_dto::SearchAggregateResultDto>, BridgeError> {
+        let inner = self.inner.lock().map_err(|_| BridgeError {
+            message: "搜索聚合会话锁损坏".into(),
+        })?;
+        let aggregation = inner.as_ref().ok_or_else(|| BridgeError {
+            message: "搜索聚合会话已关闭".into(),
+        })?;
+        Ok(aggregation
+            .snapshot(keep_other)
+            .into_iter()
+            .map(|b| crate::search_aggregate_dto::SearchAggregateResultDto {
+                representative_id: b.representative_id,
+                name: b.book.name,
+                author: b.book.author,
+                origins: b.book.origins,
+                has_read_record: b.book.has_read_record,
+            })
+            .collect())
+    }
+    pub fn close(&self) -> Result<(), BridgeError> {
+        self.inner
+            .lock()
+            .map_err(|_| BridgeError {
+                message: "搜索聚合会话锁损坏".into(),
+            })?
+            .take();
+        Ok(())
+    }
+}
+
 pub use crate::layout_bridge::LayoutSession;
 use crate::layout_dto::LayoutConfigDto;
 /// 创建独立排版句柄；配置按结构传递。
@@ -3457,5 +3536,43 @@ mod stream_request_tests {
             .await
             .unwrap();
         assert!(!current.cancelled.load(std::sync::atomic::Ordering::Acquire));
+    }
+}
+
+#[cfg(test)]
+mod search_aggregation_session_tests {
+    use super::*;
+    fn input(name: &str, origin: &str) -> crate::search_aggregate_dto::SearchAggregateInputDto {
+        crate::search_aggregate_dto::SearchAggregateInputDto {
+            name: name.into(),
+            author: "作者".into(),
+            origin: origin.into(),
+            kind: None,
+            origins: vec![],
+            has_read_record: false,
+        }
+    }
+    #[test]
+    fn retained_indices_and_close_belong_to_one_query() {
+        let first = search_aggregation_begin("甲".into());
+        let other = search_aggregation_begin("乙".into());
+        let retained = first
+            .add(vec![input("甲", "a"), input("甲", "b"), input("乙", "c")])
+            .unwrap();
+        assert_eq!(
+            retained
+                .iter()
+                .map(|r| (r.input_index, r.representative_id))
+                .collect::<Vec<_>>(),
+            vec![(0, 0), (2, 2)]
+        );
+        assert_eq!(first.snapshot(false).unwrap()[0].origins, vec!["a", "b"]);
+        assert_eq!(first.snapshot(true).unwrap().len(), 2);
+        assert!(other.snapshot(true).unwrap().is_empty());
+        first.close().unwrap();
+        first.close().unwrap();
+        assert!(first.snapshot(true).is_err());
+        assert!(first.add(vec![]).is_err());
+        assert!(other.add(vec![input("乙", "d")]).is_ok());
     }
 }

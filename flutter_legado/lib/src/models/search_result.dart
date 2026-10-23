@@ -53,17 +53,6 @@ class SearchResult {
     );
   }
 
-  /// 合并另一来源（对齐原版 `SearchBook.addOrigin`：保留首条元数据，追加 origin）
-  SearchResult withAddedOrigin(SearchResult other) {
-    final next = {...effectiveOrigins, ...other.effectiveOrigins};
-    if (other.book.origin.isNotEmpty) next.add(other.book.origin);
-    return copyWith(
-      origins: next,
-      // 任一来源有阅读记录即保留标识
-      hasReadRecord: hasReadRecord || other.hasReadRecord,
-    );
-  }
-
   factory SearchResult.fromSearchBook(
     SearchBook sb, {
     bool hasReadRecord = false,

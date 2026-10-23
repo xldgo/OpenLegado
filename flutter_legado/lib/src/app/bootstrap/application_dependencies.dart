@@ -1,3 +1,6 @@
+import '../../domain/contracts/search_aggregation_service.dart';
+import '../../data/services/rust_search_aggregation_service.dart';
+import '../../data/services/mock_search_aggregation_service.dart';
 import '../../domain/contracts/read_aloud_planner.dart';
 import '../../data/services/rust_read_aloud_planner.dart';
 import '../../data/services/mock_read_aloud_planner.dart';
@@ -495,6 +498,11 @@ final readRecordRepositoryProvider = Provider<ReadRecordRepository>(
   (ref) => ref.watch(mockModeProvider)
       ? ref.watch(mockReadRecordRepositoryProvider)
       : RustReadRecordRepository(),
+);
+final searchAggregationServiceProvider = Provider<SearchAggregationService>(
+  (ref) => ref.watch(mockModeProvider)
+      ? const MockSearchAggregationService()
+      : const RustSearchAggregationService(),
 );
 final searchServiceProvider = Provider<SearchService>(
   (ref) => ref.watch(mockModeProvider)

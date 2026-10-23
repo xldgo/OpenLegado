@@ -1,69 +1,13 @@
-//! 跨源聚合单一真源（队列⑩a P1-1 项2，2026-09-22）
+//! 跨源搜索的共享增量聚合；一次性入口复用同一状态机。
 //!
-//! 把搜索两层去重中的**跨源聚合**（同名同作者跨源合并 + origins 累加）从
-//! Dart 侧下沉到 Rust，作为跨端夹具校验的基准实现。
+//! 每次查询独立持有原始name|author|origin预去重集合和四个桶，续页仅追加新批次。
+//! 桶内按归一化name\0author归并，来源保序去重、阅读记录OR、首条元数据保持；
+//! 桶序为equal/tags/contains/other，桶内按来源数降序并以首到次序处理平局。
+//! other保留在状态中，精准开关只影响快照；原生代表ID标识首条输入，不是书籍主键。
 //!
-//! **对齐范围（P2-20 裁决后，2026-09-22）**：与 Dart **纯函数**
-//! `applyPrecisionSearch`（`flutter_legado/lib/src/providers/search/
-//! search_state.dart`）及 `SearchNotifier` **增量桶路径**
-//! （`search_notifier.dart`）**逐条对齐——三条路径（纯函数 / 增量桶 /
-//! 本 Rust 单一真源）已统一到同一语义**：入桶前执行**跨桶预去重**
-//! （`seen` 集），同一 `(name, author, origin)` 仅**首次到达**入桶
-//! （落哪个桶由首次到达决定），后续同键到达一律丢弃（其 origin 已由
-//! 首条代表，跨源计数由 `origins` 集合承载）。`seen` 键与 Dart
-//! `SearchNotifier._seenKeys`（`search_notifier.dart` L324）**逐字一致**：
-//! **原始（未清洗）** `"{name}|{author}|{origin}"`（`|` 分隔三段、含
-//! origin；注意与桶内聚合键 `"{name}\u{0}{author}"`（清洗后值、两段、
-//! 不含 origin）是两个不同的键——seen 键管「是否入桶」，桶内键管「桶内
-//! 归并分组」）。**历史说明（一句）**：P2-20 裁决前本模块仅对齐纯函数
-//! 「四桶各自独立 map、无跨桶预去重」语义（不覆盖增量路径：同名同作者同
-//! origin 且 kind 分落不同桶时产出 2 条，增量路径仅 1 条；差异登记见
-//! `docs/REFACTORING_ACTIVE_PLAN.md` P2-20），现已对齐：
-//!
-//! 1. **归一化**：name/author 经本地 `normalize_book_name` /
-//!    `normalize_book_author` 清洗——**正则文本**与 Dart
-//!    `AppPattern.nameRegex` / `authorRegex` 对齐，但正则引擎不同（Dart
-//!    侧为 ECMAScript 语义；`regex` crate 为 Unicode 语义：`\s` 含
-//!    U+0085 不含 U+FEFF、`.` 仅排除 LF、`trim` 按 Unicode White_Space，
-//!    三者与 Dart 实测字符集均不等价），故聚合路径不复用 `book_help.rs`
-//!    （其服务 Rust 解析路径），改为本地 **ECMAScript 等价实现**：探针
-//!    实测显式字符类（`JS_WS_CLASS` 等，实测输出
-//!    `rust/_p03_norm_probe/probe_output.txt`）+ `js_trim`（Dart
-//!    `String.trim()` 实测字符集 B）。**仅当输入来自 Rust 解析路径**时
-//!    「解析期已清洗，聚合再清洗幂等 no-op」成立；对**外部/夹具 JSON
-//!    输入，以本模块 ECMAScript 等价实现为准**（两套实现结果可能不同）。
-//! 2. **聚合键**：`"{name}\u{0}{author}"`（清洗后值，Dart mapKey 同规则；
-//!    键不含 bookUrl/origin——同名同作者即同书，单源内不同 bookUrl 亦合并，
-//!    origins 集合按 origin 去重不重复计数）。
-//! 3. **跨桶预去重（P2-20）**：入桶前 `seen.insert(name|author|origin)`
-//!    （**原始值**，逐字对齐 `SearchNotifier._seenKeys`）；键已存在 → 该条
-//!    整体丢弃（不参与分桶/归并），仅首次到达决定落桶。
-//! 4. **分桶**（按清洗后 name/author/kind 判定，四桶各自独立 map——**不同
-//!    origin** 的同书可因 kind 差异落在不同桶；桶序）：
-//!    `equal`（name==key | author==key）→ `tags`（kind contains key）→
-//!    `contains`（name|author contains key）→ `other`（仅 `keep_other` 时保留）。
-//! 5. **归并**（Dart `withAddedOrigin`，`Set<String>` 保序去重语义，探针
-//!    实测 `rust/_p03_norm_probe/probe_output.txt`「Set 语义」节）：
-//!    - 入桶首条：条目 origins = 该条 `effectiveOrigins` 的**保序去重**
-//!      副本（字段重复收敛，`{"o","o"}` 计 1；**不滤空串**——`[""]` →
-//!      `[""]` 计数 1，空串是合法集合成员）；
-//!    - 后续归并：并集追加（已有项在前、新成员按该条 `effectiveOrigins`
-//!      序、**不滤空串**），仅 `other.origin` 非空且未出现时追加；
-//!      `hasReadRecord` OR；其余元数据（bookUrl/origin/originName/
-//!      coverUrl/…）保留**首条到达**项。
-//! 6. **排序**：桶内 originsCount 降序（effectiveOrigins 空按 1 计），
-//!    平局按**首次到达索引**升序（对齐 Dart `sortedBucket` 的索引平局裁决，
-//!    不依赖 sort 稳定性）。
-//! 7. **输出**：equal → tags → contains → (keep_other) other 桶序拼接；
-//!    空关键词直接原样返回（Dart `if (key.isEmpty) return results;`）。
-//!
-//! **effectiveOrigins 规则**（Dart `SearchResult.effectiveOrigins` 对齐）：
-//! 书自带 `origins` 字段非空 → 用它；否则 `origin` 非空 → 单元素 `{origin}`；
-//! 全空 → 空集合（originsCount 下限 1）。
-//!
-//! 单源按 bookUrl 去重**不在本模块**——解析期 `dedup_search_results_keep_first`
-//! 已完成（S0-E 对齐 BookList.kt:142-144，bookUrl 单键 keep-first）；本模块
-//! 只处理跨源（name+author）合并。
+//! 归一化沿用历史Dart的ECMAScript等价规则，不与解析路径book_help的Unicode正则混用。
+//! B9移除Dart聚合副本，既有跨端JSON夹具与录制快照固定迁移前行为。
+//! 一次性入口的空关键词仍原样返回；单源bookUrl去重仍归解析层，不属于本模块。
 
 use crate::models::misc::SearchBook;
 use regex::Regex;
@@ -170,6 +114,7 @@ pub fn origins_count(origins: &[String]) -> i32 {
 /// 聚合条目：首条到达元数据 + 累加 origins（首次出现序）+ 阅读记录 OR
 #[derive(Debug, Clone)]
 struct Entry {
+    representative_id: usize,
     /// 首条到达书籍（name/author 已替换为清洗值；origins 输出时覆写为累加值）
     book: SearchBook,
     /// 累加 origins 集合（首次出现序）
@@ -196,7 +141,14 @@ impl Bucket {
     ///   各成员（已有在前、新成员按该条序、**不滤空串**），再仅在
     ///   `other.origin` **非空**且未出现时追加 origin（Dart L59 判空）；
     ///   `has_read_record` OR，元数据保持首条。
-    fn merge(&mut self, key: String, item: &SearchBook, norm_name: &str, norm_author: &str) {
+    fn merge(
+        &mut self,
+        key: String,
+        item: &SearchBook,
+        norm_name: &str,
+        norm_author: &str,
+        representative_id: usize,
+    ) -> bool {
         let eff = effective_origins(item);
         if let Some(&idx) = self.slots.get(&key) {
             let e = &mut self.entries[idx];
@@ -227,16 +179,19 @@ impl Bucket {
                 }
             }
             self.entries.push(Entry {
+                representative_id,
                 book,
                 origins: deduped,
                 has_read_record: item.has_read_record,
             });
             self.slots.insert(key, idx);
+            return true;
         }
+        false
     }
 
     /// 物化（Dart `sortedBucket` 对齐）：originsCount 降序 + 首次到达索引升序平局
-    fn render(&self) -> Vec<SearchBook> {
+    fn render(&self) -> Vec<AggregatedSearchBook> {
         let mut order: Vec<usize> = (0..self.entries.len()).collect();
         order.sort_by(|&a, &b| {
             let ca = origins_count(&self.entries[a].origins);
@@ -251,7 +206,10 @@ impl Bucket {
                 let mut book = e.book.clone();
                 book.origins = e.origins.clone();
                 book.has_read_record = e.has_read_record;
-                book
+                AggregatedSearchBook {
+                    representative_id: e.representative_id,
+                    book,
+                }
             })
             .collect()
     }
@@ -275,55 +233,150 @@ pub fn aggregate_search_books(
         return books.to_vec();
     }
 
-    let mut equal = Bucket::default();
-    let mut tags = Bucket::default();
-    let mut contains = Bucket::default();
-    let mut other = Bucket::default();
-    // P2-20 跨桶预去重：seen 键与 Dart `SearchNotifier._seenKeys`
-    // （search_notifier.dart L324）逐字一致——**原始（未清洗）**
-    // `"{name}|{author}|{origin}"` 三段；同一 (name, author, origin) 仅
-    // 首次到达入桶（落哪个桶由首次到达决定），后续同键到达整体丢弃
-    // （其 origin 已由首条代表，跨源计数由桶内 origins 集合承载）
-    let mut seen: HashSet<String> = HashSet::new();
+    let mut aggregation = SearchAggregation::new(key.to_string());
+    aggregation.add(books);
+    aggregation
+        .snapshot(keep_other)
+        .into_iter()
+        .map(|item| item.book)
+        .collect()
+}
 
-    for item in books {
-        let seen_key = format!("{}|{}|{}", item.name, item.author, item.origin);
-        if !seen.insert(seen_key) {
-            continue;
-        }
-        let name = normalize_book_name(&item.name);
-        let author = normalize_book_author(&item.author);
-        // 聚合键（Dart `'$name\u0000$author'`，清洗后值）
-        let map_key = format!("{name}\u{0}{author}");
-        let kind = item.kind.as_deref().unwrap_or("");
-        // 桶判定用清洗后 name/author（Dart L197-205 同规则）；
-        // keep_other=false 时 other 项直接丢弃（Dart L203 else-if 落空）
-        if name == key || author == key {
-            equal.merge(map_key, item, &name, &author);
-        } else if kind.contains(key) {
-            tags.merge(map_key, item, &name, &author);
-        } else if name.contains(key) || author.contains(key) {
-            contains.merge(map_key, item, &name, &author);
-        } else if keep_other {
-            other.merge(map_key, item, &name, &author);
+/// 首条ID只标识会话内代表项，不是书籍身份或数据库主键。
+#[derive(Debug, Clone)]
+pub struct AggregatedSearchBook {
+    pub representative_id: usize,
+    pub book: SearchBook,
+}
+
+/// 同一关键词跨页追加；other始终保留，快照只决定是否显示。
+#[derive(Debug)]
+pub struct SearchAggregation {
+    keyword: String,
+    seen: HashSet<String>,
+    buckets: [Bucket; 4],
+    next_id: usize,
+}
+impl SearchAggregation {
+    pub fn new(keyword: String) -> Self {
+        Self {
+            keyword,
+            seen: HashSet::new(),
+            buckets: std::array::from_fn(|_| Bucket::default()),
+            next_id: 0,
         }
     }
-
-    let mut out: Vec<SearchBook> = Vec::new();
-    // 桶序：equal → tags → contains → (keep_other) other
-    out.extend(equal.render());
-    out.extend(tags.render());
-    out.extend(contains.render());
-    if keep_other {
-        out.extend(other.render());
+    /// 只返回新建组的批内下标和原生ID，调用方仅保留这些代表项的完整元数据。
+    pub fn add(&mut self, books: &[SearchBook]) -> Vec<(usize, usize)> {
+        let mut retained = Vec::new();
+        for (index, item) in books.iter().enumerate() {
+            let id = self.next_id;
+            self.next_id += 1;
+            let seen_key = format!("{}|{}|{}", item.name, item.author, item.origin);
+            if !self.seen.insert(seen_key) {
+                continue;
+            }
+            let name = normalize_book_name(&item.name);
+            let author = normalize_book_author(&item.author);
+            let key = format!("{name}\u{0}{author}");
+            let bucket = if name == self.keyword || author == self.keyword {
+                0
+            } else if item.kind.as_deref().unwrap_or("").contains(&self.keyword) {
+                1
+            } else if name.contains(&self.keyword) || author.contains(&self.keyword) {
+                2
+            } else {
+                3
+            };
+            if self.buckets[bucket].merge(key, item, &name, &author, id) {
+                retained.push((index, id));
+            }
+        }
+        retained
     }
-    out
+    pub fn snapshot(&self, keep_other: bool) -> Vec<AggregatedSearchBook> {
+        self.buckets[..if keep_other { 4 } else { 3 }]
+            .iter()
+            .flat_map(Bucket::render)
+            .collect()
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::models::misc::SearchBook;
+
+    #[test]
+    fn incremental_batches_preserve_recorded_snapshots_and_representatives() {
+        let cases: Vec<serde_json::Value> = serde_json::from_str(include_str!(
+            "../../../flutter_legado/test/fixtures/search_aggregation_cases.json"
+        ))
+        .unwrap();
+        for case in cases {
+            let inputs = case["inputs"].as_array().unwrap();
+            let books: Vec<SearchBook> = inputs
+                .iter()
+                .map(|input| {
+                    let mut book: SearchBook =
+                        serde_json::from_value(input["book"].clone()).unwrap();
+                    book.origins = serde_json::from_value(input["origins"].clone()).unwrap();
+                    book.has_read_record = input["hasReadRecord"].as_bool().unwrap();
+                    book
+                })
+                .collect();
+            for size in [1, 2, books.len() + 1] {
+                let mut aggregation =
+                    SearchAggregation::new(case["keyword"].as_str().unwrap().into());
+                let mut retained = HashSet::new();
+                for chunk in books.chunks(size) {
+                    for (_, id) in aggregation.add(chunk) {
+                        assert!(retained.insert(id));
+                    }
+                }
+                let output = aggregation.snapshot(case["keepOther"].as_bool().unwrap());
+                let expected = case["output"].as_array().unwrap();
+                assert_eq!(output.len(), expected.len(), "{case}");
+                for (actual, expected) in output.iter().zip(expected) {
+                    assert!(retained.contains(&actual.representative_id));
+                    assert_eq!(actual.book.name, expected["book"]["name"]);
+                    assert_eq!(actual.book.author, expected["book"]["author"]);
+                    assert_eq!(serde_json::json!(actual.book.origins), expected["origins"]);
+                    assert_eq!(
+                        actual.book.has_read_record,
+                        expected["hasReadRecord"].as_bool().unwrap()
+                    );
+                    assert_eq!(
+                        inputs[actual.representative_id]["sourceName"],
+                        expected["sourceName"]
+                    );
+                    assert_eq!(
+                        inputs[actual.representative_id]["book"]["bookUrl"],
+                        expected["book"]["bookUrl"]
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn precision_snapshot_keeps_other_bucket_and_queries_are_independent() {
+        let mut first = SearchAggregation::new("甲".into());
+        let mut second = SearchAggregation::new("乙".into());
+        let a = mk("甲", "作者", "a");
+        let mut b = mk("甲", "作者", "b");
+        b.has_read_record = true;
+        first.add(&[a.clone(), mk("乙", "作者", "c")]);
+        second.add(&[a]);
+        let old = first.snapshot(false);
+        first.add(&[b]);
+        assert_eq!(first.snapshot(false).len(), 1);
+        assert_eq!(first.snapshot(true).len(), 2);
+        assert_eq!(first.snapshot(true)[0].book.origins, vec!["a", "b"]);
+        assert!(first.snapshot(true)[0].book.has_read_record);
+        assert_eq!(old[0].book.origins, vec!["a"]);
+        assert_eq!(second.snapshot(true)[0].book.origins, vec!["a"]);
+    }
 
     /// 构造测试书（字段缺省零值，仅填必要项）
     fn mk(name: &str, author: &str, origin: &str) -> SearchBook {

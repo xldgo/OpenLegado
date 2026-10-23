@@ -2,7 +2,7 @@ import '../../utils/error_message.dart';
 export 'search_state.dart';
 import '../book_sources/book_source_repository_provider.dart';
 import '../../providers/app_log_repository_provider.dart';
-import '../../domain/services/search_result_aggregator.dart';
+import '../../domain/contracts/search_aggregation_service.dart';
 import '../../domain/services/search_session.dart';
 import 'search_access_providers.dart';
 
@@ -39,7 +39,7 @@ class SearchNotifier extends Notifier<SearchState> {
   /// 搜索序号（使旧搜索的迟到批次/回调失效，对齐原版 searchID）
   int _searchSeq = 0;
 
-  final _aggregator = SearchResultAggregator();
+  SearchAggregationSession? _aggregator;
 
   /// 结果列表节流重建间隔（2026-08-24：修复逐批次全量重聚合 + 全量替换
   /// 导致的搜索卡顿；对齐原版增量渲染语义）
@@ -60,7 +60,7 @@ class SearchNotifier extends Notifier<SearchState> {
     // Riverpod 失效重建会复用 Notifier，恢复新生命周期而不复用旧草稿。
     _disposed = false;
     final lifecycle = ++_lifecycleGeneration;
-    _aggregator.reset();
+    _releaseAggregation();
     _pendingSearchedCount = 0;
     _pendingTotalCount = 0;
     _pendingHasMore = null;
@@ -68,6 +68,7 @@ class SearchNotifier extends Notifier<SearchState> {
       _disposed = true;
       _lifecycleGeneration++;
       unawaited(_invalidateSession());
+      _releaseAggregation();
     });
     // 延迟到 build() 返回后读取，范围恢复单独提供搜索启动屏障。
     final scopeRevision = _scopeRevision;
@@ -181,7 +182,8 @@ class SearchNotifier extends Notifier<SearchState> {
     // G-B-01：新关键词 → 会话重置（页码归 1、累积表清空）；
     // G-B-02：hasMore 乐观置 true（对齐原版 SearchViewModel L135，
     // 首页完成后由批次 has_more 覆写）；isManualStop 复位（原版 onQueryTextSubmit L203）
-    _aggregator.reset(keyword: trimmed);
+    _releaseAggregation();
+    _aggregator = ref.read(searchAggregationServiceProvider).open(trimmed);
     // [2026-08-24] 重置节流状态（防旧批次定时器/待写字段泄漏进新搜索）— Qoder UI
     _resultsFlushTimer?.cancel();
     _resultsFlushTimer = null;
@@ -314,7 +316,11 @@ class SearchNotifier extends Notifier<SearchState> {
           // 涉及源名）；不改整体搜索交互（失败源不阻断搜索，静默语义保留）
           _recordSourceFailure(srcName, batchError);
         }
-        _aggregator.addAll(batch.books);
+        unawaited(
+          _aggregator!.addAll(batch.books.toList()).catchError((Object error) {
+            _failAggregation(error, seq);
+          }),
+        );
         // [2026-08-24] 节流重建：批次仅入桶 + 记录待写进度字段，
         // results 列表至多每 150ms 物化一次（排序 O(k log k)，无全量
         // 重聚合），流结束做最终物化 — Qoder UI
@@ -324,31 +330,70 @@ class SearchNotifier extends Notifier<SearchState> {
         if (hasMoreField != null) _pendingHasMore = hasMoreField;
         _scheduleResultsFlush(seq);
       },
-      onError: (Object e) {
-        if (!_ownsSession(session, seq)) return;
-        _resultsFlushTimer?.cancel();
-        _resultsFlushTimer = null;
-        _flushResults();
-        state = state.copyWith(
-          error: errorMessage(e),
-          isLoading: false,
-          isPaused: false,
-        );
-        unawaited(_invalidateSession());
-      },
-      onDone: () {
-        if (!_ownsSession(session, seq)) return;
-        // [2026-08-24] 流结束：取消挂起的节流定时器并做最终全量聚合
-        // （保证最后一批结果不丢失于节流窗口）— Qoder UI
-        _resultsFlushTimer?.cancel();
-        _resultsFlushTimer = null;
-        _flushResults();
-        // 流结束（含挂起期间已派发任务全部完成）→ 清软挂起态
-        state = state.copyWith(isLoading: false, isPaused: false);
-      },
+      onError: (Object error) =>
+          unawaited(_finishPage(session, seq, error: error)),
+      onDone: () => unawaited(_finishPage(session, seq)),
     );
     if (_ownsSession(session, seq) && session.requestedPaused) {
       unawaited(pauseSearch());
+    }
+  }
+
+  Future<void> _finishPage(
+    SearchSession session,
+    int seq, {
+    Object? error,
+  }) async {
+    if (!_ownsSession(session, seq)) return;
+    _resultsFlushTimer?.cancel();
+    _resultsFlushTimer = null;
+    if (error != null) {
+      // 流报错立即隔离后续批次，最终快照只包含错误前已接收的数据。
+      final closing = _invalidateSession();
+      final errorSeq = _searchSeq;
+      state = state.copyWith(
+        error: errorMessage(error),
+        isLoading: false,
+        isPaused: false,
+      );
+      try {
+        await _flushResults();
+      } catch (failure) {
+        _failAggregation(failure, errorSeq);
+      }
+      await closing;
+      return;
+    }
+    try {
+      await _flushResults();
+    } catch (failure) {
+      _failAggregation(failure, seq);
+      return;
+    }
+    if (!_ownsSession(session, seq)) return;
+    state = state.copyWith(isLoading: false, isPaused: false);
+  }
+
+  void _failAggregation(Object error, int seq) {
+    if (!_isCurrent(seq)) return;
+    state = state.copyWith(
+      error: errorMessage(error),
+      isLoading: false,
+      isPaused: false,
+    );
+    unawaited(_invalidateSession());
+    _releaseAggregation();
+  }
+
+  void _releaseAggregation() {
+    final aggregation = _aggregator;
+    _aggregator = null;
+    if (aggregation != null) {
+      unawaited(
+        aggregation.close().catchError((Object error) {
+          debugPrint('搜索聚合清理失败: $error');
+        }),
+      );
     }
   }
 
@@ -376,19 +421,30 @@ class SearchNotifier extends Notifier<SearchState> {
     if (_resultsFlushTimer != null) return; // 已有挂起调度，复用
     _resultsFlushTimer = Timer(_flushInterval, () {
       _resultsFlushTimer = null;
-      if (_isCurrent(seq)) _flushResults();
+      if (_isCurrent(seq)) {
+        unawaited(
+          _flushResults().catchError((Object error) {
+            _failAggregation(error, seq);
+          }),
+        );
+      }
     });
   }
 
   /// 将物化列表 + 待写进度字段回写 state（节流窗口内至多一次排序物化）— Qoder UI
-  void _flushResults() {
+  Future<void> _flushResults() async {
+    final aggregation = _aggregator;
+    if (aggregation == null) return;
+    final seq = _searchSeq;
+    final searched = _pendingSearchedCount, total = _pendingTotalCount;
+    final hasMore = _pendingHasMore;
+    final results = await aggregation.snapshot(keepOther: _keepOther);
+    if (!_isCurrent(seq) || !identical(_aggregator, aggregation)) return;
     state = state.copyWith(
-      results: _aggregator.snapshot(keepOther: _keepOther),
-      searchedCount: _pendingSearchedCount,
-      totalCount: _pendingTotalCount,
-      // G-B-02：消费批次 has_more（Rust 侧当前页非空批次的累积 OR）；
-      // 无新批次信息时保持 state.hasMore
-      hasMore: _pendingHasMore ?? state.hasMore,
+      results: results,
+      searchedCount: searched,
+      totalCount: total,
+      hasMore: hasMore ?? state.hasMore,
     );
   }
 
@@ -422,18 +478,26 @@ class SearchNotifier extends Notifier<SearchState> {
     return stopping;
   }
 
-  /// 停止时先发布已出结果，再关闭当前会话；迟到完成不回写新查询。
+  /// 停止先隔离网络回调，再发布已接收结果；迟到快照不回写新查询。
   Future<void> stop() async {
     if (_disposed || !state.isLoading) return;
-    _resultsFlushTimer?.cancel();
-    _resultsFlushTimer = null;
-    _flushResults();
+    // 先隔离网络批次，再等待已接收输入的最终快照；新查询可在等待期间取代本次停止。
     final stopping = _invalidateSession();
+    final seq = _searchSeq;
+    final aggregation = _aggregator;
     state = state.copyWith(
       isLoading: false,
       isManualStop: true,
       isPaused: false,
     );
+    try {
+      await _flushResults();
+    } catch (error) {
+      if (_isCurrent(seq)) state = state.copyWith(error: errorMessage(error));
+    }
+    if (_isCurrent(seq) && identical(_aggregator, aggregation)) {
+      _releaseAggregation();
+    }
     await stopping;
   }
 
@@ -593,7 +657,7 @@ class SearchNotifier extends Notifier<SearchState> {
     _pendingSearchedCount = 0;
     _pendingTotalCount = 0;
     // 批次B：会话级增量桶与分页态随清空重置
-    _aggregator.reset();
+    _releaseAggregation();
     state = state.copyWith(
       keyword: '',
       results: [],
@@ -623,7 +687,7 @@ class SearchNotifier extends Notifier<SearchState> {
     _pendingSearchedCount = 0;
     _pendingTotalCount = 0;
     // 批次B：会话级增量桶与分页态随页面重开重置（新 ViewModel 语义）
-    _aggregator.reset();
+    _releaseAggregation();
     state = state.copyWith(
       keyword: '',
       inputText: '',

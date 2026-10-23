@@ -3020,6 +3020,16 @@ Depth为0，不拼接remote_dir；账号或密码非空才携带Basic Auth。5�
 
 ### 朗读扩展：缓存、音色目录与云端（§2.42 补充）
 
+**SEARCH-INCREMENTAL-AGGREGATION-20261023（B9，实施前冻结）**：跨源聚合改由每次查询独立的原生句柄持有。新增`searchAggregationBegin(keyword: String) → Future<SearchAggregation>`，句柄异步add/snapshot/close，无全局字符串注册表或数据库副作用。
+- 句柄方法：`add(books: List<SearchAggregateInputDto>) → Future<List<SearchAggregateRetainedDto>>`、`snapshot(keepOther: bool) → Future<List<SearchAggregateResultDto>>`、`close() → Future<void>`；一项工厂加三项句柄方法，类型化传输、不经JSON字符串。
+- add只传每条原始name/author/origin/kind/origins/hasReadRecord；预去重仍是原始三元组，清洗、四桶、来源顺序/计数、阅读OR、首到平局沿用Core现有实现，不更改清洗规则。返回新建组的批内inputIndex与会话representativeId；后续归并不重复返回首条元数据。
+- snapshot(keepOther)只返回representativeId、归一化name/author、origins与hasReadRecord；other始终保留在会话，精准开关仅控制快照，跨页继续追加。Flutter只为新建组保存首条完整SearchResult，按ID合并上述投影；不经SearchBookDto往返截掉Book字段，也不在两端保存全量输入历史。
+- Dart经SearchAggregationService/Session窄接口串行append→snapshot→close；150ms仍为界面快照节流，不每条输入全量物化。自然onDone等待最后快照再结束loading；错误/停止先结束loading并隔离流回调，再取已接收批次最终快照，新查询/清空/销毁后的旧结果不回写。
+- 自然完成保留句柄供续页；新关键词、清空、页面重置和Provider销毁释放，失败也可释放，不自动重试。已有SearchSession继续拥有网络取消/暂停，不把聚合close当网络cancel。Mock只提供明确夹具，不保留Dart算法副本。
+- 无DB/版本/依赖变更，无正文搜索或书名作者清洗规则重做；原一次性Core入口复用新增量状态，外部空关键词一次性原样返回语义保持。
+
+编写者：Codex + Rust / UI / Bridge｜2026-10-23
+
 **TTS-RUST-PARTITION-20261023（B8d，实施前冻结）**：统一迁移整段/符号/页面切分与云请求长度分片至Core纯计算模块。新增两个异步只读FRB方法，无数据库、网络或全局会话：
 - `readAloudPlan(content: String, mode: ReadAloudSplitModeDto, symbols: String, pages: List<ReadAloudRangeDto>) → List<ReadAloudUnitDto>`；范围为原文UTF-16半开区间，unit含start/end/sourceParagraphIndex/isParagraphEnd，不重复返回文本。整段/符号忽略pages；页面仅消费既有真实完整分页范围，保留既有范围错误，先段落再页切片，不合并同页多段。
 - `cloudTtsPartition(provider: CloudTtsProviderDto, texts: List<String>) → List<SpeechPartitionDto>`；结果与输入同序，每项含ranges（输入文本内UTF-16半开范围），不重复传inputIndex。Provider在Rust内决定上限，沿用现有句末/词界/字形簇断点、UTF-16/UTF-8限制和错误，不新增引号吸收等算法优化。

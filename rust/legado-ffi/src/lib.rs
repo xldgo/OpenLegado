@@ -27,6 +27,7 @@ pub mod layout_dto;
 pub mod media_dto;
 pub mod read_aloud_dto;
 pub mod runtime;
+pub mod search_aggregate_dto;
 mod service_host;
 mod source_action_host;
 pub mod source_tools_dto;

@@ -46,6 +46,14 @@
 
 ### RUST-BOUNDARY-IMPLEMENT-20261023：重复功能收敛与业务边界下沉（P2，分批实施）
 
+- B9（代码及定向验证完成）：用户授权搜索增量聚合下沉；worktree先普通merge同步dev文案提交，基线abc5230b9。先冻结SEARCH-INCREMENTAL-AGGREGATION-20261023；Core拥有独立增量桶/seen与排序，FFI仅投影与首条ID，Flutter保留首条完整元数据、展示和网络编排，异步快照继续150ms节流。固定既有清洗规则及跨端夹具，重点验证末批、续页、停止/重搜/清空和迟到结果，不重做正文搜索或清洗。单代理、只定向验证、版本不变，每批本地提交，不推送/安装或合并主目录。
+
+- B9实现：Core/SearchAggregation持有四桶、原始seen及首条代表ID；既有一次性函数复用状态机，空关键词一次性原样返回。FFI新增一个工厂与add/snapshot/close三项异步句柄方法，无全局注册表；只传聚合字段，add返回新建组的批内索引/ID，snapshot返回归一化投影。Flutter串行追加和快照，仅保存新建组首条完整SearchResult，保留DTO未覆盖字段；不保存全部输入历史或按批重传全部结果。网络SearchSession、暂停与续页接口保持，other保留供不同精准快照使用。
+- B9异步收尾：保留150ms快照节流，自然结束等待最终快照才结束loading。手动停止和流错误先同步隔离后续网络回调，再取已接收批次最终快照；停止等待时允许新查询，旧结果按原seq/句柄身份拒绝。新关键词、清空、页面重开、Provider销毁释放；自然结束供续页复用，聚合失败显示错误并释放，不增加自动重试、全局状态或另一套网络控制。
+- B9验证：Core聚合18项、Rust侧FFI句柄1项、原跨端夹具2项通过；新增Core组合验证读取96组迁移前快照、按不同批次大小追加，并核对首条ID/顺序/来源/阅读标记及快照隔离。Dart删除两个纯算法测试文件与Notifier中被替代的一次性算法组，不保留同义实现；十个直接消费者测试文件110项唯一用例最终通过（初轮101项通过/新适配测试1项失败，修正后四文件82项通过，其中含新增流错误隔离1项；补查滚动/范围两文件7项通过，复验不重复计数）。新数据测试覆盖队列顺序、完整首条元数据、释放及创建错误；新Notifier三项覆盖末批等待、停止重搜迟到快照、流错误立即隔离，不测试机械样式。
+- B9修正/证据：初轮新断言用含List的record作整体相等，列表身份比较导致失败，改为集合内容断言；生产无对应故障。补查滚动/范围测试三项因缺少夹具失败，从迁移前实现补录四组快照后七项通过，临时录制算法已删除，96组全部经Rust复验。单代理复核发现异步错误收尾等待快照会延迟隔离流，保持既有立即取消语义并补可达回归。证据build/boundary-b9-{baseline,lifecycle-baseline,callers-baseline,core,ffi,fixture,codegen,flutter,flutter-final,ui-callers,ui-final,golden-final,analyze,analyze-final,clippy,architecture}.log；手写十二文件分析（四文件末次分析复验）、Core/FFI QuickJS lib/tests Clippy、架构/格式/diff通过；FRB2.13隔离生成双端hash=1037457981，依赖/锁文件/DB及版本2.0.439+440不变。
+- B9边界：单代理按契约→Core→句柄→Dart串行适配→节流/停止/错误/续页复核，无独立审查；没有Dart真实加载新库、真实书源/设备、全量、性能或CI验证，不宣称速度或内存实测收益。Mock仅显式夹具/不支持能力，不复制聚合算法；既有书名作者清洗口径保持，未触及正文搜索。基线同步merge为abc5230b9，本批独立本地提交，不推送、合并主目录或安装。
+
 - B8d（代码及定向验证完成）：基线1ae948e62，审查后采用两个异步类型化接口，按输入顺序返回范围，不增重复inputIndex/计划包装或长期会话。契约TTS-RUST-PARTITION-20261023先冻结，迁移四类纯切分至Core，Flutter复用真实页界和既有播放代次。算法快照迁Rust，Dart只测适配与编排，Mock显式夹具不重写算法；仅本worktree本地提交，版本不变、不推送/安装/子代理，不改变引号暂缓、停顿、缓存和播放器策略。
 
 - B8d实现：Core/read_aloud_partition统一整段、符号、页面及Provider请求分片，复用legado-layout::SourceRange，FRB加法式新增read_aloud_plan/cloud_tts_partition两方法。结果为UTF-16半开范围，批量保持顺序，不返回重复正文；Flutter正式端仅映射DTO与substring，前台队列/HTTP与云预合成/试听/选段定位共用规划端口，删除Dart算法与多余包装。页界登记只存真实分页快照，使用时Rust核验；新增await复用原token/窗口归属，暂停重排锚点和技术分片段末继承保持。云单段引擎要求真实仓储，移除原仅测试依赖的无仓储默认Provider。原只读限制查询作为既有公开能力保留，切分不再先查询限制再由Dart执行算法。
