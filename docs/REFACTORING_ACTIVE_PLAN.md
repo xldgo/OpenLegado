@@ -21,7 +21,7 @@
 ### ABOUT-PROJECT-LINKS-20261025：关于页项目入口与发布更新（P2，代码完成，待发布验收）
 
 - 项目主页和贡献者入口改为`xldgo/OpenLegado`，开源许可显示本项目名称；保留原有上游授权与署名。隐私入口处理待用户选择，本地MD3通过`privacyPolicy.md`及Markdown Sheet展示，正文包含本项目未接入的Firebase说明，不原样复制。
-- 用户已同意使用GitHub Releases API、独立标签/构建号/附件名称及测试版开关，不增加update.json；按[发布更新契约](API_CONTRACT.md#app-release-update-20261025项目发布与更新检查实施前冻结)实施Android/Windows；用户追加iOS发布，已复用设备构建及Artifact ID。用户已授权提交、推送并发布一次Alpha；本次Android与未签名iOS，Windows关闭，保留此前订阅页改动。
+- 用户已同意使用GitHub Releases API、独立标签/构建号/附件名称及测试版开关，不增加update.json；按[发布更新契约](API_CONTRACT.md#app-release-update-20261025项目发布与更新检查实施前冻结)实施Android/Windows；用户追加iOS发布，已复用设备构建及Artifact ID。用户已授权提交、推送并发布一次Alpha；本次Android与未签名iOS，Windows关闭，保留此前订阅页改动。按用户要求取消iOS常态push自动构建，仅保留手动与发布调用。
 - 更新筛选、设置持久化、分页、发布计划与产物及Windows参数定向测试、静态分析、关于页窄屏既有用例及actionlint通过。剩余为新流程首次真实构建/草稿发布与设备更新下载验收；旧滚动alpha不按新格式识别，不宣称现有远程产物已更新。iOS复用及显式未签名输出已通过actionlint，原校验与签名实现保留。
 
 ### RSS-HOME-SPACING-20261025：订阅主页留白与自然高度（P2，待复验）

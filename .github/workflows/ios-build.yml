@@ -1,9 +1,7 @@
 name: iOS Build
 
-# 自动构建设备验收包；模拟器测试移至仅手动触发的 ios-ci.yml。
+# 设备包仅手动或由发布流程调用；模拟器测试仍在仅手动的 ios-ci.yml。
 on:
-  push:
-    branches: [dev, master]
   workflow_dispatch:
     inputs:
       diagnostics:

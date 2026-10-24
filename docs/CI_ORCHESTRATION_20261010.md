@@ -31,7 +31,7 @@ Python 构建工具。本批保留正式编译、测试、签名、图标、产�
 | Tooling CI | `dev/master` push、指向两分支的 PR | 支持手动；集中执行编排规则、Python 工具回归及 actionlint，不安装 Flutter/NDK/Xcode |
 | Flutter CI | `dev/master` push、指向两分支的 PR | 手动auto/fast/native/all；analyze汇总普通组、原生组与生成检查 |
 | Rust CI | 同上 | 手动完整检查；双档Clippy、一次QuickJS工作区测试与审计，`check`汇总 |
-| iOS Build | `dev/master` push | 保留设备包手动入口；Linux 先判定，相关改动才申请 macOS Runner |
+| iOS Build | 无常态自动入口 | 手动设备构建或Release调用；不随日常push申请macOS Runner |
 | iOS CI | 无自动入口 | 保持仅手动模拟器验证 |
 | Application Release | 正式`vX.Y.Z` tag | 手动选择平台、alpha/stable及是否发布；默认只构建，发布仅publish Job具有写权限 |
 

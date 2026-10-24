@@ -6,7 +6,7 @@
 - 正式标签`vX.Y.Z`，测试标签`vX.Y.Z-alpha.N`；预发布标志须与标签渠道一致。附件命名`OpenLegado-X.Y.Z+N-android-<ABI>.apk`、`OpenLegado-X.Y.Z+N-windows-x64.zip`或`OpenLegado-X.Y.Z+N-ios-arm64-unsigned.ipa`，N为本次CI统一构建号；正式标签版本与pubspec一致。按数值版本、构建号筛选，不按时间或SHA大小比较，不自动降级。
 - Release工作流统一使用`10000 + github.run_number`生成构建号，首次起点高于现有440；所有所选平台注入相同build-name/build-number与OPENLEGADO_CHANNEL。Android发布CI通过--android-project-arg传入Flutter的force-version-code-ignoring-abi=true配置，分ABI包不再附加versionCode偏移。源码SHA由Release关联和正文记录；应用版本文件不自动修改。手动构建默认不发布，测试版独立标签，正式版拒绝覆盖同名Release，已有标签必须指向本次源码；附件全部上传为草稿后才公开，不再更新固定alpha。
 - 更新设置`acceptPrereleaseUpdates`只保存用户选择；未设置时正式构建默认关闭，alpha及development默认开启。设置由现有平台服务持久化，不改通用业务设置接口。检查时仅匹配当前平台/ABI的已上传附件，版本、构建与测试标签须一致；使用GitHub提供的下载URL，不使用原版CDN。
-- 当前只有手动检查：手动操作始终展示符合条件的更新，移除旧的忽略版本拦截及无消费者的忽略按钮。iOS手动检查打开项目发布页，不承诺应用内安装；iOS发布复用ios-build的workflow_call，注入统一版本与构建号并显式skip_signing=true；保留原符号、图标及包完整性门禁。设备构建返回Artifact ID，发布统一收集；不导入签名素材，IPA明确标为unsigned。旧偏好按不存在处理，不迁移、不清洗。
+- 当前只有手动检查：手动操作始终展示符合条件的更新，移除旧的忽略版本拦截及无消费者的忽略按钮。iOS手动检查打开项目发布页，不承诺应用内安装；iOS发布复用ios-build的workflow_call，注入统一版本与构建号并显式skip_signing=true；保留原符号、图标及包完整性门禁。设备构建返回Artifact ID，发布统一收集；按用户要求取消常态push自动iOS构建，保留workflow_dispatch/workflow_call；不导入签名素材，IPA明确标为unsigned。旧偏好按不存在处理，不迁移、不清洗。
 - 验收聚焦同版本不同构建、测试开关、ABI选择、正式/测试及降级筛选、无适用平台包、网络失败，以及发布计划/真实文件打包/Windows参数透传；不触发远程构建或实际发布。
 
 编写者：Codex + UI / Tool｜2026-10-25
