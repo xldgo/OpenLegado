@@ -39,6 +39,7 @@ All notable changes to this project will be documented in this file.
 - 搜索范围支持同时选择多个书源，确认后一次应用完整集合。
 
 ### Changed
+- 书源管理改用圆角卡片，点击编辑、手柄拖动排序，长按进入多选；移除重复编辑按钮；贡献者：Codex + UI。
 - 朗读管理的悬浮按钮仅显示加号，长按按当前页签提示添加音色或引擎；贡献者：Codex + UI。
 - 按页朗读保留原段落边界，跨页片段保持原文位置与真实段末信息；贡献者：Codex + UI。
 - 收紧替换净化卡片左右内边距，保留复选框与更多按钮点击区域；贡献者：Codex + UI。

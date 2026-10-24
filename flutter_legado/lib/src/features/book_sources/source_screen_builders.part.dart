@@ -423,7 +423,7 @@ extension _SourceBuilders on _SourceScreenState {
       );
     }
 
-    if (state.sort == SourceSort.manual) {
+    if (state.sort == SourceSort.manual && !state.batchMode) {
       return AppScrollBody(
         controller: _listController,
         builder: (context, scrollController) => Md3FastScroller(
@@ -431,6 +431,20 @@ extension _SourceBuilders on _SourceScreenState {
           child: ReorderableListView.builder(
             scrollController: scrollController,
             buildDefaultDragHandles: false,
+            proxyDecorator: (child, _, animation) => AnimatedBuilder(
+              animation: animation,
+              child: child,
+              builder: (context, child) {
+                final lift = Curves.easeInOut.transform(animation.value);
+                return Transform.scale(
+                  scale: 1 + 0.02 * lift,
+                  child: CardTheme(
+                    data: CardTheme.of(context).copyWith(elevation: 4 * lift),
+                    child: child!,
+                  ),
+                );
+              },
+            ),
             itemCount: sources.length,
             onReorderItem: (oldIndex, newIndex) async {
               final saved = await ref
@@ -518,7 +532,7 @@ extension _SourceBuilders on _SourceScreenState {
     );
   }
 
-  /// 勾选框常显，长按名称区域排序，多选状态保留行内操作。
+  /// 点击卡片编辑，手柄拖动排序，长按进入批量选择。— Codex + UI
   Widget _buildSourceItem(
     BuildContext context,
     BookSource source,
@@ -532,7 +546,7 @@ extension _SourceBuilders on _SourceScreenState {
     final checkMessage = ref
         .watch(checkSourceNotifierProvider)
         .messages[source.bookSourceUrl];
-    Widget name = Container(
+    final name = Container(
       color: Colors.transparent,
       constraints: const BoxConstraints(minHeight: 48),
       alignment: Alignment.centerLeft,
@@ -555,104 +569,108 @@ extension _SourceBuilders on _SourceScreenState {
         ],
       ),
     );
-    if (dragIndex != null) {
-      name = ReorderableDelayedDragStartListener(
-        index: dragIndex,
-        enabled: !state.loading,
-        child: name,
-      );
-    }
     return AbsorbPointer(
       absorbing: state.loading,
-      child: InkWell(
-        onTap: () {
-          if (state.batchMode) {
-            ref
-                .read(sourceNotifierProvider.notifier)
-                .toggleSelection(source.bookSourceUrl);
-            return;
-          }
-          Navigator.of(context)
-              .push(sourceEditRoute(sourceUrl: source.bookSourceUrl));
-        },
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(4, 8, 16, 8),
-          child: Row(
-            children: [
-              Checkbox(
-                value: state.isSelected(source.bookSourceUrl),
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
-                onChanged: (_) {
-                  final notifier = ref.read(sourceNotifierProvider.notifier);
-                  if (!state.batchMode) notifier.enterBatchMode();
-                  notifier.toggleSelection(source.bookSourceUrl);
-                },
-              ),
-              Expanded(child: name),
-              Switch(
-                value: source.enabled,
-                // 压缩触控/视觉高度（对齐原版 ThemeSwitch 行高 ~36.5dp，
-                // 避免 Material 默认 48dp 把整行撑高）
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                onChanged: (_) => ref
-                    .read(sourceNotifierProvider.notifier)
-                    .toggleSource(source.bookSourceUrl),
-              ),
-              // 编辑图标（对标 iv_edit）
-              IconButton(
-                icon: const Icon(Symbols.edit_rounded, size: 20),
-                tooltip: context.l10n.edit,
-                visualDensity: VisualDensity.compact,
-                onPressed: () {
-                  Navigator.of(context)
-                      .push(sourceEditRoute(sourceUrl: source.bookSourceUrl));
-                },
-              ),
-              // 更多图标（对标 iv_menu_more）+ 发现角标（iv_explore：
-              // 绿=有发现且启用，红=有发现未启用，无=无发现）
-              Stack(
-                children: [
-                  IconButton(
-                    icon: const Icon(Symbols.more_vert_rounded, size: 20),
-                    // 对齐原版内容描述「更多菜单」
-                    tooltip: context.l10n.sourceMoreMenu,
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () => _showSourceMenu(context, source),
-                  ),
-                  if (hasExplore)
-                    Positioned(
-                      top: 6,
-                      right: 6,
-                      child: Semantics(
-                        // 对齐原版「标志:发现已启用」内容描述
-                        label: source.enabledExplore
-                            ? context.l10n.sourceTagExploreEnabled
-                            : '标志:发现未启用',
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          // 发现启用=系统绿；有发现但未启用=系统红
-                          // [UI_MD3_ALIGNMENT_PLAN.md Batch B B3] 状态语义走 tonal
-                          decoration: BoxDecoration(
-                            color: source.enabledExplore
-                                ? colorScheme.primary
-                                : colorScheme.error,
-                            shape: BoxShape.circle,
-                          ),
+      child: Card(
+        color: colorScheme.surfaceContainer,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onLongPress: () => ref
+              .read(sourceNotifierProvider.notifier)
+              .toggleSelection(source.bookSourceUrl),
+          onTap: () {
+            if (state.batchMode) {
+              ref
+                  .read(sourceNotifierProvider.notifier)
+                  .toggleSelection(source.bookSourceUrl);
+              return;
+            }
+            Navigator.of(context)
+                .push(sourceEditRoute(sourceUrl: source.bookSourceUrl));
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+            child: Row(
+              children: [
+                if (state.batchMode)
+                  Checkbox(
+                    value: state.isSelected(source.bookSourceUrl),
+                    onChanged: (_) => ref
+                        .read(sourceNotifierProvider.notifier)
+                        .toggleSelection(source.bookSourceUrl),
+                  )
+                else
+                  ReorderableDragStartListener(
+                    index: dragIndex ?? 0,
+                    enabled: dragIndex != null && !state.loading,
+                    child: Tooltip(
+                      message: context.l10n.sourceSortManual,
+                      child: SizedBox.square(
+                        dimension: 48,
+                        child: Icon(
+                          Symbols.drag_handle_rounded,
+                          color: dragIndex == null
+                              ? Theme.of(context).disabledColor
+                              : colorScheme.outline,
                         ),
                       ),
                     ),
-                ],
-              ),
-            ],
+                  ),
+                const SizedBox(width: 8),
+                Expanded(child: name),
+                Switch(
+                  value: source.enabled,
+                  onChanged: (_) => ref
+                      .read(sourceNotifierProvider.notifier)
+                      .toggleSource(source.bookSourceUrl),
+                ),
+                // 更多图标（对标 iv_menu_more）+ 发现角标（iv_explore：
+                // 绿=有发现且启用，红=有发现未启用，无=无发现）
+                Stack(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Symbols.more_vert_rounded, size: 20),
+                      // 对齐原版内容描述「更多菜单」
+                      tooltip: context.l10n.sourceMoreMenu,
+                      onPressed: () => _showSourceMenu(context, source),
+                    ),
+                    if (hasExplore)
+                      Positioned(
+                        top: 6,
+                        right: 6,
+                        child: Semantics(
+                          // 对齐原版「标志:发现已启用」内容描述
+                          label: source.enabledExplore
+                              ? context.l10n.sourceTagExploreEnabled
+                              : '标志:发现未启用',
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            // 发现启用=系统绿；有发现但未启用=系统红
+                            // [UI_MD3_ALIGNMENT_PLAN.md Batch B B3] 状态语义走 tonal
+                            decoration: BoxDecoration(
+                              color: source.enabledExplore
+                                  ? colorScheme.primary
+                                  : colorScheme.error,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  /// 书源长按/更多按钮菜单（对标原版 BookSourceAdapter.showMenu）：
+  /// 书源更多按钮菜单（对标原版 BookSourceAdapter.showMenu）：
   /// 置顶/置底（仅手动排序）、登录（有 loginUrl）、搜索、调试、删除、
   /// 启用|禁用发现（有 exploreUrl，按 enabledExplore 切换文案）
   Future<void> _showSourceMenu(BuildContext context, BookSource source) async {
