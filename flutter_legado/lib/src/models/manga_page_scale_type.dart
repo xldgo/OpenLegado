@@ -64,9 +64,7 @@ abstract final class MangaPageScaleType {
 
   /// 单页式渲染 BoxFit（对齐参考版 L1463-1472 映射）
   ///
-  /// [isWidePage] 仅 SMART_FIT 参与（宽页 → fitWidth）；图片解码前宽高比
-  /// 未知，屏内按 false 传入（窄页语义），宽页分支属宽页模式范畴，
-  /// 本波仅登记不实现（见 [MangaWidePageMode] 注释）。
+  /// 智能适配使用解码后的实际宽高比；条漫仍恒定fitWidth。
   static BoxFit fitFor({required int type, bool isWidePage = false}) {
     switch (type) {
       case stretch:

@@ -36,6 +36,7 @@ void main() {
     String url = 'cbz://001.png',
     BookSource? source,
     bool failed = false,
+    bool smartFit = false,
     VoidCallback? onError,
     VoidCallback? onRetry,
     VoidCallback? onLongPress,
@@ -52,7 +53,8 @@ void main() {
           network: network,
           failed: failed,
           headers: const {},
-          fit: BoxFit.fitWidth,
+          fit: BoxFit.contain,
+          smartFit: smartFit,
           colorFilter: null,
           enableEInk: false,
           eInkThreshold: 150,
@@ -105,6 +107,32 @@ void main() {
     expect(find.byType(RawImage), findsOneWidget);
     verifyNever(() => images.fetchImageWithDecode(any(), any()));
     verifyZeroInteractions(network);
+  });
+
+  testWidgets('智能适配读取已加载图片尺寸，宽图按宽适配且切换竖图后恢复完整显示', (tester) async {
+    final wide = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAC0lEQVR4nGP4DwUAI+UH+Yo0eLMAAAAASUVORK5CYII=',
+    );
+    final portrait = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAACCAYAAACZgbYnAAAADklEQVR4nGP4DwQMIAIAJ+IH+dGbZDoAAAAASUVORK5CYII=',
+    );
+    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+    final context = tester.element(find.byType(SizedBox));
+    await tester.runAsync(() async {
+      await precacheImage(MemoryImage(wide), context);
+      await precacheImage(MemoryImage(portrait), context);
+    });
+    ComicImageDecodeCache.put('book', 'cbz://001.png', wide);
+    await tester.pumpWidget(image(smartFit: true));
+    await tester.pumpAndSettle();
+    expect(tester.widget<RawImage>(find.byType(RawImage)).fit, BoxFit.fitWidth);
+    // 同一渲染位置换为竖图，不能沿用上一张的宽页判定。
+    ComicImageDecodeCache.put('book', 'cbz://002.png', portrait);
+    await tester.pumpWidget(image(url: 'cbz://002.png', smartFit: true));
+    await tester.pumpAndSettle();
+    expect(tester.widget<RawImage>(find.byType(RawImage)).fit, BoxFit.contain);
+    verifyZeroInteractions(localBooks);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('失败项的重试及长按各自分发，不自行启动数据请求', (tester) async {

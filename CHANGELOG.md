@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file.
 - 接通设备命名、仅保留本机最新包、前台到期自动备份及云端新备份提示；上传失败保留本地包和旧备份；贡献者：Codex + Rust / UI。
 
 ### Fixed
+- 修复漫画智能适配未识别图片宽高比的问题，书源、CBZ和电子纸宽图按宽度显示；贡献者：Codex + UI。
 - 条漫按实际可见图片保存进度，恢复与跳页不再按整章滚动比例估算，图片加载改高时保持恢复锚点；贡献者：Codex + UI。
 - 修复绑定库名异常导致Android启动时Rust初始化失败的问题，生成及安装检查加入实际加载和初始化确认；贡献者：Codex + Tool / Bridge。
 - 修复WSL关闭Windows PATH继承时无法发现已启动MuMu的问题，自动读取宿主安装信息并连接实际ADB端点；贡献者：Codex + Tool。

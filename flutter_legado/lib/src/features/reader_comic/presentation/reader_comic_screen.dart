@@ -1220,6 +1220,9 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     failed: _failedIndices.contains(index),
     headers: _imageHeaders,
     fit: _imageFit,
+    smartFit:
+        MangaScrollModes.isPaged(_scrollMode) &&
+        _pageScaleType == MangaPageScaleType.smartFit,
     colorFilter: _imageColorFilter,
     enableEInk: _enableEInk,
     eInkThreshold: _eInkThreshold,
