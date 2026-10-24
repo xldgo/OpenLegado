@@ -72,6 +72,7 @@ pub const CONFIG_KEYS: &[&str] = &[
     "mangaEInkThreshold",
     "mangaScrollMode",
     "mangaAutoReadSpeed",
+    "mangaPreDownloadNum",
     "mangaPageScaleType",
     "mangaSidePadding",
     "disableClickScroll",

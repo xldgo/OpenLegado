@@ -13,11 +13,12 @@ import '../../../providers/reading_provider.dart';
 import '../../book_sources/book_source_repository_provider.dart';
 import '../../../providers/book_content_provider.dart';
 import '../../../providers/config_settings_provider.dart';
+import '../../../providers/download_settings_provider.dart';
 import '../../../domain/models/manga_settings.dart';
 
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
@@ -61,8 +62,6 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     keepScrollOffset: false,
   );
   final _webtoonAnchors = ComicWebtoonAnchorController();
-  int _firstVisiblePageIndex = 0;
-  int _lastVisiblePageIndex = 0;
 
   late final ComicReaderController _reader;
   late ComicReaderState _observedSession;
@@ -101,9 +100,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
 
   /// 图片加载失败的索引集合（用于显示重试按钮）
   final Set<int> _failedIndices = {};
-
-  /// 预加载缓存（前后各 2 页）
-  static const int _preloadRange = 2;
+  final Set<int> _readyImageIndices = {};
 
   late final ComicSettingsController _settings;
   late final ComicImageActionsService _imageActions;
@@ -202,7 +199,6 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       sources: ref.read(bookSourceRepositoryProvider),
       preloader: ComicPreloadService(
         images: ref.read(bookImageRepositoryProvider),
-        localBooks: ref.read(localBookServiceProvider),
         reading: ref.read(readingRepositoryProvider),
       ),
     );
@@ -233,6 +229,16 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       end: Offset.zero,
     ).animate(curve);
     _menuOpacity = curve;
+    ref.listenManual(
+      mangaSettingsProvider,
+      (_, _) => _syncPreloadSettings(),
+      fireImmediately: true,
+    );
+    ref.listenManual(
+      downloadSettingsProvider,
+      (_, _) => _syncPreloadSettings(),
+      fireImmediately: true,
+    );
     unawaited(_loadMangaConfig());
     unawaited(_loadBook());
   }
@@ -575,6 +581,9 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       // [P4-3 E3] 自动翻页（开关会话态 + 速度档 1..15 持久化）
       autoReadEnabled: _autoRead,
       autoReadSpeed: _autoReadSpeed,
+      preloadImages:
+          ref.read(mangaSettingsProvider).value?.preloadImages ?? true,
+      onPreloadImagesChanged: _settings.setPreloadImages,
       // [P4-3 E2] 分页适配类型（单页式映射 BoxFit；条漫恒 fitWidth）
       pageScaleType: _pageScaleType,
       onColorFilterChanged: (c) => unawaited(_settings.setColorFilter(c)),
@@ -732,12 +741,13 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     if (next.navigationId != previous.navigationId) {
       _pageZoomed = false;
       _visiblePageIndex = next.initialPage;
-      _firstVisiblePageIndex = next.initialPage;
-      _lastVisiblePageIndex = next.initialPage;
     }
     if (next.book != previous.book) _onSettingsChanged();
     setState(() {
-      if (next.loading) _failedIndices.clear();
+      if (next.loading) {
+        _failedIndices.clear();
+        _readyImageIndices.clear();
+      }
     });
     if (previous.loading &&
         !next.loading &&
@@ -758,37 +768,33 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
 
   /// 页码、持久化和预载共用已实际布局的可见图片区间。— Codex + UI
   void _onVisiblePagesChanged(int first, int last) {
-    // 参考版当前章使用视口底部可见图片作为阅读页，顶部索引仅用于预载。
+    // 参考版当前章使用视口底部可见图片作为阅读页，预载以该位置向附近优先推进。
     if (_visiblePageIndex != last) {
       setState(() => _visiblePageIndex = last);
       unawaited(_saveProgress());
     }
-    _firstVisiblePageIndex = first;
-    _lastVisiblePageIndex = last;
+    _preloadVisibleImages();
+  }
+
+  void _syncPreloadSettings() {
+    final manga = ref.read(mangaSettingsProvider).value;
+    final download = ref.read(downloadSettingsProvider).value;
+    if (manga == null || download == null) return;
+    _reader.configurePreload(
+      images: manga.preloadImages,
+      next: download.preDownloadNum,
+      previous: download.preDownloadNumPrev,
+    );
     _preloadVisibleImages();
   }
 
   void _preloadVisibleImages() {
     if (!mounted || _imageUrls.isEmpty) return;
-    _preloadIndicesInRange(
-      (MangaScrollModes.isPaged(_scrollMode)
-              ? _visiblePageIndex
-              : _firstVisiblePageIndex) -
-          _preloadRange,
-      (MangaScrollModes.isPaged(_scrollMode)
-              ? _visiblePageIndex
-              : _lastVisiblePageIndex) +
-          _preloadRange,
-    );
-  }
-
-  void _preloadIndicesInRange(int start, int end) {
-    if (!mounted) return;
-    _reader.preloadRange(
-      start,
-      end,
-      precacheNetwork: (url) =>
-          precacheImage(CachedNetworkImageProvider(url), context),
+    _reader.preloadImages(
+      _visiblePageIndex,
+      precacheNetwork: (url) async {
+        await DefaultCacheManager().getSingleFile(url);
+      },
     );
   }
 
@@ -1212,6 +1218,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     anchors: _webtoonAnchors,
     initialPage: _visiblePageIndex,
     onVisibleRangeChanged: _onVisiblePagesChanged,
+    isPageReady: (index) =>
+        _readyImageIndices.contains(index) || _failedIndices.contains(index),
     controller: _scrollController,
     pageCount: _imageUrls.length,
     pageBuilder: (_, index) => _buildImageItem(index),
@@ -1239,6 +1247,9 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     enableEInk: _enableEInk,
     eInkThreshold: _eInkThreshold,
     disableCrossFade: _disableMangaCrossFade,
+    onReady: () {
+      if (mounted && _readyImageIndices.add(index)) setState(() {});
+    },
     onError: () => WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && !_failedIndices.contains(index)) {
         setState(() => _failedIndices.add(index));

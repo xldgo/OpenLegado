@@ -73,6 +73,13 @@ class ComicSettingsController extends ChangeNotifier {
   Future<void> setPageScaleType(int value) => _update(
     (s) => s.copyWith(pageScaleType: MangaPageScaleType.parse('$value')),
   );
+  Future<void> setPreloadImages(bool enabled) async {
+    await _repository.update((s) => s.copyWith(preloadImages: enabled));
+    if (_disposed) return;
+    _current = _current.copyWith(preloadImages: enabled);
+    notifyListeners();
+  }
+
   Future<void> setThreshold(int value) =>
       _update((s) => s.copyWith(eInkThreshold: value.clamp(0, 255)));
   Future<void> setToggle(MangaToggle option, bool enabled) =>

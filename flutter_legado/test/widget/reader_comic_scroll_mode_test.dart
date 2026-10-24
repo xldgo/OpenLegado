@@ -34,6 +34,7 @@ import 'dart:convert';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/reader_comic/presentation/reader_comic_screen.dart';
 
@@ -178,6 +179,7 @@ class _ScrollModeMockApi extends MockBookApi {
 }
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   Widget buildApp(ProviderContainer container) {
     return UncontrolledProviderScope(
       container: container,

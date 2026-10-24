@@ -24,6 +24,7 @@ import 'dart:convert';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/reader_comic/presentation/reader_comic_screen.dart';
 import 'package:flutter_legado/src/features/reader_comic/presentation/overlays/manga_config_sheet.dart';
@@ -216,6 +217,7 @@ Finder _sidePaddingWrapper(int percent) => find.byWidgetPredicate(
 );
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   group('[漫画设置作用域] 读取优先级', () {
     testWidgets('无书级字段 → 回退全局 mangaScrollMode', (tester) async {
       final api = _ScopeMockApi(
@@ -279,7 +281,7 @@ void main() {
       );
       expect(
         find.ancestor(
-          of: find.byType(ListView),
+          of: find.byType(CustomScrollView),
           matching: _sidePaddingWrapper(20),
         ),
         findsOneWidget,

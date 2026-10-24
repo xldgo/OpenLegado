@@ -268,34 +268,25 @@ void main() {
     );
   });
 
-  testWidgets('单页式加载即预载 cbz 页：预载与渲染共用缓存，每页仅一次 FFI', (tester) async {
+  testWidgets('本地CBZ按需读取当前页，翻页后复用原有缓存不预展开整本', (tester) async {
     final api = _CbzMockApi(pagedMode: true);
     final container = ProviderContainer(
       overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
-
     await tester.pumpWidget(_buildApp(container));
     await tester.pumpAndSettle();
-
-    // 分页模式 _loadChapterImages 同步触发 _preloadIndicesInRange(±2 页)：
-    // 两个 cbz 条目各预载一次；随后页面渲染须命中缓存、零重复调用
-    expect(
-      api.readCalls.where((c) => c.contains(_kEntry0)),
-      hasLength(1),
-      reason: '条目 0 预载一次后渲染须命中缓存',
-    );
-    expect(
-      api.readCalls.where((c) => c.contains(_kEntry1)),
-      hasLength(1),
-      reason: '条目 1 预载一次后渲染须命中缓存',
-    );
-    expect(
-      _memoryImageFinder(),
-      findsWidgets,
-      reason: '预载缓存命中应直接渲染 Image.memory',
-    );
-    expect(find.text('图片加载失败'), findsNothing, reason: '预载/渲染链路不得出现错误占位');
+    expect(api.readCalls.where((c) => c.contains(_kEntry0)), hasLength(1));
+    expect(api.readCalls.where((c) => c.contains(_kEntry1)), isEmpty);
+    final pager = tester.widget<PageView>(find.byType(PageView)).controller!;
+    pager.jumpToPage(1);
+    await tester.pumpAndSettle();
+    expect(api.readCalls.where((c) => c.contains(_kEntry1)), hasLength(1));
+    pager.jumpToPage(0);
+    await tester.pumpAndSettle();
+    expect(api.readCalls.where((c) => c.contains(_kEntry0)), hasLength(1));
+    expect(_memoryImageFinder(), findsWidgets);
+    expect(find.text('图片加载失败'), findsNothing);
   });
 
   testWidgets('cbz 页长按：菜单含保存/分享、隐藏复制链接；保存通道收到 PNG 字节', (tester) async {

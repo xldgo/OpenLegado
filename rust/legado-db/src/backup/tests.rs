@@ -59,6 +59,9 @@ fn seed(conn: &Connection) {
         .put("config:threadCount", "3", 0)
         .unwrap();
     CacheRepository::new(conn)
+        .put("config:mangaPreDownloadNum", "0", 0)
+        .unwrap();
+    CacheRepository::new(conn)
         .put("config:secret-api-token", "不应导出", 0)
         .unwrap();
     CacheRepository::new(conn)
@@ -83,7 +86,10 @@ fn mixed_snapshot_preserves_ids_relations_and_reading_totals_on_repeat_restore()
         .unwrap();
     assert_eq!(
         exported.config,
-        BTreeMap::from([("threadCount".into(), "3".into())])
+        BTreeMap::from([
+            ("threadCount".into(), "3".into()),
+            ("mangaPreDownloadNum".into(), "0".into()),
+        ])
     );
     let target_repo = BackupRepository::new(target.connection());
     for round in 0..2 {

@@ -57,6 +57,8 @@ class MangaConfigSheet extends StatefulWidget {
 
   /// [P4-3 E3] 自动翻页速度档 1..15（当前值）
   final int? autoReadSpeed;
+  final bool preloadImages;
+  final Future<void> Function(bool)? onPreloadImagesChanged;
 
   /// [P4-3 E3] 自动翻页开关变更（非 null 时渲染区块）
   final ValueChanged<bool>? onAutoReadChanged;
@@ -174,6 +176,8 @@ class MangaConfigSheet extends StatefulWidget {
     required this.onScrollModeChanged,
     this.autoReadEnabled,
     this.autoReadSpeed,
+    this.preloadImages = true,
+    this.onPreloadImagesChanged,
     this.onAutoReadChanged,
     this.onAutoReadSpeedChanged,
     this.pageScaleType,
@@ -231,6 +235,8 @@ class MangaConfigSheet extends StatefulWidget {
     // [P4-3 E3] 自动翻页（可选；不传则不渲染区块，既有调用方不受影响）
     bool? autoReadEnabled,
     int? autoReadSpeed,
+    bool preloadImages = true,
+    Future<void> Function(bool)? onPreloadImagesChanged,
     ValueChanged<bool>? onAutoReadChanged,
     ValueChanged<int>? onAutoReadSpeedChanged,
     // [P4-3 E2] 分页适配类型（可选；不传则不渲染下拉，既有调用方不受影响）
@@ -290,6 +296,8 @@ class MangaConfigSheet extends StatefulWidget {
         onScrollModeChanged: onScrollModeChanged,
         autoReadEnabled: autoReadEnabled,
         autoReadSpeed: autoReadSpeed,
+        preloadImages: preloadImages,
+        onPreloadImagesChanged: onPreloadImagesChanged,
         onAutoReadChanged: onAutoReadChanged,
         onAutoReadSpeedChanged: onAutoReadSpeedChanged,
         pageScaleType: pageScaleType,
@@ -346,6 +354,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
 
   /// [P4-3 E3] 自动翻页速度档
   late int _autoReadSpeed;
+  late bool _preloadImages;
 
   /// [P4-3 E2] 分页适配类型 0..5
   late int _pageScaleType;
@@ -443,6 +452,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
   @override
   void initState() {
     super.initState();
+    _preloadImages = widget.preloadImages;
     _filter = MangaColorFilterConfig(
       r: widget.colorFilter.r,
       g: widget.colorFilter.g,
@@ -569,6 +579,22 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
                       onChanged: _changeScrollModeScope,
                     ),
                   _modeButtonGroup(),
+                  if (widget.onPreloadImagesChanged != null)
+                    SwitchListTile(
+                      title: const Text('预加载当前章图片'),
+                      value: _preloadImages,
+                      onChanged: (value) async {
+                        try {
+                          await widget.onPreloadImagesChanged!(value);
+                          if (mounted) setState(() => _preloadImages = value);
+                        } catch (_) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('预加载设置保存失败，请重试')),
+                          );
+                        }
+                      },
+                    ),
                   if (_showPageScale) ...[
                     _divider(),
                     _dropdownTile(

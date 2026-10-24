@@ -29,6 +29,41 @@ class ComicReaderController extends ChangeNotifier {
   ComicReaderState get state => _state;
   int _generation = 0;
   bool _disposed = false;
+  bool _preloadImages = false;
+  int _preloadNext = 0, _preloadPrevious = 0;
+
+  void configurePreload({
+    required bool images,
+    required int next,
+    required int previous,
+  }) {
+    if (_disposed) return;
+    final imagesChanged = images != _preloadImages;
+    final chaptersChanged =
+        next != _preloadNext || previous != _preloadPrevious;
+    _preloadImages = images;
+    _preloadNext = next;
+    _preloadPrevious = previous;
+    if (imagesChanged) _preloader.resetImages();
+    if (chaptersChanged) {
+      _preloader.resetChapters();
+      _preloadChapters();
+    }
+  }
+
+  void _preloadChapters() {
+    final snapshot = _state;
+    if (_disposed || snapshot.loading || snapshot.imageUrls.isEmpty) return;
+    unawaited(
+      _preloader.preloadAdjacent(
+        bookUrl: snapshot.bookUrl,
+        chapterIndex: snapshot.chapterIndex,
+        chapterCount: snapshot.chapters.length,
+        nextCount: _preloadNext,
+        previousCount: _preloadPrevious,
+      ),
+    );
+  }
 
   bool _current(int generation) => !_disposed && generation == _generation;
   void _publish(ComicReaderState next) {
@@ -156,15 +191,7 @@ class ComicReaderController extends ChangeNotifier {
           chapterError: missingImages,
         ),
       );
-      if (_current(generation) && urls.isNotEmpty) {
-        unawaited(
-          _preloader.preloadAdjacent(
-            bookUrl: snapshot.bookUrl,
-            chapterIndex: snapshot.chapterIndex,
-            chapterCount: snapshot.chapters.length,
-          ),
-        );
-      }
+      if (_current(generation)) _preloadChapters();
     } catch (error) {
       if (!_current(generation)) return;
       _publish(
@@ -240,18 +267,23 @@ class ComicReaderController extends ChangeNotifier {
     }
   }
 
-  void preloadRange(
-    int start,
-    int end, {
+  void preloadImages(
+    int visibleIndex, {
     required Future<void> Function(String) precacheNetwork,
   }) {
-    if (_disposed) return;
+    if (_disposed || !_preloadImages || _state.loading) return;
     final snapshot = _state;
+    // CBZ已有本地原件，只保留正式可见图片的读取/缓存，不把整本ZIP预展开进内存。
+    if (snapshot.imageUrls.isNotEmpty &&
+        snapshot.imageUrls.first.startsWith('cbz://')) {
+      return;
+    }
     unawaited(
       _preloader.preloadRange(
         urls: snapshot.imageUrls,
-        start: start,
-        end: end,
+        start: 0,
+        end: snapshot.imageUrls.length - 1,
+        visibleIndex: visibleIndex,
         bookUrl: snapshot.bookUrl,
         book: snapshot.book,
         source: snapshot.source,

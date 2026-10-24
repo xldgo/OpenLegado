@@ -340,4 +340,37 @@ void main() {
     expect(controller.page, 2);
     expect(tester.takeException(), isNull);
   });
+  testWidgets('未解码的占位不推进阅读页，图片就绪后按真实布局报告', (tester) async {
+    final scroll = ScrollController();
+    addTearDown(scroll.dispose);
+    final ready = ValueNotifier(false);
+    addTearDown(ready.dispose);
+    final pages = <int>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ValueListenableBuilder<bool>(
+            valueListenable: ready,
+            builder: (_, loaded, _) => ComicWebtoonView(
+              controller: scroll,
+              pageCount: 2,
+              disableScale: true,
+              withGap: false,
+              sidePadding: 0,
+              isPageReady: (_) => loaded,
+              onVisibleRangeChanged: (first, last) => pages.add(last),
+              pageBuilder: (_, index) =>
+                  SizedBox(height: loaded ? 800 : 360, child: Text('加载$index')),
+              navigationBuilder: (_) => const Text('导航'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(pages, isEmpty);
+    ready.value = true;
+    await tester.pumpAndSettle();
+    expect(pages, [0]);
+  });
 }

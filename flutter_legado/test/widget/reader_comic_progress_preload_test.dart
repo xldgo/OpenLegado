@@ -10,6 +10,9 @@ import '../mocks/bookshelf_fixture.dart';
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_legado/src/providers/download_settings_provider.dart';
+import 'package:flutter_legado/src/providers/config_settings_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/models/models.dart';
@@ -192,6 +195,12 @@ Future<void> _settleWithImageDecode(WidgetTester tester) async {
 }
 
 void main() {
+  setUp(
+    () => SharedPreferences.setMockInitialValues({
+      'preDownloadNum': 1,
+      'preDownloadNumPrev': 1,
+    }),
+  );
   testWidgets('C1 页级进度：翻页后节流持久化 chapterPos（非恒 0）', (tester) async {
     final api = _ProgressMockApi(book: _progressBook());
     final container = ProviderContainer(
@@ -306,5 +315,40 @@ void main() {
       1,
       0,
     ), reason: '切章后保存 (chapterIndex=1, chapterPos=0)');
+  });
+  testWidgets('共享预载设置改变当前漫画窗口，关闭图片预载不影响正文显示', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'preDownloadNum': 0,
+      'preDownloadNumPrev': 0,
+    });
+    final api = _ProgressMockApi(book: _progressBook(chapterIndex: 1));
+    final container = ProviderContainer(
+      overrides: mergeTestOverrides([...api.overrides]),
+    );
+    addTearDown(container.dispose);
+    await tester.pumpWidget(_buildApp(container));
+    await tester.pumpAndSettle();
+    expect(api.fullCalls, isEmpty);
+    await container
+        .read(downloadSettingsRepositoryProvider)
+        .update((s) => s.copyWith(preDownloadNum: 1));
+    await tester.pumpAndSettle();
+    expect(api.fullCalls, [2]);
+    await container
+        .read(downloadSettingsRepositoryProvider)
+        .update((s) => s.copyWith(preDownloadNum: 0, preDownloadNumPrev: 1));
+    await tester.pumpAndSettle();
+    expect(api.fullCalls, [2, 0]);
+    await container
+        .read(mangaSettingsRepositoryProvider)
+        .update((s) => s.copyWith(preloadImages: false));
+    await tester.pumpAndSettle();
+    expect(
+      container.read(mangaSettingsRepositoryProvider).current.preloadImages,
+      isFalse,
+    );
+    expect(api.fullCalls, [2, 0], reason: '图片开关不重新启动章节预取');
+    expect(find.byType(ErrorView), findsNothing);
+    expect(find.byType(Image), findsWidgets);
   });
 }

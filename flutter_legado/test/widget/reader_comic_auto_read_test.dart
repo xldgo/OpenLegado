@@ -34,6 +34,7 @@ import 'dart:convert';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/models/manga_auto_read.dart';
@@ -238,6 +239,7 @@ Future<double> _settleExtentStable(WidgetTester tester) async {
 }
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   testWidgets('[P4-3 E3] 单页式：开关后到点自动下一页；再关开关停止', (tester) async {
     final progressCalls = <List<int>>[];
     final configWrites = <List<String>>[];

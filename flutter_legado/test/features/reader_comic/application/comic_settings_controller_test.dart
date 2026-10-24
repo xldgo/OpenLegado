@@ -168,4 +168,30 @@ void main() {
     await local.setSidePadding(12);
     expect(stored.current.sidePadding, 12);
   });
+  test('图片预加载保存失败不改变开关，成功后按原配置键重读', () async {
+    var fail = true;
+    final values = <String, String>{};
+    final storage = TestConfigRepository(
+      read: (key) async => values[key],
+      write: (key, value) async {
+        if (fail) throw StateError('写入失败');
+        values[key] = value;
+      },
+    );
+    final service = createAppSettingsService(configRepository: () => storage);
+    addTearDown(service.dispose);
+    final repository = AppMangaSettingsRepository(service);
+    final subject = ComicSettingsController(repository);
+    addTearDown(subject.dispose);
+    await subject.load();
+    await expectLater(subject.setPreloadImages(false), throwsStateError);
+    expect(subject.current.preloadImages, isTrue);
+    expect(repository.current.preloadImages, isTrue);
+    fail = false;
+    await subject.setPreloadImages(false);
+    expect(subject.current.preloadImages, isFalse);
+    expect(values['mangaPreDownloadNum'], '0');
+    await repository.reload();
+    expect(repository.current.preloadImages, isFalse);
+  });
 }

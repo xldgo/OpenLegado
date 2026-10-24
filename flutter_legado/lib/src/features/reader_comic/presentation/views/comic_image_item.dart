@@ -33,6 +33,7 @@ class ComicImageItem extends StatelessWidget {
     required this.headers,
     required this.fit,
     this.smartFit = false,
+    this.onReady,
     required this.colorFilter,
     required this.enableEInk,
     required this.eInkThreshold,
@@ -52,6 +53,7 @@ class ComicImageItem extends StatelessWidget {
   final Map<String, String> headers;
   final BoxFit fit;
   final bool smartFit;
+  final VoidCallback? onReady;
   final ColorFilter? colorFilter;
   final VoidCallback onError, onRetry, onLongPress;
 
@@ -98,6 +100,7 @@ class ComicImageItem extends StatelessWidget {
           // [P4-3 E2] 分页适配类型映射的 BoxFit（条漫恒 fitWidth）
           fit: fit,
           smartFit: smartFit,
+          onReady: onReady,
           eInkThreshold: enableEInk ? eInkThreshold : null,
           onError: onError,
         ),
@@ -123,6 +126,7 @@ class ComicImageItem extends StatelessWidget {
           // [P4-3 E2] 分页适配类型映射的 BoxFit（条漫恒 fitWidth）
           fit: fit,
           smartFit: smartFit,
+          onReady: onReady,
           eInkThreshold: enableEInk ? eInkThreshold : null,
           onError: onError,
         ),
@@ -142,6 +146,7 @@ class ComicImageItem extends StatelessWidget {
         // [P4-3 E2] 分页适配类型映射的 BoxFit（条漫恒 fitWidth）
         fit: fit,
         smartFit: smartFit,
+        onReady: onReady,
         onError: onError,
       );
     }
@@ -161,6 +166,7 @@ class ComicImageItem extends StatelessWidget {
           image: provider,
           fit: fit,
           smartFit: smartFit,
+          onReady: onReady,
           builder: (effectiveFit) =>
               Image(image: provider, fit: effectiveFit, width: double.infinity),
         ),
@@ -351,6 +357,7 @@ class _DecodedComicImage extends StatefulWidget {
   /// 条漫恒 fitWidth；见 [MangaPageScaleType.fitFor] 取证注释）
   final BoxFit fit;
   final bool smartFit;
+  final VoidCallback? onReady;
 
   const _DecodedComicImage({
     required this.images,
@@ -363,6 +370,7 @@ class _DecodedComicImage extends StatefulWidget {
     this.eInkThreshold,
     this.fit = BoxFit.fitWidth,
     this.smartFit = false,
+    this.onReady,
   });
 
   @override
@@ -527,6 +535,9 @@ class _DecodedComicImageState extends State<_DecodedComicImage> {
     }
     final epaper = _epaperImage;
     if (widget.eInkThreshold != null && epaper != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onReady?.call();
+      });
       return RawImage(
         image: epaper,
         // [P4-3 E2] 分页适配类型映射的 BoxFit
@@ -545,6 +556,7 @@ class _DecodedComicImageState extends State<_DecodedComicImage> {
         image: MemoryImage(bytes),
         fit: widget.fit,
         smartFit: widget.smartFit,
+        onReady: widget.onReady,
         builder: (effectiveFit) => Image.memory(
           bytes,
           // [P4-3 E2] 分页适配类型映射的 BoxFit
@@ -628,6 +640,7 @@ class _LocalCbzImage extends StatefulWidget {
     this.eInkThreshold,
     this.fit = BoxFit.fitWidth,
     this.smartFit = false,
+    this.onReady,
   });
 
   final bool crossFade;
@@ -650,6 +663,7 @@ class _LocalCbzImage extends StatefulWidget {
   /// [P4-3 E2] 图片渲染 BoxFit（调用方按分页适配类型映射传入）
   final BoxFit fit;
   final bool smartFit;
+  final VoidCallback? onReady;
 
   @override
   State<_LocalCbzImage> createState() => _LocalCbzImageState();
@@ -786,6 +800,9 @@ class _LocalCbzImageState extends State<_LocalCbzImage> {
     }
     final epaper = _epaperImage;
     if (widget.eInkThreshold != null && epaper != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onReady?.call();
+      });
       return RawImage(
         image: epaper,
         fit: ComicImageFit.forSize(
@@ -803,6 +820,7 @@ class _LocalCbzImageState extends State<_LocalCbzImage> {
         image: MemoryImage(bytes),
         fit: widget.fit,
         smartFit: widget.smartFit,
+        onReady: widget.onReady,
         builder: (effectiveFit) => Image.memory(
           bytes,
           fit: effectiveFit,
@@ -866,6 +884,7 @@ class _EpaperNetworkImage extends StatefulWidget {
     required this.onError,
     this.fit = BoxFit.fitWidth,
     this.smartFit = false,
+    this.onReady,
   });
 
   final NetworkService network;
@@ -877,6 +896,7 @@ class _EpaperNetworkImage extends StatefulWidget {
   /// [P4-3 E2] 图片渲染 BoxFit（见 [MangaPageScaleType.fitFor] 取证注释）
   final BoxFit fit;
   final bool smartFit;
+  final VoidCallback? onReady;
 
   @override
   State<_EpaperNetworkImage> createState() => _EpaperNetworkImageState();
@@ -963,6 +983,9 @@ class _EpaperNetworkImageState extends State<_EpaperNetworkImage> {
     }
     final img = _image;
     if (img != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onReady?.call();
+      });
       return RawImage(
         image: img,
         // [P4-3 E2] 分页适配类型映射的 BoxFit

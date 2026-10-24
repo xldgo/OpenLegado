@@ -22,6 +22,7 @@ class ComicWebtoonView extends StatefulWidget {
     this.initialPage = 0,
     this.anchors,
     this.onVisibleRangeChanged,
+    this.isPageReady,
   });
   final ScrollController controller;
   final int pageCount;
@@ -29,6 +30,7 @@ class ComicWebtoonView extends StatefulWidget {
   final WidgetBuilder navigationBuilder;
   final bool disableScale, withGap;
   final int sidePadding, initialPage;
+  final bool Function(int index)? isPageReady;
   final ComicWebtoonAnchorController? anchors;
   final void Function(int first, int last)? onVisibleRangeChanged;
 
@@ -99,6 +101,7 @@ class _ComicWebtoonViewState extends State<ComicWebtoonView> {
   void _reportVisiblePages() {
     if (!widget.controller.hasClients) return;
     final visible = <int>[];
+    var pendingVisible = false;
     for (final entry in _pages.entries) {
       final box = entry.value.currentContext?.findRenderObject();
       if (box is! RenderBox || !box.attached || !box.hasSize) continue;
@@ -112,11 +115,16 @@ class _ComicWebtoonViewState extends State<ComicWebtoonView> {
       );
       if (bounds.bottom > 0 &&
           bounds.top < (viewport as RenderBox).size.height) {
-        visible.add(entry.key);
+        if (widget.isPageReady?.call(entry.key) ?? true) {
+          visible.add(entry.key);
+        } else {
+          pendingVisible = true;
+        }
       }
     }
     visible.sort();
     if (visible.isEmpty) {
+      if (pendingVisible) return;
       final box = _navigation.currentContext?.findRenderObject();
       if (box is! RenderBox || !box.attached || !box.hasSize) return;
       final viewport = RenderAbstractViewport.maybeOf(box);
