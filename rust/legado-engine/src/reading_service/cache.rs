@@ -20,10 +20,32 @@ pub struct CachedChapterEntry {
 /// 捕获一次存储快照，整个操作不回查宿主全局实例。
 pub struct ChapterCacheService {
     storage: Option<StorageContext>,
+    image_cache: Option<crate::image_cache_service::ImageCacheService>,
 }
 impl ChapterCacheService {
     pub fn new(storage: Option<StorageContext>) -> Self {
-        Self { storage }
+        Self {
+            storage,
+            image_cache: None,
+        }
+    }
+    pub fn with_image_cache(
+        mut self,
+        cache: crate::image_cache_service::ImageCacheService,
+    ) -> Self {
+        self.image_cache = Some(cache);
+        self
+    }
+    fn manga_cache(
+        &self,
+        book_url: &str,
+    ) -> LegadoResult<Option<&crate::image_cache_service::ImageCacheService>> {
+        match (&self.storage, &self.image_cache) {
+            (Some(storage), Some(cache)) if crate::manga_cache::is_manga(storage, book_url)? => {
+                Ok(Some(cache))
+            }
+            _ => Ok(None),
+        }
     }
     fn with_database<T>(
         &self,
@@ -144,69 +166,49 @@ impl ChapterCacheService {
     /// 仅提取 chapter_url 供 Flutter 目录页据此为每章标记「已缓存/未缓存」渲染
     /// 云图标；返回顺序按 chapter_index 升序（仓储已排序），空 chapter_url 过滤。
     pub fn list_cached_chapter_urls(&self, book_url: &str) -> LegadoResult<Vec<String>> {
-        self.with_database(|db| {
-            let conn = db.connection();
-            let repo = CacheBookRepository::new(conn);
-            let chapters = repo.get_by_book(book_url)?;
-            let urls: Vec<String> = chapters
-                .into_iter()
-                .map(|c| c.chapter_url)
-                .filter(|u| !u.trim().is_empty())
-                .collect();
-            // [B-5] 读侧 URL 校验（云图标对齐）：书籍有目录时，仅当前目录仍
-            // 存在的章节 URL 才算「已缓存」——上一代目录的失效缓存行不应点亮
-            // 新目录章节的云图标；无目录记录的书籍保持原有行为
-            let toc = BookChapterRepository::new(conn).find_by_book_url(book_url)?;
-            if toc.is_empty() {
-                return Ok(urls);
-            }
-            let current: std::collections::HashSet<String> =
-                toc.iter().map(|c| c.url.clone()).collect();
-            Ok(urls.into_iter().filter(|u| current.contains(u)).collect())
-        })
+        Ok(self
+            .list_cached_chapters(book_url)?
+            .into_iter()
+            .map(|entry| entry.url)
+            .collect())
     }
 
-    /// 列出某本书已缓存章节的 (chapter_url, wordCount) 集合
-    /// （P2-28c，API_CONTRACT §2.43.6，目录页实时字数刷新数据链）
-    ///
-    /// [`list_cached_chapter_urls`] 的升级形态：单次只读查询（纯 SELECT，
-    /// 复用 [`CacheBookRepository::get_by_book`] +
-    /// [`BookChapterRepository::find_by_book_url`]，零额外 SQL）同时给出 URL
-    /// 集合与字数映射，供 Flutter 目录页 1 秒轮询（P2-28b）一次调用同时完成
-    /// ⬇ 图标翻转与字数胶囊同帧刷新。
-    ///
-    /// 过滤语义与 [`list_cached_chapter_urls`] 一致：按 chapter_index 升序
-    /// （仓储已排序）、空 `chapter_url` 过滤；书籍有目录时同步过滤已退出
-    /// 当前目录的陈旧缓存行（[B-5] 同源）。`word_count` 取 `chapters` 表
-    /// 当前值（与 P2-28b 回填链同源，避免 `cached_chapters` 表内旧快照），
-    /// 未回填（NULL/空）为空串。
+    /// 正文缓存按当前目录过滤；漫画还要求实际图片齐全，不在查询时发请求。
     pub fn list_cached_chapters(&self, book_url: &str) -> LegadoResult<Vec<CachedChapterEntry>> {
+        let image_cache = self.manga_cache(book_url)?;
         self.with_database(|db| {
             let conn = db.connection();
             let cached = CacheBookRepository::new(conn).get_by_book(book_url)?;
-            let toc = BookChapterRepository::new(conn).find_by_book_url(book_url)?;
-            // url -> wordCount（chapters 表当前值；None/空 → 空串）
-            let word_counts: std::collections::HashMap<String, String> = toc
-                .iter()
-                .filter(|c| !c.url.trim().is_empty())
-                .map(|c| (c.url.clone(), c.word_count.clone().unwrap_or_default()))
+            let toc: std::collections::HashMap<_, _> = BookChapterRepository::new(conn)
+                .find_by_book_url(book_url)?
+                .into_iter()
+                .map(|chapter| (chapter.url.clone(), chapter))
                 .collect();
-            // [B-5] 与 §2.43.5 同源：有目录时仅保留仍在当前目录中的缓存行
-            let current: Option<std::collections::HashSet<String>> = if toc.is_empty() {
-                None
-            } else {
-                Some(toc.iter().map(|c| c.url.clone()).collect())
-            };
             Ok(cached
                 .into_iter()
-                .filter(|c| !c.chapter_url.trim().is_empty())
-                .filter(|c| match &current {
-                    Some(set) => set.contains(&c.chapter_url),
-                    None => true,
+                .filter(|entry| !entry.chapter_url.trim().is_empty())
+                .filter(|entry| toc.is_empty() || toc.contains_key(&entry.chapter_url))
+                .filter(|entry| {
+                    image_cache.is_none_or(|cache| {
+                        let fallback = legado_core::models::BookChapter {
+                            url: entry.chapter_url.clone(),
+                            ..Default::default()
+                        };
+                        let chapter = toc.get(&entry.chapter_url).unwrap_or(&fallback);
+                        crate::manga_cache::images_complete(
+                            cache,
+                            book_url,
+                            &entry.content,
+                            chapter,
+                        )
+                    })
                 })
-                .map(|c| CachedChapterEntry {
-                    word_count: word_counts.get(&c.chapter_url).cloned().unwrap_or_default(),
-                    url: c.chapter_url,
+                .map(|entry| CachedChapterEntry {
+                    word_count: toc
+                        .get(&entry.chapter_url)
+                        .and_then(|chapter| chapter.word_count.clone())
+                        .unwrap_or_default(),
+                    url: entry.chapter_url,
                 })
                 .collect())
         })

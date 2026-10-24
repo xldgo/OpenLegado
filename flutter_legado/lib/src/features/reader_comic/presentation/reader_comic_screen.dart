@@ -1,3 +1,5 @@
+import '../../cache/presentation/chapter_download_dialog.dart';
+import '../../../providers/chapter_cache_provider.dart';
 import '../../../app/routing/app_navigation.dart';
 import '../../../theme/app_motion.dart';
 import '../application/comic_settings_controller.dart';
@@ -1366,6 +1368,22 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     _showPageActions(_visiblePageIndex);
   }
 
+  void _openDownloadQueue() {
+    GoRouter.of(context).pushAppRoute(AppRoutes.cacheDownloads);
+  }
+
+  void _downloadChapters() {
+    if (_book == null || _chapters.isEmpty) return;
+    showChapterDownloadDialog(
+      context,
+      downloads: ref.read(cacheDownloadServiceProvider),
+      bookUrl: _activeBookUrl,
+      currentChapterIndex: _currentChapterIndex,
+      totalChapters: _chapters.length,
+      onOpenQueue: _openDownloadQueue,
+    );
+  }
+
   /// [P4-3 M2/M3] 构建顶部控制栏（实心 AppBar 式，按用户截图重构：
   /// surfaceContainer 实心背景（覆盖状态栏区）+ Row1 返回/换源/刷新/更多 +
   /// Row2 书名大字 + 章节名 + 源名；「更多」= 打开页操作底栏；
@@ -1381,6 +1399,10 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       onBack: () => Navigator.of(context).pop(),
       onChangeSource: _openChangeSource,
       onRefresh: _refreshChapter,
+      onDownload: _book?.origin == BookType.localTag || _chapters.isEmpty
+          ? null
+          : _downloadChapters,
+      onOpenDownloadQueue: _openDownloadQueue,
       onMore: _openPageActions,
     );
   }

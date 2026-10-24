@@ -200,6 +200,9 @@ impl ChapterContent {
                 BookChapterRepository::new(db.connection()).find_by_book_url_and_index(book, index)
             })?
             .ok_or_else(|| LegadoError::Database(format!("章节 {index} 不存在")))?;
+        if chapter.is_volume && crate::manga_cache::is_manga(&self.storage, book)? {
+            return Ok(());
+        }
         if super::is_local_book(book) {
             let path = std::path::Path::new(book);
             let resolved = if path.is_absolute() {

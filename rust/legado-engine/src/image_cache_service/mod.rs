@@ -1,6 +1,7 @@
 //! 图片磁盘缓存：调用者明确提供根目录，路径与IO策略沿用既有约定。
 use std::{
-    fs, io,
+    fs,
+    io::{self, Read},
     path::PathBuf,
     sync::atomic::{AtomicBool, Ordering},
 };
@@ -66,6 +67,16 @@ impl ImageCacheService {
                 false
             }
         }
+    }
+
+    /// 离线完整性只检查文件头，不为目录轮询把整章图片读进内存。
+    pub fn has_image_cache(&self, book_url: &str, url: &str) -> bool {
+        let Ok(file) = fs::File::open(self.image_file_path(book_url, url)) else {
+            return false;
+        };
+        let mut header = Vec::with_capacity(12);
+        file.take(12).read_to_end(&mut header).is_ok()
+            && crate::image_service::looks_like_image_bytes(&header)
     }
 
     /// 读取图片缓存（对齐原版 `BookHelp.getImage`/`isImageExist` 的本地优先语义）
