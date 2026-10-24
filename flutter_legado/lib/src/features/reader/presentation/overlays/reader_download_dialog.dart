@@ -4,7 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../../../models/models.dart';
-import '../../../../widgets/app_settings_form.dart';
+import '../../../cache/presentation/chapter_download_dialog.dart';
 import '../../application/reader_notifier.dart';
 
 /// 阅读器「离线缓存」章节范围选择对话框（两个阅读顶栏共享实现）
@@ -34,70 +34,11 @@ void showReaderOfflineCacheDialog(BuildContext context, WidgetRef ref) {
         .showSnackBar(const SnackBar(content: Text('本地书籍无需缓存')));
     return;
   }
-  final totalChapters = chapters.length;
-  // 默认起始 = 当前章（1-based，对齐原版 durChapterIndex + 1）
-  final startCtrl = TextEditingController(
-    text: '${state.currentChapterIndex + 1}',
-  );
-  final endCtrl = TextEditingController(text: '$totalChapters');
-  final messenger = ScaffoldMessenger.of(context);
-
-  showDialog<void>(
-    context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: const Text('离线缓存'),
-      // 表单统一控件间距；填充、圆角及状态描边继承阅读菜单主题。— Codex + UI
-      content: AppSettingsForm(
-        children: [
-          TextField(
-            controller: startCtrl,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: '起始章节序号'),
-          ),
-          TextField(
-            controller: endCtrl,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              labelText: '结束章节序号',
-              helperText: '共 $totalChapters 章',
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(dialogContext),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          onPressed: () async {
-            Navigator.pop(dialogContext);
-            final start = int.tryParse(startCtrl.text) ?? 1;
-            final end = int.tryParse(endCtrl.text) ?? totalChapters;
-            if (start < 1 || end > totalChapters || start > end) {
-              messenger.showSnackBar(const SnackBar(content: Text('章节范围无效')));
-              return;
-            }
-            final count = end - start + 1;
-            try {
-              // 0-based 索引（含端点）；Rust 侧超界自动截断
-              await ref
-                  .read(cacheDownloadServiceProvider)
-                  .cacheDownloadStart(book.bookUrl, start - 1, end - 1);
-              if (context.mounted) {
-                messenger.showSnackBar(
-                  SnackBar(content: Text('已加入缓存队列：$count 章（可在书籍菜单「缓存管理」查看进度）')),
-                );
-              }
-            } catch (e) {
-              if (context.mounted) {
-                messenger.showSnackBar(SnackBar(content: Text('缓存启动失败：$e')));
-              }
-            }
-          },
-          child: const Text('开始缓存'),
-        ),
-      ],
-    ),
+  showChapterDownloadDialog(
+    context,
+    downloads: ref.read(cacheDownloadServiceProvider),
+    bookUrl: book.bookUrl,
+    currentChapterIndex: state.currentChapterIndex,
+    totalChapters: chapters.length,
   );
 }

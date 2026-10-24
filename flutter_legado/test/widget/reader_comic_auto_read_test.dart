@@ -34,6 +34,7 @@ import 'dart:convert';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/models/manga_auto_read.dart';
@@ -238,6 +239,7 @@ Future<double> _settleExtentStable(WidgetTester tester) async {
 }
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   testWidgets('[P4-3 E3] 单页式：开关后到点自动下一页；再关开关停止', (tester) async {
     final progressCalls = <List<int>>[];
     final configWrites = <List<String>>[];
@@ -382,6 +384,8 @@ void main() {
     int iEnd = -1;
     int iNext = -1;
     for (var i = 0; i < 40; i++) {
+      // 自动滚动会新建惰性图片项；推进真实解码后再采样，避免仅快进假时钟。
+      await _settleImageDecode(tester);
       await tester.pump(const Duration(milliseconds: 1000));
       iEnd = progressCalls.indexWhere(
         (c) => c.length == 2 && c[0] == 0 && c[1] == 2,

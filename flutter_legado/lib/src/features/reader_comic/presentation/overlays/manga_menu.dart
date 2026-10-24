@@ -1,3 +1,5 @@
+import '../../../../widgets/app_menu.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -44,8 +46,7 @@ import 'package:material_symbols_icons/symbols.dart';
 /// - 目录：OpenCatalog（弹目录 bottom sheet，见 manga_catalog_sheet.dart）；
 /// - 自动：ToggleAutoRead（描述 = 停止/自动 随开关态，长按 =
 ///   OpenSettings(AUTO_READ)）；翻页设置：OpenSettings(READER)；
-/// - 离线缓存键（参考版仅 cacheAvailable 时渲染）：我方无漫画离线缓存
-///   功能，不放此键。
+/// - 在线漫画下载入口复用章节范围选择及下载队列，本地CBZ隐藏。
 
 /// 顶栏图标键（[P4-3 M2] 无底纯图标，onSurface，40dp 点击区）
 ///
@@ -111,6 +112,8 @@ class MangaMenuTopBar extends StatelessWidget {
   final VoidCallback onChangeSource;
 
   final VoidCallback onRefresh;
+  final VoidCallback? onDownload;
+  final VoidCallback? onOpenDownloadQueue;
 
   /// [P4-3 M2] 「更多」键（打开页操作底栏，复用既有页操作菜单）
   final VoidCallback onMore;
@@ -127,6 +130,8 @@ class MangaMenuTopBar extends StatelessWidget {
     required this.onChangeSource,
     required this.onRefresh,
     required this.onMore,
+    this.onDownload,
+    this.onOpenDownloadQueue,
     this.onOpenBookInfo,
   });
 
@@ -171,6 +176,25 @@ class MangaMenuTopBar extends StatelessWidget {
                   onTap: onRefresh,
                 ),
                 const SizedBox(width: 8),
+                if (onDownload != null) ...[
+                  AppMenuAnchor<String>(
+                    itemBuilder: (_) => const [
+                      AppMenuItem(value: 'download', child: Text('离线缓存')),
+                      AppMenuItem(value: 'queue', child: Text('下载队列')),
+                    ],
+                    onSelected: (value) => value == 'download'
+                        ? onDownload?.call()
+                        : onOpenDownloadQueue?.call(),
+                    builder: (context, controller, _) => _MangaTopBarIcon(
+                      icon: Symbols.download_rounded,
+                      tooltip: '下载',
+                      onTap: () => controller.isOpen
+                          ? controller.close()
+                          : controller.open(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 _MangaTopBarIcon(
                   // 「更多」= 打开页操作底栏（复用既有页操作菜单，真实功能）
                   icon: Symbols.more_vert_rounded,

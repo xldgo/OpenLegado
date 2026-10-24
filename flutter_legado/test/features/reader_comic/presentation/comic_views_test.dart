@@ -9,6 +9,7 @@ import 'package:flutter_legado/src/domain/contracts/local_book_service.dart';
 import 'package:flutter_legado/src/domain/contracts/network_service.dart';
 import 'package:flutter_legado/src/features/reader_comic/presentation/views/comic_image_item.dart';
 import 'package:flutter_legado/src/features/reader_comic/presentation/views/comic_webtoon_view.dart';
+import 'package:flutter_legado/src/features/reader_comic/presentation/views/manga_paged_view.dart';
 import 'package:flutter_legado/src/models/models.dart';
 
 class _Images extends Mock implements BookImageRepository {}
@@ -36,6 +37,7 @@ void main() {
     String url = 'cbz://001.png',
     BookSource? source,
     bool failed = false,
+    bool smartFit = false,
     VoidCallback? onError,
     VoidCallback? onRetry,
     VoidCallback? onLongPress,
@@ -52,7 +54,8 @@ void main() {
           network: network,
           failed: failed,
           headers: const {},
-          fit: BoxFit.fitWidth,
+          fit: BoxFit.contain,
+          smartFit: smartFit,
           colorFilter: null,
           enableEInk: false,
           eInkThreshold: 150,
@@ -107,6 +110,32 @@ void main() {
     verifyZeroInteractions(network);
   });
 
+  testWidgets('智能适配读取已加载图片尺寸，宽图按宽适配且切换竖图后恢复完整显示', (tester) async {
+    final wide = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAC0lEQVR4nGP4DwUAI+UH+Yo0eLMAAAAASUVORK5CYII=',
+    );
+    final portrait = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAACCAYAAACZgbYnAAAADklEQVR4nGP4DwQMIAIAJ+IH+dGbZDoAAAAASUVORK5CYII=',
+    );
+    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+    final context = tester.element(find.byType(SizedBox));
+    await tester.runAsync(() async {
+      await precacheImage(MemoryImage(wide), context);
+      await precacheImage(MemoryImage(portrait), context);
+    });
+    ComicImageDecodeCache.put('book', 'cbz://001.png', wide);
+    await tester.pumpWidget(image(smartFit: true));
+    await tester.pumpAndSettle();
+    expect(tester.widget<RawImage>(find.byType(RawImage)).fit, BoxFit.fitWidth);
+    // 同一渲染位置换为竖图，不能沿用上一张的宽页判定。
+    ComicImageDecodeCache.put('book', 'cbz://002.png', portrait);
+    await tester.pumpWidget(image(url: 'cbz://002.png', smartFit: true));
+    await tester.pumpAndSettle();
+    expect(tester.widget<RawImage>(find.byType(RawImage)).fit, BoxFit.contain);
+    verifyZeroInteractions(localBooks);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('失败项的重试及长按各自分发，不自行启动数据请求', (tester) async {
     final actions = <String>[];
     await tester.pumpWidget(
@@ -135,7 +164,6 @@ void main() {
           disableScale: disableScale,
           withGap: true,
           sidePadding: 10,
-          onMetricsChanged: (_) => false,
           pageBuilder: (_, index) =>
               SizedBox(height: 300, child: Text('图片$index')),
           navigationBuilder: (_) => TextButton(
@@ -157,5 +185,192 @@ void main() {
     await tester.pumpWidget(view(false));
     await tester.pumpAndSettle();
     expect(find.byType(InteractiveViewer), findsOneWidget);
+  });
+  testWidgets('条漫按不等高图片报告位置，跳到未布局页不依赖整章高度', (tester) async {
+    final scroll = ScrollController(keepScrollOffset: false);
+    final anchors = ComicWebtoonAnchorController();
+    addTearDown(scroll.dispose);
+    final ranges = <(int, int)>[];
+    final heights = [120.0, 1000.0, 250.0, 900.0, 180.0, 180.0, 1000.0, 700.0];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ComicWebtoonView(
+            controller: scroll,
+            anchors: anchors,
+            initialPage: 2,
+            pageCount: heights.length,
+            disableScale: true,
+            withGap: false,
+            sidePadding: 0,
+            onVisibleRangeChanged: (first, last) => ranges.add((first, last)),
+            pageBuilder: (_, index) =>
+                SizedBox(height: heights[index], child: Text('页$index')),
+            navigationBuilder: (_) =>
+                const SizedBox(height: 100, child: Text('导航')),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(ranges.last.$1, 2);
+    expect(tester.getTopLeft(find.text('页2')).dy, 0);
+    scroll.jumpTo(300);
+    await tester.pumpAndSettle();
+    expect(ranges.last.$1, 3);
+    anchors.jumpToPage(6);
+    await tester.pumpAndSettle();
+    expect(ranges.last.$1, 6);
+    expect(tester.getTopLeft(find.text('页6')).dy, 0);
+    scroll.jumpTo(-200);
+    await tester.pumpAndSettle();
+    expect(ranges.last.$1, 4);
+    anchors.jumpToPage(0);
+    await tester.pumpAndSettle();
+    expect(ranges.last.$1, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('条漫恢复图片加载改高时保持图片起点，页尾导航不生成额外页码', (tester) async {
+    final scroll = ScrollController(keepScrollOffset: false);
+    addTearDown(scroll.dispose);
+    final height = ValueNotifier(100.0);
+    addTearDown(height.dispose);
+    var visible = -1;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ValueListenableBuilder<double>(
+            valueListenable: height,
+            builder: (_, value, _) => ComicWebtoonView(
+              controller: scroll,
+              initialPage: 1,
+              pageCount: 3,
+              disableScale: true,
+              withGap: false,
+              sidePadding: 0,
+              onVisibleRangeChanged: (first, last) => visible = first,
+              pageBuilder: (_, index) =>
+                  SizedBox(height: value, child: Text('图$index')),
+              navigationBuilder: (_) =>
+                  const SizedBox(height: 700, child: Text('章末')),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    height.value = 1200;
+    await tester.pumpAndSettle();
+    expect(visible, 1);
+    expect(tester.getTopLeft(find.text('图1')).dy, 0);
+    scroll.jumpTo(scroll.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    expect(visible, 2);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('分页缩放不抢普通翻页，放大后拖图不翻页，关闭后恢复导航', (tester) async {
+    final controller = PageController();
+    final disabled = ValueNotifier(false);
+    addTearDown(controller.dispose);
+    addTearDown(disabled.dispose);
+    var zoomed = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ValueListenableBuilder<bool>(
+            valueListenable: disabled,
+            builder: (_, value, _) => MangaPagedView(
+              controller: controller,
+              pageCount: 3,
+              disableScale: value,
+              onZoomChanged: (value) => zoomed = value,
+              pageBuilder: (_, index) => ColoredBox(
+                color: const Color(0xffdddddd),
+                child: Center(child: Text('漫画$index')),
+              ),
+              navBuilder: (_) => const Text('章末'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(PageView), const Offset(-600, 0));
+    await tester.pumpAndSettle();
+    expect(controller.page, 1);
+    const focal = Offset(300, 250);
+    await tester.tapAt(focal);
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.tapAt(focal);
+    await tester.pumpAndSettle();
+    expect(zoomed, isTrue);
+    final viewer = tester.widget<InteractiveViewer>(
+      find.byType(InteractiveViewer).first,
+    );
+    expect(
+      viewer.transformationController!.value.getMaxScaleOnAxis(),
+      closeTo(2.5, .01),
+    );
+    final before = viewer.transformationController!.value.clone();
+    await tester.drag(find.byType(PageView), const Offset(-100, 0));
+    await tester.pumpAndSettle();
+    expect(controller.page, 1);
+    expect(viewer.transformationController!.value, isNot(before));
+    await tester.tapAt(focal);
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.tapAt(focal);
+    await tester.pumpAndSettle();
+    expect(zoomed, isFalse);
+    final left = await tester.startGesture(const Offset(300, 200), pointer: 1);
+    final right = await tester.startGesture(const Offset(500, 400), pointer: 2);
+    await left.moveTo(const Offset(200, 100));
+    await right.moveTo(const Offset(600, 500));
+    await tester.pump();
+    await left.up();
+    await right.up();
+    await tester.pumpAndSettle();
+    expect(zoomed, isTrue);
+    expect(controller.page, 1);
+    disabled.value = true;
+    await tester.pumpAndSettle();
+    expect(zoomed, isFalse);
+    await tester.drag(find.byType(PageView), const Offset(-600, 0));
+    await tester.pumpAndSettle();
+    expect(controller.page, 2);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('未解码的占位不推进阅读页，图片就绪后按真实布局报告', (tester) async {
+    final scroll = ScrollController();
+    addTearDown(scroll.dispose);
+    final ready = ValueNotifier(false);
+    addTearDown(ready.dispose);
+    final pages = <int>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ValueListenableBuilder<bool>(
+            valueListenable: ready,
+            builder: (_, loaded, _) => ComicWebtoonView(
+              controller: scroll,
+              pageCount: 2,
+              disableScale: true,
+              withGap: false,
+              sidePadding: 0,
+              isPageReady: (_) => loaded,
+              onVisibleRangeChanged: (first, last) => pages.add(last),
+              pageBuilder: (_, index) =>
+                  SizedBox(height: loaded ? 800 : 360, child: Text('加载$index')),
+              navigationBuilder: (_) => const Text('导航'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(pages, isEmpty);
+    ready.value = true;
+    await tester.pumpAndSettle();
+    expect(pages, [0]);
   });
 }

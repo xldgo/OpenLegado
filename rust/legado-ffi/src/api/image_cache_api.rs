@@ -53,6 +53,11 @@ pub fn set_cache_dir(path: &str) {
 
 /// 图片缓存根目录（env 覆盖 > 宿主注入 > 缺省 `<temp_dir>/legado-image-cache`）
 fn cache_root() -> PathBuf {
+    cache_root_for(&crate::engine_holder::media())
+}
+
+/// 长任务传入所属实例的目录配置，不从后台重入宿主全局槽。
+pub(crate) fn cache_root_for(media: &legado_engine::MediaState) -> PathBuf {
     #[cfg(test)]
     {
         if let Ok(guard) = TEST_DIR_OVERRIDE.get_or_init(|| Mutex::new(None)).lock()
@@ -69,7 +74,7 @@ fn cache_root() -> PathBuf {
             return PathBuf::from(dir);
         }
     }
-    if let Some(dir) = crate::engine_holder::media().image_directory() {
+    if let Some(dir) = media.image_directory() {
         return dir;
     }
     let root = std::env::temp_dir().join(DEFAULT_ROOT);

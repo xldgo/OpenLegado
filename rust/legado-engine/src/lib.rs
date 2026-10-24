@@ -18,6 +18,7 @@ pub mod image_cache_service;
 pub mod image_service;
 #[cfg(feature = "quickjs")]
 mod js_request_policy;
+pub mod manga_cache;
 mod media;
 mod network;
 mod operations;

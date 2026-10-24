@@ -28,6 +28,7 @@ import 'dart:convert';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/reader_comic/presentation/reader_comic_screen.dart';
@@ -161,6 +162,7 @@ Future<void> _openSheet(WidgetTester tester) async {
 }
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   group('[P4-3 E2] 分页适配类型设置项', () {
     testWidgets('单页模式：下拉切换「拉伸」→ 持久化 mangaPageScaleType=1', (tester) async {
       final configWrites = <List<String>>[];

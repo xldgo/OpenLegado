@@ -34,6 +34,7 @@ import 'dart:convert';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/reader_comic/presentation/reader_comic_screen.dart';
 
@@ -178,6 +179,7 @@ class _ScrollModeMockApi extends MockBookApi {
 }
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   Widget buildApp(ProviderContainer container) {
     return UncontrolledProviderScope(
       container: container,
@@ -227,7 +229,7 @@ void main() {
       await pumpScreen(tester, api, container);
 
       // 条漫模式走既有 ListView 路径（磁盘缓存/预载/缩放不动）
-      expect(find.byType(ListView), findsWidgets);
+      expect(find.byType(CustomScrollView), findsOneWidget);
       expect(find.byType(PageView), findsNothing);
       // 图片已解码渲染（FFI 链路生效）
       expect(api.decodeCalls, isNotEmpty);
@@ -246,7 +248,7 @@ void main() {
       await pumpScreen(tester, api, container);
 
       // 仍为 ListView 路径（带间距）
-      expect(find.byType(ListView), findsWidgets);
+      expect(find.byType(CustomScrollView), findsOneWidget);
       expect(find.byType(PageView), findsNothing);
       // 参考版 Arrangement.spacedBy(8.dp)：页间 8px（4px 上 + 4px 下包裹）
       final gapPaddings = tester
@@ -352,7 +354,7 @@ void main() {
       expect(find.textContaining('页数3/3'), findsOneWidget);
     });
 
-    testWidgets('条漫模式进度恢复：durChapterPos 按可见页估算定位（不回退旧行为）', (tester) async {
+    testWidgets('条漫模式按记录的图片索引恢复', (tester) async {
       final progressCalls = <List<int>>[];
       // 条漫默认模式 4 + 记录页 2
       final api = buildApi(durChapterPos: 2, progressCalls: progressCalls);
@@ -363,7 +365,7 @@ void main() {
       await pumpScreen(tester, api, container);
 
       // 条漫路径：ListView + 恢复后页脚显示估算页（页 2 → 「页数3/3」）
-      expect(find.byType(ListView), findsWidgets);
+      expect(find.byType(CustomScrollView), findsOneWidget);
       expect(find.textContaining('页数3/3'), findsOneWidget);
     });
   });
@@ -567,7 +569,7 @@ void main() {
       await pumpScreen(tester, api, container);
 
       // 条漫 ListView 仍为渲染路径
-      expect(find.byType(ListView), findsWidgets);
+      expect(find.byType(CustomScrollView), findsOneWidget);
       // 视口宽 800 × 20% = 每侧 160px 的水平 padding 包裹列表
       final sidePaddings = tester
           .widgetList<Padding>(
@@ -587,7 +589,7 @@ void main() {
       // InteractiveViewer 链）
       expect(
         find.ancestor(
-          of: find.byType(ListView),
+          of: find.byType(CustomScrollView),
           matching: find.byWidget(sidePaddings.first),
         ),
         findsOneWidget,

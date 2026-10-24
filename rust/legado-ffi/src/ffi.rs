@@ -2434,6 +2434,48 @@ pub mod ffi {
             end_chapter,
         )?)
     }
+    /// 漫画自动完整缓存独立于手动任务；退订只取消本次窗口。
+    pub async fn manga_cache_prefetch(
+        book_url: String,
+        current_chapter: i32,
+        next_count: i32,
+        previous_count: i32,
+        request: &super::StreamRequest,
+        sink: StreamSink<i32>,
+    ) -> Result<(), BridgeError> {
+        let engine = crate::engine_holder::current()?;
+        let execute = crate::api::cache_download_api::chapter_download_for_engine(&engine);
+        let storage = engine.storage().clone();
+        let task = engine.tasks().begin().map_err(|error| BridgeError {
+            message: error.to_string(),
+        })?;
+        drop(engine);
+        let _guard = task.guard();
+        let worker_task = task.clone();
+        let mut worker = tokio::task::spawn_blocking(move || {
+            legado_engine::manga_cache::prefetch(
+                &storage,
+                &execute,
+                legado_engine::manga_cache::PrefetchWindow {
+                    book_url: &book_url,
+                    current_chapter,
+                    next_count,
+                    previous_count,
+                },
+                &worker_task,
+                |index| sink.add(index).is_ok(),
+            )
+        });
+        let result = tokio::select! { biased;
+            _ = request.wait_cancelled() => { task.cancel(); worker.await },
+            result = &mut worker => result,
+        };
+        result.map_err(|error| BridgeError {
+            message: format!("漫画自动缓存任务异常: {error}"),
+        })??;
+        Ok(())
+    }
+
     pub fn cache_download_progress(task_id: u64) -> Result<CacheDownloadTaskDto, BridgeError> {
         Ok(crate::api::cache_download_api::cache_download_progress(task_id)?.try_into()?)
     }

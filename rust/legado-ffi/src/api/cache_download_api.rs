@@ -5,12 +5,31 @@ use legado_engine::{CacheDownloads, EngineContext};
 use std::sync::Arc;
 
 /// 装配只捕获数据能力，后台线程不强持根引擎。
-pub(crate) fn downloads_for_engine(engine: &EngineContext) -> Arc<CacheDownloads> {
+pub(crate) fn chapter_download_for_engine(
+    engine: &EngineContext,
+) -> legado_engine::ChapterDownload {
     let content = super::chapter_content::from_engine(engine);
+    let images = legado_engine::manga_cache::MangaCache::new(
+        engine.storage().clone(),
+        engine.network().clone(),
+        engine.js_resources().clone(),
+        crate::runtime::get_runtime().handle().clone(),
+    );
+    let media = engine.media().clone();
+    Arc::new(move |book, index, task| {
+        content.download(book, index, task)?;
+        let cache = legado_engine::image_cache_service::ImageCacheService::new(
+            super::image_cache_api::cache_root_for(&media),
+        );
+        images.download(book, index, task, &cache)
+    })
+}
+
+pub(crate) fn downloads_for_engine(engine: &EngineContext) -> Arc<CacheDownloads> {
     Arc::new(CacheDownloads::new(
         engine.storage().clone(),
         engine.tasks().clone(),
-        Arc::new(move |book, index, task| content.download(book, index, task)),
+        chapter_download_for_engine(engine),
     ))
 }
 

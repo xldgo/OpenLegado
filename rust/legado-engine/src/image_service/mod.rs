@@ -92,8 +92,8 @@ fn split_composite_image_url(url: &str) -> (String, HashMap<String, String>) {
     (url.to_string(), HashMap::new())
 }
 
-/// JPEG/PNG/GIF/WEBP 魔数探测（漫画页几乎只用这些）
-fn looks_like_image_bytes(bytes: &[u8]) -> bool {
+/// JPEG/PNG/GIF/WEBP/BMP 文件头探测，和漫画显示支持范围一致。
+pub(crate) fn looks_like_image_bytes(bytes: &[u8]) -> bool {
     if bytes.len() < 4 {
         return false;
     }
@@ -105,6 +105,9 @@ fn looks_like_image_bytes(bytes: &[u8]) -> bool {
     }
     if bytes.starts_with(b"GIF8") {
         return true; // GIF
+    }
+    if bytes.starts_with(b"BM") {
+        return true; // BMP，与漫画可显示的图片格式保持一致。
     }
     if bytes.len() >= 12 && &bytes[0..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
         return true; // WEBP
@@ -228,6 +231,20 @@ impl ImageService {
         network: &crate::NetworkContext,
         runtime: &tokio::runtime::Handle,
     ) -> LegadoResult<Vec<u8>> {
+        self.fetch_for_task(url, source, network, runtime, None)
+    }
+
+    pub(crate) fn fetch_for_task(
+        &self,
+        url: &str,
+        source: &BookSource,
+        network: &crate::NetworkContext,
+        runtime: &tokio::runtime::Handle,
+        task: Option<&crate::TaskHandle>,
+    ) -> LegadoResult<Vec<u8>> {
+        if task.is_some_and(crate::TaskHandle::is_cancelled) {
+            return Err(LegadoError::Ffi("图片下载已取消".into()));
+        }
         // 解析复合 URL（url,{json headers}）：拆分出真实 URL 与内嵌 headers
         let (request_url, embedded_headers) = split_composite_image_url(url);
 
@@ -255,7 +272,15 @@ impl ImageService {
 
         let resp = runtime.block_on(async {
             let client = network.client()?;
-            client.get_raw(&request_url, Some(headers)).await
+            let request = client.get_raw(&request_url, Some(headers));
+            if let Some(task) = task {
+                tokio::select! { biased;
+                    _ = task.cancelled() => Err(LegadoError::Ffi("图片下载已取消".into())),
+                    response = request => response,
+                }
+            } else {
+                request.await
+            }
         })?;
         if !resp.is_success() {
             return Err(LegadoError::Network(format!(

@@ -10,6 +10,9 @@ import '../mocks/bookshelf_fixture.dart';
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_legado/src/providers/download_settings_provider.dart';
+import 'package:flutter_legado/src/providers/config_settings_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/models/models.dart';
@@ -18,8 +21,7 @@ import 'package:flutter_legado/src/widgets/error_view.dart';
 
 /// 1x1 透明 PNG（作为 FFI 解码结果 base64，供 Image.memory 渲染）
 const _kPngBase64 =
-    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGBgAAAABQAB'
-    'h6FO1AAAAABJRU5ErkJggg==';
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGP4DwQACfsD/fteaysAAAAASUVORK5CYII=';
 
 /// 三章漫画目录（URL 末段为章节序号，决定 mock 正文图片数 = 序号 + 1）
 const List<BookChapter> _kChapters = [
@@ -193,6 +195,12 @@ Future<void> _settleWithImageDecode(WidgetTester tester) async {
 }
 
 void main() {
+  setUp(
+    () => SharedPreferences.setMockInitialValues({
+      'preDownloadNum': 1,
+      'preDownloadNumPrev': 1,
+    }),
+  );
   testWidgets('C1 页级进度：翻页后节流持久化 chapterPos（非恒 0）', (tester) async {
     final api = _ProgressMockApi(book: _progressBook());
     final container = ProviderContainer(
@@ -208,8 +216,8 @@ void main() {
     expect(api.progressCalls, isEmpty);
 
     // 第一章 2 图：向下拖动一屏 → 可见页 = 1 → 页级进度立即持久化
-    await tester.drag(find.byType(Scrollable), const Offset(0, -600));
-    await tester.pump();
+    await tester.drag(find.byType(Scrollable), const Offset(0, -1000));
+    await tester.pumpAndSettle();
     expect(api.progressCalls, [
       (0, 1),
     ], reason: '翻页后 updateReadingProgress 须携带页级 chapterPos（修复前恒 0）');
@@ -218,8 +226,8 @@ void main() {
 
     // 再向上拖回页 0：可见页再次变化 → 持久化最新页
     // （对齐文本阅读器「每次页级位置变化保存一次」的事件驱动频率）
-    await tester.drag(find.byType(Scrollable), const Offset(0, 600));
-    await tester.pump();
+    await tester.drag(find.byType(Scrollable), const Offset(0, 1000));
+    await tester.pumpAndSettle();
     expect(api.progressCalls, [(0, 1), (0, 0)], reason: '每次可见页变化均持久化页级进度');
   });
 
@@ -241,7 +249,8 @@ void main() {
     // 应进入第二章（durChapterIndex=1）且滚动到记录的页（durChapterPos=1），
     // 而非章首（修复前 chapterPos 恒 0，重开只能回到章首）
     expect(find.textContaining('章节2/3'), findsOneWidget);
-    expect(_scrollPixels(tester), greaterThan(0), reason: '恢复须滚动到记录页（偏移 > 0）');
+    expect(find.textContaining('页数2/3'), findsOneWidget);
+    expect(_scrollPixels(tester), 0, reason: '记录图片是滚动原点，不再按整章比例换算像素');
   });
 
   testWidgets('C3 预载：当前章加载完成后后台预载相邻章（下一章优先）', (tester) async {
@@ -306,5 +315,40 @@ void main() {
       1,
       0,
     ), reason: '切章后保存 (chapterIndex=1, chapterPos=0)');
+  });
+  testWidgets('共享预载设置改变当前漫画窗口，关闭图片预载不影响正文显示', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'preDownloadNum': 0,
+      'preDownloadNumPrev': 0,
+    });
+    final api = _ProgressMockApi(book: _progressBook(chapterIndex: 1));
+    final container = ProviderContainer(
+      overrides: mergeTestOverrides([...api.overrides]),
+    );
+    addTearDown(container.dispose);
+    await tester.pumpWidget(_buildApp(container));
+    await tester.pumpAndSettle();
+    expect(api.fullCalls, isEmpty);
+    await container
+        .read(downloadSettingsRepositoryProvider)
+        .update((s) => s.copyWith(preDownloadNum: 1));
+    await tester.pumpAndSettle();
+    expect(api.fullCalls, [2]);
+    await container
+        .read(downloadSettingsRepositoryProvider)
+        .update((s) => s.copyWith(preDownloadNum: 0, preDownloadNumPrev: 1));
+    await tester.pumpAndSettle();
+    expect(api.fullCalls, [2, 0]);
+    await container
+        .read(mangaSettingsRepositoryProvider)
+        .update((s) => s.copyWith(preloadImages: false));
+    await tester.pumpAndSettle();
+    expect(
+      container.read(mangaSettingsRepositoryProvider).current.preloadImages,
+      isFalse,
+    );
+    expect(api.fullCalls, [2, 0], reason: '图片开关不重新启动章节预取');
+    expect(find.byType(ErrorView), findsNothing);
+    expect(find.byType(Image), findsWidgets);
   });
 }

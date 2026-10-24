@@ -16,6 +16,7 @@ import '../data/repositories/app_service_settings_repository.dart';
 import '../domain/contracts/service_settings_repository.dart';
 import '../data/repositories/app_manga_settings_repository.dart';
 import '../domain/contracts/manga_settings_repository.dart';
+import '../domain/models/manga_settings.dart';
 
 /// 普通配置领域共享同一设置服务，无第二份缓存或写队列。— Codex + UI
 final changeSourceSettingsRepositoryProvider =
@@ -58,6 +59,13 @@ final cacheDownloadSettingsProvider = StreamProvider<CacheDownloadSettings>((
   ref,
 ) async* {
   final repository = ref.watch(cacheDownloadSettingsRepositoryProvider);
+  await repository.load();
+  yield* repository.watch();
+});
+
+/// 漫画页面和预载消费同一仓储变更，不把章节数量复制到漫画设置。— Codex + UI
+final mangaSettingsProvider = StreamProvider<MangaSettings>((ref) async* {
+  final repository = ref.watch(mangaSettingsRepositoryProvider);
   await repository.load();
   yield* repository.watch();
 });

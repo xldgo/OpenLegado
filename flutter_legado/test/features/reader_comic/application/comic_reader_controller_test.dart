@@ -59,6 +59,9 @@ void main() {
         bookUrl: any(named: 'bookUrl'),
         chapterIndex: any(named: 'chapterIndex'),
         chapterCount: any(named: 'chapterCount'),
+        nextCount: any(named: 'nextCount'),
+        previousCount: any(named: 'previousCount'),
+        autoOffline: any(named: 'autoOffline'),
       ),
     ).thenAnswer((_) async {});
     controller = ComicReaderController(
@@ -68,6 +71,7 @@ void main() {
       sources: sources,
       preloader: preloader,
     );
+    controller.configurePreload(images: true, next: 1, previous: 1);
   });
   tearDown(() => controller.dispose());
 
@@ -88,6 +92,8 @@ void main() {
         bookUrl: 'book',
         chapterIndex: 0,
         chapterCount: 2,
+        nextCount: 1,
+        previousCount: 1,
       ),
     ).called(1);
   });
@@ -122,6 +128,9 @@ void main() {
         .thenAnswer((_) async => 'cbz://001.png\n cbz://002.png');
     await controller.open();
     expect(controller.state.imageUrls, ['cbz://001.png', 'cbz://002.png']);
+    clearInteractions(preloader);
+    controller.preloadImages(0, precacheNetwork: (_) async {});
+    verifyZeroInteractions(preloader);
     verifyNever(() => reading.fetchChapterContent(any(), any(), any()));
   });
 
@@ -294,5 +303,43 @@ void main() {
       'User-Agent': 'agent',
     });
     expect(parseComicImageHeaders(''), isEmpty);
+  });
+  test('阅读中切换自动缓存和前后数量更新窗口，不重载当前正文', () async {
+    await controller.open();
+    clearInteractions(reading);
+    clearInteractions(preloader);
+    controller.configurePreload(
+      images: true,
+      next: 3,
+      previous: 1,
+      autoOffline: true,
+    );
+    verify(
+      () => preloader.preloadAdjacent(
+        bookUrl: 'book',
+        chapterIndex: 0,
+        chapterCount: chapters.length,
+        nextCount: 3,
+        previousCount: 1,
+        autoOffline: true,
+      ),
+    ).called(1);
+    controller.configurePreload(images: true, next: 3, previous: 1);
+    verify(
+      () => preloader.preloadAdjacent(
+        bookUrl: 'book',
+        chapterIndex: 0,
+        chapterCount: chapters.length,
+        nextCount: 3,
+        previousCount: 1,
+        autoOffline: false,
+      ),
+    ).called(1);
+    verify(() => preloader.resetChapters()).called(2);
+    verifyZeroInteractions(reading);
+    expect(controller.state.imageUrls, [
+      'https://img/1.jpg',
+      'https://img/2.jpg',
+    ]);
   });
 }

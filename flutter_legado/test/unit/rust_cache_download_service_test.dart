@@ -30,7 +30,10 @@ void main() {
     completed: 2,
     failed: 1,
   );
-  setUpAll(() => registerFallbackValue(_Request()));
+  setUpAll(() {
+    registerFallbackValue(_Request());
+    registerFallbackValue(BigInt.zero);
+  });
   setUp(() {
     bridge = _Bridge();
     RustLib.initMock(api: bridge);
@@ -106,6 +109,41 @@ void main() {
     await expectLater(service.cacheDownloadProgress(-1), throwsRangeError);
     verifyZeroInteractions(bridge);
   });
+  test('自动缓存订阅取消只关闭自己的窗口，不调用手动任务取消', () async {
+    final request = _Request();
+    final events = StreamController<int>();
+    when(() => bridge.crateFfiStreamRequestNew()).thenReturn(request);
+    when(
+      () => bridge.crateFfiFfiMangaCachePrefetch(
+        bookUrl: '漫画',
+        currentChapter: 5,
+        nextCount: 3,
+        previousCount: 1,
+        request: request,
+      ),
+    ).thenAnswer((_) => events.stream);
+    final completed = <int>[];
+    final subscription = service
+        .prefetchMangaChapters(
+          bookUrl: '漫画',
+          currentChapter: 5,
+          nextCount: 3,
+          previousCount: 1,
+        )
+        .listen(completed.add);
+    events.add(6);
+    await Future<void>.delayed(Duration.zero);
+    await subscription.cancel();
+    events.add(7);
+    await events.close();
+    expect(completed, [6]);
+    expect(request.cancellations, 1);
+    expect(request.disposals, 1);
+    verifyNever(
+      () => bridge.crateFfiFfiCacheDownloadCancel(taskId: any(named: 'taskId')),
+    );
+  });
+
   test('观察独立取消并释放凭据，不调用下载取消，迟到事件不再投递', () async {
     final request = _Request();
     final events = StreamController<List<CacheDownloadTaskDto>>();
@@ -124,8 +162,6 @@ void main() {
     expect(received, [2]);
     expect(request.cancellations, 1);
     expect(request.disposals, 1);
-    verifyNever(
-      () => bridge.crateFfiFfiCacheDownloadCancel(taskId: id),
-    );
+    verifyNever(() => bridge.crateFfiFfiCacheDownloadCancel(taskId: id));
   });
 }

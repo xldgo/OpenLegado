@@ -12,10 +12,15 @@ pub use legado_engine::reading_service::CachedChapterEntry;
 use legado_engine::reading_service::ChapterCacheService;
 
 fn service() -> ChapterCacheService {
-    ChapterCacheService::new(
-        crate::engine_holder::current()
-            .ok()
-            .map(|e| e.storage().clone()),
+    let engine = crate::engine_holder::current().ok();
+    let media = engine
+        .as_ref()
+        .map(|engine| engine.media().clone())
+        .unwrap_or_else(crate::engine_holder::media);
+    ChapterCacheService::new(engine.map(|engine| engine.storage().clone())).with_image_cache(
+        legado_engine::image_cache_service::ImageCacheService::new(
+            super::image_cache_api::cache_root_for(&media),
+        ),
     )
 }
 

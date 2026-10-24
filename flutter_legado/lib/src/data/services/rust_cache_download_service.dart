@@ -5,7 +5,7 @@ import '../../domain/models/cache_download_task.dart';
 import '../bridge/task_dto_mapping.dart';
 import '../bridge/managed_rust_stream.dart';
 
-/// 快照与变更流共享原任务服务；取消订阅不取消执行。— Codex + Bridge
+/// 手动任务观察不取消执行；自动完整缓存订阅只取消自己的窗口。— Codex + Bridge
 class RustCacheDownloadService implements CacheDownloadService {
   const RustCacheDownloadService();
   @override
@@ -21,6 +21,24 @@ class RustCacheDownloadService implements CacheDownloadService {
     ),
     operation: 'cacheDownloadStart',
   )).toInt();
+  @override
+  Stream<int> prefetchMangaChapters({
+    required String bookUrl,
+    required int currentChapter,
+    required int nextCount,
+    required int previousCount,
+  }) => managedRustStream(
+    (request) => rustStream(
+      () => bridge.mangaCachePrefetch(
+        bookUrl: bookUrl,
+        currentChapter: chapterIndex32(currentChapter),
+        nextCount: chapterIndex32(nextCount),
+        previousCount: chapterIndex32(previousCount),
+        request: request,
+      ),
+      operation: 'mangaCachePrefetch',
+    ),
+  );
   @override
   Future<CacheDownloadTask> cacheDownloadProgress(int taskId) async =>
       cacheTaskFromDto(

@@ -1,3 +1,8 @@
+import 'package:mocktail/mocktail.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_legado/src/providers/chapter_cache_provider.dart';
+
+import '../mocks/mocks.dart' show CacheDownloadServiceMock;
 import '../fixtures/routing_test_app.dart';
 import '../fixtures/app_test_api.dart';
 import '../fixtures/config_repository.dart';
@@ -258,7 +263,10 @@ Future<void> _pumpScreen(
                   child: child!,
                 ),
               ),
-        routes: {AppRoutes.changeSource: (_) => const _FakeChangeSourceRoute()},
+        routes: {
+          AppRoutes.changeSource: (_) => const _FakeChangeSourceRoute(),
+          AppRoutes.cacheDownloads: (_) => const Scaffold(body: Text('下载队列页面')),
+        },
         home: ReaderComicScreen(bookUrl: 'mock://menu'),
       ),
     ),
@@ -273,6 +281,43 @@ Future<void> _showControls(WidgetTester tester) async {
 }
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  testWidgets('漫画范围下载使用当前书籍和同一队列，提交后可进入下载队列', (tester) async {
+    final api = _MenuMockApi(
+      progressCalls: [],
+      configWrites: [],
+      fetchCalls: [],
+    );
+    final downloads = CacheDownloadServiceMock();
+    when(() => downloads.cacheDownloadStart(any(), any(), any()))
+        .thenAnswer((_) async => 1);
+    final container = ProviderContainer(
+      overrides: mergeTestOverrides([
+        ...api.overrides,
+        cacheDownloadServiceProvider.overrideWithValue(downloads),
+      ]),
+    );
+    addTearDown(container.dispose);
+    await _pumpScreen(tester, api, container);
+    await _showControls(tester);
+    await tester.tap(find.byTooltip('下载'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('离线缓存'));
+    await tester.pumpAndSettle();
+    verifyNever(() => downloads.cacheDownloadStart(any(), any(), any()));
+    await tester.enterText(find.byType(TextField).first, '1');
+    await tester.enterText(find.byType(TextField).last, '2');
+    await tester.tap(find.text('开始缓存'));
+    await tester.pumpAndSettle();
+    verify(() => downloads.cacheDownloadStart('mock://menu', 0, 1)).called(1);
+    await tester.tap(find.text('查看队列'));
+    await tester.pumpAndSettle();
+    expect(find.text('下载队列页面'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('漫画菜单滑入途中开启减少动态效果即刻落位，关闭后不留命中层', (tester) async {
     final reduced = ValueNotifier(false);
     addTearDown(reduced.dispose);

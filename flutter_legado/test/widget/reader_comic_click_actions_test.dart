@@ -65,6 +65,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/models/manga_click_actions.dart';
@@ -453,6 +454,7 @@ void _useFakeFilePicker(_FakeFilePicker fake) {
 }
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   group('[P4-3 E5] 九区点击区域（对齐 mangaClickRegionIndex）', () {
     test('九区映射：900x1800 视口每格中心点 → 0..8（参考测试同值）', () {
       const w = 900.0;
@@ -649,7 +651,7 @@ void main() {
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
 
-      expect(find.byType(ListView), findsWidgets);
+      expect(find.byType(CustomScrollView), findsOneWidget);
       expect(find.textContaining('页数1/3'), findsOneWidget);
 
       // 顶部初始位置
@@ -673,8 +675,10 @@ void main() {
       );
       // 无切章副作用：单章未跳章，未触发章末切章
       expect(find.textContaining('章节1/1'), findsOneWidget);
-      // 页级估算未变（顶部一屏后仍为第 0 页）→ 不产生进度写入
-      expect(progressCalls, isEmpty);
+      // 按实际可见图片保存进度，不再使用整章高度估算页码。
+      expect(progressCalls, [
+        [0, 1],
+      ]);
     });
 
     // [P4-3 W2-fix P1-2] 对齐参考版 performWebtoonTap（L705-732）：
@@ -690,17 +694,12 @@ void main() {
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
 
-      // [W2-fix] 先滚到底部强制构建尾部项（末张图 + 底部章节导航），
-      // 再等滚动范围稳定：ListView.builder 对未构建尾部项按「已构建项
-      // 平均高度」估算 maxScrollExtent（底部导航实际 ~148px 会被估算成
-      // 800px，extent 虚高 652px），未滚到底前读到的稳定值不可信；
-      // 滚到底后全部项已构建，extent 收敛到实际值（3×800+148−600=1948）
+      // 先让实际图片与章尾导航完成布局，再从真实章尾回退。
+      await _jumpToWebtoonBottom(tester);
       final pos = tester
           .state<ScrollableState>(find.byType(Scrollable).first)
           .position;
-      pos.jumpTo(100000); // 越界 → jumpTo 收敛到当前 maxScrollExtent
-      await tester.pump();
-      final extent = await _settleExtentStable(tester);
+      final extent = pos.maxScrollExtent;
       expect(extent, greaterThan(600), reason: '三页内容高应超过一个视口（600px）');
 
       // 移到距章尾不足一视口（600px）处：剩余 300px

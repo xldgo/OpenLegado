@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import 'comic_page_zoom.dart';
+
 /// [P4-3 E1] 单页式漫画分页器（对齐参考版 HorizontalMangaPager /
 /// VerticalMangaPager 语义）
 ///
@@ -12,7 +14,7 @@ import 'package:flutter/widgets.dart';
 /// - 反转（R2L）：displayIndex d → 逻辑页 p = pageCount - d
 ///   （首页 p=0 显示在最右端，右滑翻到下一页）。
 /// 章节导航页收敛到「末页」语义（页级进度按末页记录）。
-class MangaPagedView extends StatelessWidget {
+class MangaPagedView extends StatefulWidget {
   const MangaPagedView({
     super.key,
     required this.controller,
@@ -22,6 +24,8 @@ class MangaPagedView extends StatelessWidget {
     this.axis = Axis.horizontal,
     this.reversed = false,
     this.onDisplayIndexChanged,
+    this.disableScale = true,
+    this.onZoomChanged,
   });
 
   /// 分页控制器（initialPage 由调用方按逻辑页换算后创建）
@@ -45,6 +49,12 @@ class MangaPagedView extends StatelessWidget {
   /// 页切换回调（参数为显示索引，调用方负责换算逻辑页）
   final ValueChanged<int>? onDisplayIndexChanged;
 
+  final bool disableScale;
+  final ValueChanged<bool>? onZoomChanged;
+
+  @override
+  State<MangaPagedView> createState() => _MangaPagedViewState();
+
   /// 逻辑页 → 显示索引（R2L 反转；越界收敛到 [0, pageCount-1]）
   static int displayIndexOf({
     required int logicalPage,
@@ -66,27 +76,64 @@ class MangaPagedView extends StatelessWidget {
     final p = reversed ? (pageCount - displayIndex) : displayIndex;
     return p.clamp(0, pageCount - 1);
   }
+}
+
+class _MangaPagedViewState extends State<MangaPagedView> {
+  late int _active = widget.controller.initialPage;
+  bool _zoomed = false;
+
+  @override
+  void didUpdateWidget(covariant MangaPagedView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.controller != oldWidget.controller) {
+      _active = widget.controller.initialPage;
+    }
+    if ((widget.disableScale || widget.controller != oldWidget.controller) &&
+        _zoomed) {
+      _zoomed = false;
+      widget.onZoomChanged?.call(false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    // 图片页 + 章节导航页（导航页：正向在末位、反转在首位）
-    final total = pageCount + 1;
-    final navDisplayIndex = reversed ? 0 : total - 1;
+    final total = widget.pageCount + 1;
+    final navDisplayIndex = widget.reversed ? 0 : total - 1;
     return PageView.builder(
-      controller: controller,
-      scrollDirection: axis,
-      physics: const ClampingScrollPhysics(),
+      controller: widget.controller,
+      scrollDirection: widget.axis,
+      physics: _zoomed
+          ? const NeverScrollableScrollPhysics()
+          : const ClampingScrollPhysics(),
       itemCount: total,
-      onPageChanged: onDisplayIndexChanged,
+      onPageChanged: (index) {
+        setState(() {
+          _active = index;
+          _zoomed = false;
+        });
+        widget.onZoomChanged?.call(false);
+        widget.onDisplayIndexChanged?.call(index);
+      },
       itemBuilder: (context, displayIndex) {
-        if (displayIndex == navDisplayIndex) return navBuilder(context);
-        return pageBuilder(
-          context,
-          logicalPageOf(
-            displayIndex: displayIndex,
-            pageCount: pageCount,
-            reversed: reversed,
-          ),
+        if (displayIndex == navDisplayIndex) return widget.navBuilder(context);
+        final logicalPage = MangaPagedView.logicalPageOf(
+          displayIndex: displayIndex,
+          pageCount: widget.pageCount,
+          reversed: widget.reversed,
+        );
+        final page = widget.pageBuilder(context, logicalPage);
+        return ComicPageZoom(
+          key: ValueKey((widget.axis, widget.reversed, logicalPage)),
+          enabled: !widget.disableScale,
+          active: displayIndex == _active,
+          reversed: widget.reversed,
+          horizontal: widget.axis == Axis.horizontal,
+          onZoomChanged: (zoomed) {
+            if (displayIndex != _active || _zoomed == zoomed) return;
+            setState(() => _zoomed = zoomed);
+            widget.onZoomChanged?.call(zoomed);
+          },
+          child: page,
         );
       },
     );

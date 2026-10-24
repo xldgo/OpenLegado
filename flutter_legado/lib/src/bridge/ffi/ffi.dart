@@ -1724,6 +1724,21 @@ Future<BigInt> cacheDownloadStart({
   endChapter: endChapter,
 );
 
+/// 漫画自动完整缓存独立于手动任务；退订只取消本次窗口。
+Stream<int> mangaCachePrefetch({
+  required String bookUrl,
+  required int currentChapter,
+  required int nextCount,
+  required int previousCount,
+  required StreamRequest request,
+}) => RustLib.instance.api.crateFfiFfiMangaCachePrefetch(
+  bookUrl: bookUrl,
+  currentChapter: currentChapter,
+  nextCount: nextCount,
+  previousCount: previousCount,
+  request: request,
+);
+
 Future<CacheDownloadTaskDto> cacheDownloadProgress({required BigInt taskId}) =>
     RustLib.instance.api.crateFfiFfiCacheDownloadProgress(taskId: taskId);
 

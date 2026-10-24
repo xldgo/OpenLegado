@@ -57,6 +57,10 @@ class MangaConfigSheet extends StatefulWidget {
 
   /// [P4-3 E3] 自动翻页速度档 1..15（当前值）
   final int? autoReadSpeed;
+  final bool preloadImages;
+  final bool autoOfflineCache;
+  final Future<void> Function(bool)? onAutoOfflineCacheChanged;
+  final Future<void> Function(bool)? onPreloadImagesChanged;
 
   /// [P4-3 E3] 自动翻页开关变更（非 null 时渲染区块）
   final ValueChanged<bool>? onAutoReadChanged;
@@ -174,6 +178,10 @@ class MangaConfigSheet extends StatefulWidget {
     required this.onScrollModeChanged,
     this.autoReadEnabled,
     this.autoReadSpeed,
+    this.preloadImages = true,
+    this.autoOfflineCache = false,
+    this.onAutoOfflineCacheChanged,
+    this.onPreloadImagesChanged,
     this.onAutoReadChanged,
     this.onAutoReadSpeedChanged,
     this.pageScaleType,
@@ -231,6 +239,10 @@ class MangaConfigSheet extends StatefulWidget {
     // [P4-3 E3] 自动翻页（可选；不传则不渲染区块，既有调用方不受影响）
     bool? autoReadEnabled,
     int? autoReadSpeed,
+    bool preloadImages = true,
+    bool autoOfflineCache = false,
+    Future<void> Function(bool)? onAutoOfflineCacheChanged,
+    Future<void> Function(bool)? onPreloadImagesChanged,
     ValueChanged<bool>? onAutoReadChanged,
     ValueChanged<int>? onAutoReadSpeedChanged,
     // [P4-3 E2] 分页适配类型（可选；不传则不渲染下拉，既有调用方不受影响）
@@ -290,6 +302,10 @@ class MangaConfigSheet extends StatefulWidget {
         onScrollModeChanged: onScrollModeChanged,
         autoReadEnabled: autoReadEnabled,
         autoReadSpeed: autoReadSpeed,
+        preloadImages: preloadImages,
+        autoOfflineCache: autoOfflineCache,
+        onAutoOfflineCacheChanged: onAutoOfflineCacheChanged,
+        onPreloadImagesChanged: onPreloadImagesChanged,
         onAutoReadChanged: onAutoReadChanged,
         onAutoReadSpeedChanged: onAutoReadSpeedChanged,
         pageScaleType: pageScaleType,
@@ -346,6 +362,8 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
 
   /// [P4-3 E3] 自动翻页速度档
   late int _autoReadSpeed;
+  late bool _preloadImages;
+  late bool _autoOfflineCache;
 
   /// [P4-3 E2] 分页适配类型 0..5
   late int _pageScaleType;
@@ -443,6 +461,8 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
   @override
   void initState() {
     super.initState();
+    _preloadImages = widget.preloadImages;
+    _autoOfflineCache = widget.autoOfflineCache;
     _filter = MangaColorFilterConfig(
       r: widget.colorFilter.r,
       g: widget.colorFilter.g,
@@ -485,6 +505,17 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
     _clickActions = List<int>.from(
       widget.clickActions ?? MangaClickActions.defaultActions,
     );
+  }
+
+  Future<void> _savePreloadChange(Future<void> save, VoidCallback apply) async {
+    try {
+      await save;
+      if (mounted) setState(apply);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('预加载设置保存失败，请重试')));
+    }
   }
 
   @override
@@ -569,6 +600,24 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
                       onChanged: _changeScrollModeScope,
                     ),
                   _modeButtonGroup(),
+                  if (widget.onPreloadImagesChanged != null)
+                    SwitchListTile(
+                      title: const Text('预加载当前章图片'),
+                      value: _preloadImages,
+                      onChanged: (value) => _savePreloadChange(
+                        widget.onPreloadImagesChanged!(value),
+                        () => _preloadImages = value,
+                      ),
+                    ),
+                  if (widget.onAutoOfflineCacheChanged != null)
+                    SwitchListTile(
+                      title: const Text('自动离线缓存'),
+                      value: _autoOfflineCache,
+                      onChanged: (value) => _savePreloadChange(
+                        widget.onAutoOfflineCacheChanged!(value),
+                        () => _autoOfflineCache = value,
+                      ),
+                    ),
                   if (_showPageScale) ...[
                     _divider(),
                     _dropdownTile(
