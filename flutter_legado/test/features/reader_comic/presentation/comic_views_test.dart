@@ -9,6 +9,7 @@ import 'package:flutter_legado/src/domain/contracts/local_book_service.dart';
 import 'package:flutter_legado/src/domain/contracts/network_service.dart';
 import 'package:flutter_legado/src/features/reader_comic/presentation/views/comic_image_item.dart';
 import 'package:flutter_legado/src/features/reader_comic/presentation/views/comic_webtoon_view.dart';
+import 'package:flutter_legado/src/features/reader_comic/presentation/views/manga_paged_view.dart';
 import 'package:flutter_legado/src/models/models.dart';
 
 class _Images extends Mock implements BookImageRepository {}
@@ -266,6 +267,77 @@ void main() {
     scroll.jumpTo(scroll.position.maxScrollExtent);
     await tester.pumpAndSettle();
     expect(visible, 2);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('分页缩放不抢普通翻页，放大后拖图不翻页，关闭后恢复导航', (tester) async {
+    final controller = PageController();
+    final disabled = ValueNotifier(false);
+    addTearDown(controller.dispose);
+    addTearDown(disabled.dispose);
+    var zoomed = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ValueListenableBuilder<bool>(
+            valueListenable: disabled,
+            builder: (_, value, _) => MangaPagedView(
+              controller: controller,
+              pageCount: 3,
+              disableScale: value,
+              onZoomChanged: (value) => zoomed = value,
+              pageBuilder: (_, index) => ColoredBox(
+                color: const Color(0xffdddddd),
+                child: Center(child: Text('漫画$index')),
+              ),
+              navBuilder: (_) => const Text('章末'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(PageView), const Offset(-600, 0));
+    await tester.pumpAndSettle();
+    expect(controller.page, 1);
+    const focal = Offset(300, 250);
+    await tester.tapAt(focal);
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.tapAt(focal);
+    await tester.pumpAndSettle();
+    expect(zoomed, isTrue);
+    final viewer = tester.widget<InteractiveViewer>(
+      find.byType(InteractiveViewer).first,
+    );
+    expect(
+      viewer.transformationController!.value.getMaxScaleOnAxis(),
+      closeTo(2.5, .01),
+    );
+    final before = viewer.transformationController!.value.clone();
+    await tester.drag(find.byType(PageView), const Offset(-100, 0));
+    await tester.pumpAndSettle();
+    expect(controller.page, 1);
+    expect(viewer.transformationController!.value, isNot(before));
+    await tester.tapAt(focal);
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.tapAt(focal);
+    await tester.pumpAndSettle();
+    expect(zoomed, isFalse);
+    final left = await tester.startGesture(const Offset(300, 200), pointer: 1);
+    final right = await tester.startGesture(const Offset(500, 400), pointer: 2);
+    await left.moveTo(const Offset(200, 100));
+    await right.moveTo(const Offset(600, 500));
+    await tester.pump();
+    await left.up();
+    await right.up();
+    await tester.pumpAndSettle();
+    expect(zoomed, isTrue);
+    expect(controller.page, 1);
+    disabled.value = true;
+    await tester.pumpAndSettle();
+    expect(zoomed, isFalse);
+    await tester.drag(find.byType(PageView), const Offset(-600, 0));
+    await tester.pumpAndSettle();
+    expect(controller.page, 2);
     expect(tester.takeException(), isNull);
   });
 }

@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [2.0.439] - 2026-10-22
 
 ### Added
+- 单页漫画支持双指缩放和双击放大/复位，放大后拖图不翻页，关闭缩放或换页后恢复；贡献者：Codex + UI。
 - 高亮管理改用右下角新增按钮与通用编辑面板，加入预设、导入、导出和只读效果预览；规则资源随完整备份恢复；贡献者：Codex + Rust / UI。
 - 阅读器自动高亮接入统一测量与分页，支持标题/正文范围、线条、背景图与字体样式，保留原生选区；贡献者：Codex + UI。
 - 高亮规则增加稳定UUID、MD3预设及完整样式解析，导入按UUID原子合并并保留本地主键；贡献者：Codex + Rust / UI。

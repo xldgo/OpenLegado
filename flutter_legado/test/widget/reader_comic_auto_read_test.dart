@@ -382,6 +382,8 @@ void main() {
     int iEnd = -1;
     int iNext = -1;
     for (var i = 0; i < 40; i++) {
+      // 自动滚动会新建惰性图片项；推进真实解码后再采样，避免仅快进假时钟。
+      await _settleImageDecode(tester);
       await tester.pump(const Duration(milliseconds: 1000));
       iEnd = progressCalls.indexWhere(
         (c) => c.length == 2 && c[0] == 0 && c[1] == 2,

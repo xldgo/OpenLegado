@@ -61,6 +61,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     keepScrollOffset: false,
   );
   final _webtoonAnchors = ComicWebtoonAnchorController();
+  int _firstVisiblePageIndex = 0;
   int _lastVisiblePageIndex = 0;
 
   late final ComicReaderController _reader;
@@ -80,6 +81,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
 
   /// 是否显示控制栏（顶部返回 + 底部进度条）
   bool _showControls = false;
+  bool _pageZoomed = false;
 
   /// [P4-3 M1] 菜单（顶栏/底栏）显隐动画控制器：
   /// 顶栏自上滑入、底栏自下滑入 + 淡入；隐藏时反向播放，**动画落定后
@@ -471,6 +473,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   /// - 单页式（1/2/3）→ 创建/同步 [PageController]（初始页 = 待恢复页或当前页）；
   /// - 条漫式（4/5）→ 释放单页控制器，以当前图片索引建立条漫原点。
   void _applyScrollMode() {
+    _pageZoomed = false;
     if (MangaScrollModes.isPaged(_scrollMode)) {
       final n = _imageUrls.length;
       if (n == 0) return; // 图片未就绪：_loadChapterImages 完成后会再同步
@@ -727,7 +730,9 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     final next = _reader.state;
     _observedSession = next;
     if (next.navigationId != previous.navigationId) {
+      _pageZoomed = false;
       _visiblePageIndex = next.initialPage;
+      _firstVisiblePageIndex = next.initialPage;
       _lastVisiblePageIndex = next.initialPage;
     }
     if (next.book != previous.book) _onSettingsChanged();
@@ -753,10 +758,12 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
 
   /// 页码、持久化和预载共用已实际布局的可见图片区间。— Codex + UI
   void _onVisiblePagesChanged(int first, int last) {
-    if (_visiblePageIndex != first) {
-      setState(() => _visiblePageIndex = first);
+    // 参考版当前章使用视口底部可见图片作为阅读页，顶部索引仅用于预载。
+    if (_visiblePageIndex != last) {
+      setState(() => _visiblePageIndex = last);
       unawaited(_saveProgress());
     }
+    _firstVisiblePageIndex = first;
     _lastVisiblePageIndex = last;
     _preloadVisibleImages();
   }
@@ -764,7 +771,10 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   void _preloadVisibleImages() {
     if (!mounted || _imageUrls.isEmpty) return;
     _preloadIndicesInRange(
-      _visiblePageIndex - _preloadRange,
+      (MangaScrollModes.isPaged(_scrollMode)
+              ? _visiblePageIndex
+              : _firstVisiblePageIndex) -
+          _preloadRange,
       (MangaScrollModes.isPaged(_scrollMode)
               ? _visiblePageIndex
               : _lastVisiblePageIndex) +
@@ -855,7 +865,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     // [P4-3 M4 批2] 禁用点击翻页：翻页类动作 1/2（下一页/上一页）失效，
     // 0 菜单 / 3 下一章 / 4 上一章保留（对齐参考版 MangaReaderScreen
     // L1953/L714 disableClickScroll 守卫）
-    if (_disableClickScroll &&
+    if ((_disableClickScroll || _pageZoomed) &&
         (action == MangaClickActions.next ||
             action == MangaClickActions.prev)) {
       return;
@@ -1185,6 +1195,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       // navigationId 的 LaunchedEffect → scrollToPage(target)）。
       key: ValueKey('mangaPaged-$_loadSeq'),
       controller: _pagedController!,
+      disableScale: _disableMangaScale,
+      onZoomChanged: (value) => _pageZoomed = value,
       pageCount: _imageUrls.length,
       axis: MangaScrollModes.axisOf(_scrollMode),
       reversed: MangaScrollModes.isReversed(_scrollMode),
