@@ -1,12 +1,26 @@
-import '../../../domain/models/highlight_rule.dart';
+import '../../../domain/errors/app_exception.dart';
 
+import 'dart:io';
 import 'dart:convert';
+
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
+
+import '../../../providers/highlight_repository_provider.dart';
+import '../../../providers/network_provider.dart';
+import '../../../widgets/app_menu.dart';
+import '../../../widgets/app_settings_sheet.dart';
+import '../../../widgets/bottom_sheet_widget.dart';
+import 'highlight_rule_selection_sheet.dart';
+import '../../../domain/models/highlight_rule.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../widgets/app_scaffold.dart';
 import '../../../widgets/legado_app_bar.dart';
+import 'highlight_rule_edit_sheet.dart';
 import '../../../widgets/settings_widgets.dart';
 import '../../../widgets/md3_fast_scroller.dart';
 
@@ -20,7 +34,7 @@ import '../../../widgets/loading_indicator.dart';
 ///
 /// 对标 Android 原版 [HighlightRuleActivity]（ui/highlight/HighlightRuleActivity.kt）：
 /// - 规则列表（按 sortOrder 升序，项内显示名称/模式 + 启用开关）
-/// - 顶栏「+」新增规则（menu_add_highlight_rule）
+/// - FAB新增，菜单提供预设与导入导出
 /// - 编辑（HighlightRuleEditDialog）/ 删除（确认对话框 sure_del）
 ///
 /// 数据经 HighlightRuleRepository 访问现有Rust highlight_api。
@@ -44,6 +58,12 @@ class _HighlightRulesScreenState extends ConsumerState<HighlightRulesScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(highlightRulesNotifierProvider.notifier).load();
     });
+  }
+
+  @override
+  void dispose() {
+    _fsController.dispose();
+    super.dispose();
   }
 
   /// 删除确认（对标原版 alert(sure_del + displayName)）
@@ -74,20 +94,145 @@ class _HighlightRulesScreenState extends ConsumerState<HighlightRulesScreen> {
   }
 
   Future<void> _edit(HighlightRule? rule) async {
-    final saved = await showModalBottomSheet<HighlightRule>(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => Padding(
-        // 键盘弹起时 sheet 随动
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: _HighlightRuleEditSheet(rule: rule),
-      ),
+    await showHighlightRuleEditor(
+      context,
+      rule: rule,
+      onSave: (rule) async {
+        final success = await ref
+            .read(highlightRulesNotifierProvider.notifier)
+            .saveRule(rule);
+        if (!success) {
+          throw AppException(
+            ref.read(highlightRulesNotifierProvider).error ?? '保存失败',
+          );
+        }
+        return true;
+      },
     );
-    if (saved == null) return;
-    await ref.read(highlightRulesNotifierProvider.notifier).saveRule(saved);
-    _showErrorIfAny();
+  }
+
+  Future<void> _menu(String action) async {
+    final repo = ref.read(highlightRuleRepositoryProvider);
+    try {
+      if (action == 'export') {
+        final content = await repo.exportRules();
+        if (!mounted) return;
+        final box = context.findRenderObject() as RenderBox?;
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [
+              XFile.fromData(
+                Uint8List.fromList(utf8.encode(content)),
+                mimeType: 'application/json',
+              ),
+            ],
+            fileNameOverrides: ['highlightRules.json'],
+            subject: '高亮规则',
+            sharePositionOrigin: box == null
+                ? null
+                : box.localToGlobal(Offset.zero) & box.size,
+          ),
+        );
+        return;
+      }
+      List<HighlightRule> candidates;
+      if (action == 'presets') {
+        candidates = await repo.presets();
+      } else {
+        final content = await _importContent();
+        if (content == null) return;
+        candidates = await repo.preview(content);
+      }
+      if (!mounted) return;
+      if (candidates.isEmpty) {
+        _notice('没有可导入的高亮规则');
+        return;
+      }
+      final existing = (await repo.highlightRuleList())
+          .map((r) => r.uuid)
+          .toSet();
+      if (!mounted) return;
+      final selected = await selectHighlightRules(
+        context,
+        title: action == 'presets' ? '预设规则' : '导入高亮规则',
+        rules: candidates,
+        existing: existing,
+      );
+      if (selected == null || selected.isEmpty) return;
+      final count = await repo.importRules(selected);
+      ref.read(highlightRuleRevisionProvider.notifier).changed();
+      await ref.read(highlightRulesNotifierProvider.notifier).load();
+      _notice('已导入$count条规则');
+    } catch (e) {
+      _notice('操作失败：$e');
+    }
+  }
+
+  void _notice(String text) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    }
+  }
+
+  Future<String?> _importContent() async {
+    final controller = TextEditingController();
+    final network = ref.read(networkServiceProvider);
+    try {
+      return await AppBottomSheet.showContent<String>(
+        context: context,
+        builder: (ctx) => AppSettingsSheet(
+          title: '导入高亮规则',
+          onSave: () => Navigator.pop(ctx, controller.text),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Symbols.folder_open_rounded),
+                title: const Text('选择文件'),
+                onTap: () async {
+                  try {
+                    final picked = await FilePicker.pickFile();
+                    if (picked?.path == null) return;
+                    final content = await File(picked!.path!).readAsString();
+                    if (ctx.mounted) Navigator.pop(ctx, content);
+                  } catch (e) {
+                    _notice('读取失败：$e');
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Symbols.content_paste_rounded),
+                title: const Text('粘贴剪贴板'),
+                onTap: () async {
+                  final data = await Clipboard.getData(Clipboard.kTextPlain);
+                  if (ctx.mounted && data?.text != null) {
+                    controller.text = data!.text!;
+                  }
+                },
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: TextField(
+                  controller: controller,
+                  minLines: 3,
+                  maxLines: 8,
+                  decoration: const InputDecoration(labelText: '规则JSON或链接'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ).then((content) async {
+        if (content == null || content.trim().isEmpty) return null;
+        final uri = Uri.tryParse(content.trim());
+        if (uri?.scheme == 'https' || uri?.scheme == 'http') {
+          return (await network.httpGet(content.trim())).body;
+        }
+        return content;
+      });
+    } finally {
+      controller.dispose();
+    }
   }
 
   /// notifier 状态中的错误提示到 UI（避免静默吞噬）
@@ -107,13 +252,20 @@ class _HighlightRulesScreenState extends ConsumerState<HighlightRulesScreen> {
       topBar: LegadoAppBar(
         title: const Text('高亮规则'),
         actions: [
-          // 对标 menu_add_highlight_rule
-          IconButton(
-            icon: const Icon(Symbols.add_rounded),
-            tooltip: '新增规则',
-            onPressed: () => _edit(null),
+          AppMenuButton<String>(
+            onSelected: _menu,
+            itemBuilder: (_) => const [
+              AppMenuItem(value: 'presets', child: Text('预设规则')),
+              AppMenuItem(value: 'import', child: Text('导入')),
+              AppMenuItem(value: 'export', child: Text('导出')),
+            ],
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _edit(null),
+        icon: const Icon(Symbols.add_rounded),
+        label: const Text('新增规则'),
       ),
       body: Builder(
         builder: (context) {
@@ -121,13 +273,13 @@ class _HighlightRulesScreenState extends ConsumerState<HighlightRulesScreen> {
             return const LoadingIndicator(message: '加载高亮规则...');
           }
           if (state.error != null && state.rules.isEmpty) {
-            return Center(child: Text('加载失败: ${state.error}'));
+            return Center(child: Text('操作失败: ${state.error}'));
           }
           if (state.rules.isEmpty) {
             return const EmptyState(
               icon: Symbols.format_paint_rounded,
               title: '暂无高亮规则',
-              subtitle: '点击右上角「+」新增自动高亮规则',
+              subtitle: '点击右下角按钮添加，或从右上角菜单导入',
             );
           }
           // 规则分组沿用设置卡片与分隔线样式。
@@ -138,7 +290,7 @@ class _HighlightRulesScreenState extends ConsumerState<HighlightRulesScreen> {
               controller: scrollController,
               child: ListView(
                 controller: scrollController,
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
                 children: [
                   SettingsGroup(
                     children: [
@@ -253,246 +405,6 @@ class _HighlightRulesScreenState extends ConsumerState<HighlightRulesScreen> {
               tooltip: '删除',
               visualDensity: VisualDensity.compact,
               onPressed: () => _confirmDelete(rule),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 高亮规则编辑底部面板
-///
-/// 对标原版 HighlightRuleEditDialog 字段：
-/// name / pattern / isRegex / applyToTitle / scope / style（颜色选择）。
-class _HighlightRuleEditSheet extends StatefulWidget {
-  final HighlightRule? rule;
-
-  const _HighlightRuleEditSheet({this.rule});
-
-  @override
-  State<_HighlightRuleEditSheet> createState() =>
-      _HighlightRuleEditSheetState();
-}
-
-class _HighlightRuleEditSheetState extends State<_HighlightRuleEditSheet> {
-  late final TextEditingController _nameCtrl;
-  late final TextEditingController _patternCtrl;
-  late final TextEditingController _scopeCtrl;
-  late bool _isRegex;
-  late bool _applyToTitle;
-  // 高亮颜色（ARGB int，写入 style JSON 的 textColor 通道）
-  late int _color;
-
-  /// 预设高亮色（M3 语义色板，对标原版 HighlightColors 预设集）
-  ///
-  /// [UI_MD3_ALIGNMENT_PLAN.md Batch B B7] 由 iOS 静态命名色改为随主题
-  /// 亮暗自适应的 8 色：4 container + 3 fixedDim + error，供色板与默认色共用
-  static List<Color> _presetColors(ColorScheme cs) => [
-    cs.primaryContainer,
-    cs.secondaryContainer,
-    cs.tertiaryContainer,
-    cs.errorContainer,
-    cs.primaryFixedDim,
-    cs.secondaryFixedDim,
-    cs.tertiaryFixedDim,
-    cs.inversePrimary,
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    final rule = widget.rule;
-    _nameCtrl = TextEditingController(text: rule?.name ?? '');
-    _patternCtrl = TextEditingController(text: rule?.pattern ?? '');
-    _scopeCtrl = TextEditingController(text: rule?.scope ?? '');
-    _isRegex = rule?.isRegex ?? false;
-    _applyToTitle = rule?.applyToTitle ?? false;
-    // [审计修复 §4.1] style 非法时模型层回退 null，此处取默认色 — Qoder
-    // [UI_MD3_ALIGNMENT_PLAN.md Batch B B7] 默认色延后至 build 由主题派生
-    //（initState 无 context），0 表未初始化
-    _color = rule?.styleTextColor ?? 0;
-  }
-
-  @override
-  void dispose() {
-    _nameCtrl.dispose();
-    _patternCtrl.dispose();
-    _scopeCtrl.dispose();
-    super.dispose();
-  }
-
-  /// 组装保存模型（字段名与 Rust HighlightRule serde 契约一致）
-  void _save() {
-    final pattern = _patternCtrl.text.trim();
-    if (pattern.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('匹配模式不能为空')));
-      return;
-    }
-    if (_isRegex) {
-      try {
-        RegExp(pattern);
-      } catch (_) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('正则表达式无效，请检查')));
-        return;
-      }
-    }
-    final scope = _scopeCtrl.text.trim();
-    final base = widget.rule;
-    final rule = HighlightRule(
-      id: base?.id ?? 0,
-      name: _nameCtrl.text.trim(),
-      pattern: pattern,
-      isRegex: _isRegex,
-      applyToTitle: _applyToTitle,
-      scope: scope.isEmpty ? null : scope,
-      isEnabled: base?.isEnabled ?? true,
-      sortOrder: base?.sortOrder ?? 0,
-      timeoutMillisecond: base?.timeoutMillisecond ?? 3000,
-      style: jsonEncode({'textColor': _color}),
-    );
-    Navigator.pop(context, rule);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    // [UI_MD3_ALIGNMENT_PLAN.md Batch B B7] 默认高亮色由当前主题派生
-    final presetColors = _presetColors(cs);
-    if (_color == 0) _color = presetColors.first.toARGB32();
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              widget.rule == null ? '新增高亮规则' : '编辑高亮规则',
-              style: theme.textTheme.titleMedium,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _nameCtrl,
-              decoration: const InputDecoration(
-                labelText: '规则名称（可选）',
-                filled: true,
-              ),
-            ),
-            const SizedBox(height: 12),
-            // [LAYOUT_PLAN P1] 编辑区字段分组间距 12dp
-            TextField(
-              controller: _patternCtrl,
-              decoration: const InputDecoration(
-                labelText: '匹配模式 *',
-                hintText: '要自动高亮的文本或正则表达式',
-                filled: true,
-              ),
-            ),
-            const SizedBox(height: 4),
-            SettingSwitchRow(
-              contentPadding: EdgeInsets.zero,
-              title: '使用正则表达式',
-              value: _isRegex,
-              onChanged: (v) => setState(() => _isRegex = v),
-            ),
-            SettingSwitchRow(
-              contentPadding: EdgeInsets.zero,
-              title: '应用到标题',
-              value: _applyToTitle,
-              onChanged: (v) => setState(() => _applyToTitle = v),
-            ),
-            const SizedBox(height: 4),
-            TextField(
-              controller: _scopeCtrl,
-              decoration: const InputDecoration(
-                labelText: '生效范围（可选）',
-                hintText: '书名或书源名，留空为全局生效',
-                filled: true,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text('高亮颜色', style: theme.textTheme.bodyMedium),
-            const SizedBox(height: 8),
-            // [窄屏溢出修复 | 2026-10-01] 原 Row 固定色块行（8×32dp 色块 +
-            // 每块右侧 10dp = 336dp）在 360dp 设备上超出内容可用宽 320dp，
-            // 实机报 RIGHT OVERFLOWED BY 16 PIXELS（MuMu 取证
-            // .tmp/b3_ours_hl_dialog.png）。改 Wrap 换行，形态对齐项目内
-            // 色板先例（theme_config_screen.dart _showColorPicker、
-            // reader_settings_sheet.dart 自定义配色）：色块与间距等宽 =
-            // 8×32 + 7×8 = 312dp ≤ 320dp，360dp 上仍单行，更窄时自动换行。
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final color in presetColors)
-                  GestureDetector(
-                    onTap: () => setState(() => _color = color.toARGB32()),
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: _color == color.toARGB32()
-                              ? cs.primary
-                              : Colors.transparent,
-                          width: 3,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            // 预览（对标原版 tvStylePreview）
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Color(_color).withValues(alpha: 0.25),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text('高亮效果预览', style: TextStyle(color: Color(_color))),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: SizedBox(
-                    height: 48,
-                    child: FilledButton.tonal(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('取消'),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: SizedBox(
-                    height: 48,
-                    child: FilledButton(
-                      onPressed: _save,
-                      child: const Text('保存'),
-                    ),
-                  ),
-                ),
-              ],
             ),
           ],
         ),

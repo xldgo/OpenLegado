@@ -121,6 +121,20 @@ impl<'a> HighlightRuleRepository<'a> {
         Ok(rules.len())
     }
 
+    /// 完整备份恢复：同UUID保留目标主键；主键空闲时保留备份ID，冲突则重新分配。
+    /// 调用方持有整体恢复事务，此处不创建嵌套事务。
+    pub fn restore(&self, rule: &HighlightRule) -> LegadoResult<i64> {
+        let mut rule = legado_core::highlight_rules::normalize_rule(rule.clone())?;
+        rule.id = if let Some(existing) = self.find_by_uuid(&rule.uuid)? {
+            existing.id
+        } else if rule.id > 0 && self.find_by_id(rule.id)?.is_none() {
+            rule.id
+        } else {
+            0
+        };
+        self.insert(&rule)
+    }
+
     /// 更新高亮规则（对齐 DAO `@Update`）
     pub fn update(&self, rule: &HighlightRule) -> LegadoResult<()> {
         let normalized = legado_core::highlight_rules::normalize_rule(rule.clone())?;

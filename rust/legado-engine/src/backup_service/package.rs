@@ -48,6 +48,10 @@ fn add(writer: &mut ZipWriter<Cursor<Vec<u8>>>, name: &str, bytes: &[u8]) -> Leg
     Ok(())
 }
 fn extension(path: &str) -> String {
+    // 原始九宫格的导引边通过文件名识别，恢复时必须保留双扩展名。
+    if path.to_ascii_lowercase().ends_with(".9.png") {
+        return "9.png".into();
+    }
     Path::new(path)
         .extension()
         .and_then(|s| s.to_str())
@@ -71,6 +75,23 @@ pub(super) fn encode(data: &BackupData, options: &BackupOptions) -> LegadoResult
                 .filter(|s| Path::new(s).is_absolute())
             {
                 selected.insert(path.into(), path.into());
+            }
+        }
+    }
+    for row in &data.collections["highlightRules"] {
+        if let Some(json) = row.get("style").and_then(Value::as_str) {
+            let style = legado_core::highlight_rules::HighlightStyle::parse(json)?;
+            for original in [style.font_path, style.bg_image].into_iter().flatten() {
+                let path = if original.starts_with("file://") {
+                    url::Url::parse(&original)
+                        .ok()
+                        .and_then(|url| url.to_file_path().ok())
+                } else {
+                    Some(std::path::PathBuf::from(&original))
+                };
+                if let Some(path) = path.filter(|p| p.is_absolute()) {
+                    selected.insert(original, path.to_string_lossy().into_owned());
+                }
             }
         }
     }
@@ -319,6 +340,13 @@ pub(super) fn restore_resources(decoded: &mut Decoded, root: &Path) -> LegadoRes
                 if let Some(value) = row.get_mut(field) {
                     rewrite(value, &paths);
                 }
+            }
+        }
+    }
+    if let Some(rows) = decoded.data.collections.get_mut("highlightRules") {
+        for row in rows {
+            if let Some(style) = row.get_mut("style") {
+                rewrite(style, &paths);
             }
         }
     }

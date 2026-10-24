@@ -345,6 +345,19 @@ impl<'a> BackupRepository<'a> {
                 let result = if *key == "books" {
                     let book: Book = serde_json::from_value(Value::Object(record.clone()))?;
                     BookRepository::new(&tx).insert(&book)
+                } else if *key == "highlightRules" {
+                    // 业务快照来自SQLite行，布尔物理列是INTEGER；还原实体后复用仓储合并。
+                    let mut entity = record.clone();
+                    for field in ["isRegex", "isEnabled", "applyToTitle"] {
+                        entity.insert(
+                            field.into(),
+                            Value::Bool(record[field].as_i64().unwrap_or(0) != 0),
+                        );
+                    }
+                    let rule = serde_json::from_value(Value::Object(entity))?;
+                    crate::HighlightRuleRepository::new(&tx)
+                        .restore(&rule)
+                        .map(|_| ())
                 } else {
                     let values = fields
                         .iter()

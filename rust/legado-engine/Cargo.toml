@@ -24,6 +24,8 @@ zip = { workspace = true }
 ring = { workspace = true }
 quick-xml = { workspace = true }
 base64 = { workspace = true }
+# 备份规则资源的file URI定位，复用工作区已锁定版本。
+url = { workspace = true }
 
 [features]
 default = []

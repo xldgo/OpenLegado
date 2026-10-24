@@ -19,12 +19,43 @@ fn packaged_backup_restores_resources_and_credentials_only_after_validation() {
                 })
             })
             .unwrap();
+        target
+            .storage()
+            .with_database(|db| {
+                legado_db::HighlightRuleRepository::new(db.connection()).insert(
+                    &legado_core::models::HighlightRule {
+                        name: "已有规则".into(),
+                        pattern: "原有".into(),
+                        ..Default::default()
+                    },
+                )?;
+                Ok(())
+            })
+            .unwrap();
         let exporter = BackupService::new(Some(source.storage().clone()));
         let directory = source.storage().data_directory("backup").unwrap();
         fs::create_dir_all(&directory).unwrap();
         let font = directory.join("自选.ttf");
         fs::write(&font, b"font fixture bytes").unwrap();
         let original = font.to_string_lossy().to_string();
+        let background = directory.join("高亮.9.png");
+        fs::write(&background, b"background fixture bytes").unwrap();
+        let background_path = background.to_string_lossy().to_string();
+        source
+            .storage()
+            .with_database(|db| {
+                legado_db::HighlightRuleRepository::new(db.connection()).insert(
+                    &legado_core::models::HighlightRule {
+                        name: "资源规则".into(),
+                        pattern: "目标".into(),
+                        style: json!({"fontPath": original, "bgImage": background_path})
+                            .to_string(),
+                        ..Default::default()
+                    },
+                )?;
+                Ok(())
+            })
+            .unwrap();
         let mut options=BackupOptions {
             preferences:serde_json::from_value(json!({"reader_custom_fonts":[format!("Custom|{original}")],"unchanged":"{  \"a\": 1 }"})).unwrap(),
             files:std::collections::BTreeMap::from([(original.clone(),original.clone())]),password:password.clone(),..Default::default()
@@ -42,6 +73,7 @@ fn packaged_backup_restores_resources_and_credentials_only_after_validation() {
             .backup_create(path.to_str().unwrap(), &options)
             .unwrap();
         fs::remove_file(&font).unwrap();
+        fs::remove_file(&background).unwrap();
         let importer = BackupService::new(Some(target.storage().clone()));
         if password.is_some() {
             assert!(
@@ -109,6 +141,29 @@ fn packaged_backup_restores_resources_and_credentials_only_after_validation() {
         let (_, restored_path) = entry.split_once('|').unwrap();
         assert_ne!(restored_path, original);
         assert_eq!(fs::read(restored_path).unwrap(), b"font fixture bytes");
+        target
+            .storage()
+            .with_database(|db| {
+                let rules = legado_db::HighlightRuleRepository::new(db.connection()).find_all()?;
+                assert_eq!(rules.len(), 2);
+                assert!(
+                    rules
+                        .iter()
+                        .any(|rule| rule.name == "已有规则" && rule.pattern == "原有")
+                );
+                let restored = rules.iter().find(|rule| rule.name == "资源规则").unwrap();
+                let style = legado_core::highlight_rules::HighlightStyle::parse(&restored.style)?;
+                assert_eq!(style.font_path.as_deref(), Some(restored_path));
+                let restored_image = style.bg_image.unwrap();
+                assert_ne!(restored_image, background_path);
+                assert!(restored_image.ends_with(".9.png"));
+                assert_eq!(
+                    fs::read(restored_image).unwrap(),
+                    b"background fixture bytes"
+                );
+                Ok(())
+            })
+            .unwrap();
         assert_eq!(
             result.preferences["unchanged"],
             Value::String("{  \"a\": 1 }".into())

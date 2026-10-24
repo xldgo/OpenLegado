@@ -70,6 +70,14 @@ fn mixed_snapshot_preserves_ids_relations_and_reading_totals_on_repeat_restore()
     let source = init_in_memory_database().unwrap();
     let target = init_in_memory_database().unwrap();
     seed(source.connection());
+    HighlightRuleRepository::new(source.connection())
+        .insert(&legado_core::models::HighlightRule {
+            id: 13,
+            name: "备份高亮".into(),
+            pattern: "目标".into(),
+            ..Default::default()
+        })
+        .unwrap();
     let exported = BackupRepository::new(source.connection())
         .export(100)
         .unwrap();

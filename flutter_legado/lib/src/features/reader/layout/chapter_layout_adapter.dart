@@ -45,8 +45,7 @@ class ChapterLayoutAdapter {
       if (element.kind != ReaderElementKind.text) continue;
       if (rows.isEmpty ||
           elements[rows.last.first].paragraphIndex != element.paragraphIndex ||
-          (elements[rows.last.first].baseline - element.baseline).abs() >
-              .001) {
+          (elements[rows.last.first].top - element.top).abs() > .001) {
         rows.add([]);
       }
       rows.last.add(index);
@@ -72,7 +71,7 @@ class ChapterLayoutAdapter {
       final logicalIndex = isTitle ? 0 : sourceParagraphIndex + 1;
       final start = first.sourceOffset;
       final end = row.last.sourceOffset + row.last.text.length;
-      final top = row.fold(first.top, (v, e) => math.min(v, e.top));
+      final top = first.top;
       final bottom = row.fold(first.bottom, (v, e) => math.max(v, e.bottom));
       final review = isTitle ? null : reviewByAnchor[(logicalIndex, end)];
       final height =
@@ -88,7 +87,7 @@ class ChapterLayoutAdapter {
         indentWidth: first.left,
         letterSpacing: 0,
         baseline: first.baseline - top,
-        glyphs: ReaderLineGlyphs(row, start, Offset(first.left, top)),
+        glyphs: ReaderLineGlyphs(row, start, Offset(first.left, first.top)),
         trailingReview: review == null
             ? null
             : InlineReviewLayout(

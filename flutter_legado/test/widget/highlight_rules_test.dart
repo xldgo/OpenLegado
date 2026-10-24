@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/widgets/app_settings_sheet.dart';
+
 import '../fixtures/app_test_api.dart';
 
 // 高亮规则页 widget 测试
@@ -36,7 +38,10 @@ void main() {
     'applyToTitle': false,
   };
 
-  setUpAll(registerFallbacks);
+  setUpAll(() {
+    registerFallbacks();
+    registerFallbackValue(<HighlightRule>[]);
+  });
 
   setUp(() {
     mockApi = MockRustApi();
@@ -98,16 +103,13 @@ void main() {
     expect(saved.id, 1);
   });
 
-  testWidgets('新增表单包含原版字段且保存传递 pattern', (tester) async {
+  testWidgets('新增规则把输入交给仓储保存', (tester) async {
     await pumpScreen(tester);
 
     await tester.tap(find.byIcon(Symbols.add_rounded));
     await tester.pumpAndSettle();
 
     expect(find.text('新增高亮规则'), findsOneWidget);
-    expect(find.text('使用正则表达式'), findsOneWidget);
-    expect(find.text('应用到标题'), findsOneWidget);
-    expect(find.text('高亮颜色'), findsOneWidget);
 
     // 表单字段：名称 / 匹配模式 / 生效范围
     await tester.enterText(find.byType(TextField).at(0), '测试规则');
@@ -126,6 +128,92 @@ void main() {
     expect(saved.name, '测试规则');
     expect(saved.pattern, '关键词');
     expect(saved.isEnabled, true);
+  });
+
+  testWidgets('Rust校验失败保留编辑内容并展示原因', (tester) async {
+    when(() => mockApi.highlightRuleRepository.highlightRuleSave(any()))
+        .thenThrow(StateError('正则无效'));
+    await pumpScreen(tester);
+    await tester.tap(find.byIcon(Symbols.add_rounded));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(1), '[');
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    expect(find.text('新增高亮规则'), findsOneWidget);
+    expect(
+      tester.widget<TextField>(find.byType(TextField).at(1)).controller!.text,
+      '[',
+    );
+    expect(
+      find.descendant(
+        of: find.byType(AppSettingsSheet),
+        matching: find.textContaining('正则无效'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('示例预览只执行匹配，不保存或启用规则', (tester) async {
+    const rule = HighlightRule(
+      id: 1,
+      name: '可预览规则',
+      pattern: '示例',
+      isEnabled: false,
+      style: '{"sampleText":"示例正文","targetScope":1}',
+    );
+    when(() => mockApi.highlightRuleRepository.highlightRuleList())
+        .thenAnswer((_) async => [rule]);
+    when(
+      () => mockApi.highlightRuleRepository.matchText(
+        any(),
+        '示例正文',
+        isTitle: true,
+      ),
+    ).thenAnswer((_) async => []);
+    await pumpScreen(tester);
+    await tester.tap(find.text('可预览规则'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('预览匹配效果'));
+    await tester.tap(find.text('预览匹配效果'));
+    await tester.pumpAndSettle();
+    verify(
+      () => mockApi.highlightRuleRepository.matchText(
+        any(),
+        '示例正文',
+        isTitle: true,
+      ),
+    ).called(1);
+    verifyNever(() => mockApi.highlightRuleRepository.highlightRuleSave(any()));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('预设只默认选中新规则，保留已存在规则的用户修改', (tester) async {
+    const existing = HighlightRule(
+      id: 7,
+      uuid: 'existing',
+      name: '我的修改',
+      pattern: '甲',
+    );
+    const fresh = HighlightRule(uuid: 'fresh', name: '新预设', pattern: '乙');
+    when(() => mockApi.highlightRuleRepository.highlightRuleList())
+        .thenAnswer((_) async => [existing]);
+    when(() => mockApi.highlightRuleRepository.presets())
+        .thenAnswer((_) async => [existing.copyWith(name: '预设原名'), fresh]);
+    when(() => mockApi.highlightRuleRepository.importRules(any()))
+        .thenAnswer((_) async => 1);
+    await pumpScreen(tester);
+    await tester.tap(find.byIcon(Symbols.more_vert_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('预设规则'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    final imported =
+        verify(() => mockApi.highlightRuleRepository.importRules(captureAny()))
+                .captured
+                .single
+            as List<HighlightRule>;
+    expect(imported.map((r) => r.uuid), ['fresh']);
   });
 
   testWidgets('删除走确认对话框并调用 highlightRuleDelete', (tester) async {

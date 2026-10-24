@@ -199,11 +199,12 @@ class ReaderHighlightPainter {
       final band = (background['contentBandHeightPx'] as num).toDouble();
       if (band <= 0) return;
       final factor = bounds.height * scale / band;
+      final overhang = bounds.height * (scale - 1) / 2;
       destination = ui.Rect.fromLTRB(
         destination.left - l * factor,
-        destination.top - t * factor,
+        destination.top - overhang - t * factor,
         destination.right + r * factor,
-        destination.bottom + b * factor,
+        destination.bottom + overhang + b * factor,
       );
       final xs = [source.left, source.left + l, source.right - r, source.right];
       final ys = [source.top, source.top + t, source.bottom - b, source.bottom];

@@ -40,6 +40,7 @@ class HighlightRulesNotifier extends Notifier<HighlightRulesState> {
           .read(highlightRuleRepositoryProvider)
           .highlightRuleDelete(id: rule.id);
       if (!deleted) throw StateError('删除高亮规则失败');
+      ref.read(highlightRuleRevisionProvider.notifier).changed();
       await load();
     } catch (e) {
       state = state.copyWith(error: errorMessage(e));
@@ -47,19 +48,22 @@ class HighlightRulesNotifier extends Notifier<HighlightRulesState> {
   }
 
   /// 保存规则（新增或编辑，成功后刷新列表）
-  Future<void> saveRule(HighlightRule rule) async {
-    await _save(rule);
+  Future<bool> saveRule(HighlightRule rule) async {
+    return _save(rule);
   }
 
-  Future<void> _save(HighlightRule rule) async {
+  Future<bool> _save(HighlightRule rule) async {
     try {
       final id = await ref
           .read(highlightRuleRepositoryProvider)
           .highlightRuleSave(rule);
       if (id <= 0) throw StateError('保存高亮规则失败');
+      ref.read(highlightRuleRevisionProvider.notifier).changed();
       await load();
+      return state.error == null;
     } catch (e) {
       state = state.copyWith(error: errorMessage(e));
+      return false;
     }
   }
 }

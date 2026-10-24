@@ -2940,7 +2940,7 @@ SyncNotifier.restoreFromWebDav选择/下载远程包并调用同一本地恢复�
 
 ### 2.36 正文高亮（highlight FFI）（16 个方法）
 
-**HIGHLIGHT-RULES-20261024（实施前冻结，用户已确认范围）**：
+**HIGHLIGHT-RULES-20261024（已实现，用户已确认范围）**：
 
 - 数字`id`继续作为本地主键，新增`uuid`稳定标识；数据库v112→v113为已有规则补UUID并建唯一索引，保留数字ID、规则和标注数据。预设使用固定UUID，同一预设重复导入合并，普通新规则分配UUID。
 - `style`继续为完整样式JSON，覆盖MD3的示例文本、标题/正文/全部范围、字色/背景色、7种线条、宽度/偏移/SVG路径、背景图及适配/缩放/九宫格、字体/字重/斜体/字号偏移、命中前后间距与行上下间距、背景左右长度偏移及配置绑定。Rust统一解析、校验和规范化；Flutter只编辑、测量和绘制。
@@ -2948,18 +2948,19 @@ SyncNotifier.restoreFromWebDav选择/下载远程包并调用同一本地恢复�
 - 增加只读章节规则匹配，Rust执行正则、作用范围及优先级解析，返回原文UTF-16半开区间与完整样式；标题和正文分别标记，不改原文，不污染选区和朗读文本。预设正则对照MD3样例；使用现有正则安全入口。
 - 排版TextStyle/DTO新增`inheritColor: bool`（默认false）；正文基础样式与未指定字色的高亮使用true，绘制继承当前正文色，避免纯配色变化重新分页。线条扩展载荷亦支持inheritColor。
 - Flutter按最终样式测量，Rust现有通用行内模型负责断行/分页/间距，Flutter按同一布局产物绘制。规则变更使布局缓存失效并按原文锚点恢复，不另建Dart正则执行分支。
+- 本地字体/背景由文件选择器复制到应用持久目录；完整应用备份收集规则引用资源并在恢复时重写路径；规则恢复按UUID合并，数字主键空闲时保留、冲突时重分配，整批事务不变。规则JSON导出保留资源引用，不内嵌二进制资源，跨设备分享文件型样式需另行提供资源。
 - 领域仓储、正式/Mock适配及FRB生成物成套更新；精确方法签名随本批出口补入下表，生成物由工具产出。应用版本保持。
 
 编写者：Codex + Rust / UI｜2026-10-24
 
-> **Dart边界（2026-10-17类型化更新）**：下表为当前FRB传输签名，十一项不属于根BookApi。
+> **当前Dart边界（2026-10-24）**：下表为当前FRB传输签名，十六项不属于根BookApi。
 > HighlightRepository保留标注七项方法名，highlightAdd(BookHighlight highlight)在仓储映射DTO，返回实际time；
 > 四项列表/搜索返回Future<List<BookHighlight>>，删除保留原bool/数量返回。
-> HighlightRuleRepository保留规则四项方法名，highlightRuleSave(HighlightRule rule)返回ID，
+> HighlightRuleRepository包含规则配置、预设、预览、导入导出和匹配九项，highlightRuleSave(HighlightRule rule)返回ID，
 > 列表与适用规则查询返回Future<List<HighlightRule>>；模型移出Provider状态文件并保留既有排序和超时字段。
 > 两份仓储直接调用现有FRB；Mock通过同一装配实例共享状态，规则ID复用原分配器。
 > 空列表合法，底层错误原样上抛；保存无有效主键时失败，删除保留原false/数量。
-> 消费者通过独立Provider注入，不在目录页或规则Notifier解析传输载荷；不改变原文偏移、绘制或规则执行。
+> 消费者通过独立Provider注入，不在目录页或规则Notifier解析传输载荷；匹配返回样式区间，不改写原文。
 >
 > **Flutter 选区调用口径（2026-10-11，UI-READER-SELECTION-20261011）**：新增选区记录的 `chapterPos` / `chapterPosEnd` 为收到的章节正文中的 UTF-16 起止偏移（左闭右开），与 Dart 选区一致；`bookText` 从同一原文区间取得，排版生成的缩进不计入原文。阅读器现有页索引与字符偏移分别管理。Rust 沿用现有整数存储，不新增字段、方法或数据库迁移，也不重写历史高亮记录。
 

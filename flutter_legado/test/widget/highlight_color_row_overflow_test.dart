@@ -67,7 +67,11 @@ void main() {
     expect(find.text('新增高亮规则'), findsOneWidget);
 
     // 色板 8 色全量渲染（换行后不裁切、不丢失）
-    expect(circleSwatches(), findsNWidgets(8));
+    final palette = find.descendant(
+      of: find.byKey(const ValueKey('highlight-color-textColor')),
+      matching: circleSwatches(),
+    );
+    expect(palette, findsNWidgets(8));
 
     // 修复前：颜色行 RenderFlex 向右溢出 16px，测试框架记录为异常
     expect(
@@ -76,13 +80,14 @@ void main() {
       reason: '颜色行不应触发 RenderFlex 溢出（RIGHT OVERFLOWED BY 16 PIXELS）',
     );
 
-    await tester.tap(circleSwatches().last);
+    await tester.ensureVisible(palette.last);
+    await tester.tap(palette.last);
     await tester.pump();
     // 换行后末尾色块仍可命中：点选后末位选中、首位取消选中
     // （注：预设色板中 primaryFixedDim 与 inversePrimary 同色，两同色块会
     // 一同显示描边，属色板取值现状，本测试仅断言点选生效）
-    final cs = Theme.of(tester.element(find.text('高亮颜色'))).colorScheme;
-    final containers = tester.widgetList<Container>(circleSwatches()).toList();
+    final cs = Theme.of(tester.element(find.text('文字颜色'))).colorScheme;
+    final containers = tester.widgetList<Container>(palette).toList();
     expect(isSelected(containers.last, cs), isTrue);
     expect(isSelected(containers.first, cs), isFalse);
     expect(tester.takeException(), isNull);
