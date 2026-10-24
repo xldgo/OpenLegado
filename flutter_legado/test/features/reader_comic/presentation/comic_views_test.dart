@@ -135,7 +135,6 @@ void main() {
           disableScale: disableScale,
           withGap: true,
           sidePadding: 10,
-          onMetricsChanged: (_) => false,
           pageBuilder: (_, index) =>
               SizedBox(height: 300, child: Text('图片$index')),
           navigationBuilder: (_) => TextButton(
@@ -157,5 +156,88 @@ void main() {
     await tester.pumpWidget(view(false));
     await tester.pumpAndSettle();
     expect(find.byType(InteractiveViewer), findsOneWidget);
+  });
+  testWidgets('条漫按不等高图片报告位置，跳到未布局页不依赖整章高度', (tester) async {
+    final scroll = ScrollController(keepScrollOffset: false);
+    final anchors = ComicWebtoonAnchorController();
+    addTearDown(scroll.dispose);
+    final ranges = <(int, int)>[];
+    final heights = [120.0, 1000.0, 250.0, 900.0, 180.0, 180.0, 1000.0, 700.0];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ComicWebtoonView(
+            controller: scroll,
+            anchors: anchors,
+            initialPage: 2,
+            pageCount: heights.length,
+            disableScale: true,
+            withGap: false,
+            sidePadding: 0,
+            onVisibleRangeChanged: (first, last) => ranges.add((first, last)),
+            pageBuilder: (_, index) =>
+                SizedBox(height: heights[index], child: Text('页$index')),
+            navigationBuilder: (_) =>
+                const SizedBox(height: 100, child: Text('导航')),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(ranges.last.$1, 2);
+    expect(tester.getTopLeft(find.text('页2')).dy, 0);
+    scroll.jumpTo(300);
+    await tester.pumpAndSettle();
+    expect(ranges.last.$1, 3);
+    anchors.jumpToPage(6);
+    await tester.pumpAndSettle();
+    expect(ranges.last.$1, 6);
+    expect(tester.getTopLeft(find.text('页6')).dy, 0);
+    scroll.jumpTo(-200);
+    await tester.pumpAndSettle();
+    expect(ranges.last.$1, 4);
+    anchors.jumpToPage(0);
+    await tester.pumpAndSettle();
+    expect(ranges.last.$1, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('条漫恢复图片加载改高时保持图片起点，页尾导航不生成额外页码', (tester) async {
+    final scroll = ScrollController(keepScrollOffset: false);
+    addTearDown(scroll.dispose);
+    final height = ValueNotifier(100.0);
+    addTearDown(height.dispose);
+    var visible = -1;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ValueListenableBuilder<double>(
+            valueListenable: height,
+            builder: (_, value, _) => ComicWebtoonView(
+              controller: scroll,
+              initialPage: 1,
+              pageCount: 3,
+              disableScale: true,
+              withGap: false,
+              sidePadding: 0,
+              onVisibleRangeChanged: (first, last) => visible = first,
+              pageBuilder: (_, index) =>
+                  SizedBox(height: value, child: Text('图$index')),
+              navigationBuilder: (_) =>
+                  const SizedBox(height: 700, child: Text('章末')),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    height.value = 1200;
+    await tester.pumpAndSettle();
+    expect(visible, 1);
+    expect(tester.getTopLeft(find.text('图1')).dy, 0);
+    scroll.jumpTo(scroll.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    expect(visible, 2);
+    expect(tester.takeException(), isNull);
   });
 }

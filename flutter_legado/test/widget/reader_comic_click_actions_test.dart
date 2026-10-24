@@ -649,7 +649,7 @@ void main() {
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
 
-      expect(find.byType(ListView), findsWidgets);
+      expect(find.byType(CustomScrollView), findsOneWidget);
       expect(find.textContaining('页数1/3'), findsOneWidget);
 
       // 顶部初始位置

@@ -57,7 +57,11 @@ class ReaderComicScreen extends ConsumerStatefulWidget {
 class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     with SingleTickerProviderStateMixin {
   /// 滚动控制器，用于纵向连续滚动
-  final ScrollController _scrollController = ScrollController();
+  final ScrollController _scrollController = ScrollController(
+    keepScrollOffset: false,
+  );
+  final _webtoonAnchors = ComicWebtoonAnchorController();
+  int _lastVisiblePageIndex = 0;
 
   late final ComicReaderController _reader;
   late ComicReaderState _observedSession;
@@ -134,19 +138,6 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
 
   /// 页脚用「当前可见页」近似索引（滚动估算）
   int _visiblePageIndex = 0;
-
-  /// [P4-1 C1] 页级进度恢复目标页（取自 book.durChapterPos；null = 章首开始）
-  ///
-  /// 非 null 时表示「待应用 / 锚定中」：图片解码期间内容高度不稳定
-  /// （占位 0.6 屏 → 未解码 0 → 实际高度），每次内容度量变化（
-  /// [ScrollMetricsNotification]）都会把视图重新锚定到记录页，直到
-  /// 用户手动滚动（[_onScroll] 消费）或切章（[_goToChapter] 清零）。
-  /// 对齐原版 ReadManga.upData → scrollToPositionWithOffset 定位语义。
-  int? _restorePageIndex;
-
-  /// [P4-1 C1] 标记「本次滚动来自恢复跳转」（jumpTo 触发的 [_onScroll]
-  /// 不视为用户操作，不终止页级恢复锚定）
-  bool _isRestoreJump = false;
 
   /// [P4-3 E1] 单页式 PageController（模式/章节/初始页变化时重建）
   PageController? _pagedController;
@@ -225,7 +216,6 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     );
     _observedSession = _reader.state;
     _reader.addListener(_onReaderChanged);
-    _scrollController.addListener(_onScroll);
     // [P4-3 M1] 菜单显隐动画（200ms，对齐既有 300ms 翻页动画的快显隐档位）
     _menuCtrl = AnimationController(
       vsync: this,
@@ -258,7 +248,6 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     _reader.dispose();
     _settings.removeListener(_onSettingsChanged);
     _settings.dispose();
-    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     // [P4-3 E3] 取消自动翻页定时器
     _autoReadTimer?.cancel();
@@ -480,15 +469,13 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
 
   /// [P4-3 E1] 应用翻页模式：
   /// - 单页式（1/2/3）→ 创建/同步 [PageController]（初始页 = 待恢复页或当前页）；
-  /// - 条漫式（4/5）→ 释放单页式控制器（条漫控制器保留偏移，重新附着时
-  ///   自然恢复位置，缩放/磁盘缓存/预载路径不变）。
+  /// - 条漫式（4/5）→ 释放单页控制器，以当前图片索引建立条漫原点。
   void _applyScrollMode() {
     if (MangaScrollModes.isPaged(_scrollMode)) {
       final n = _imageUrls.length;
       if (n == 0) return; // 图片未就绪：_loadChapterImages 完成后会再同步
       // 待恢复的页级进度优先（单页式定位由控制器 initialPage 完成，此处消费）
-      final initial = (_restorePageIndex ?? _visiblePageIndex).clamp(0, n - 1);
-      _restorePageIndex = null;
+      final initial = _visiblePageIndex.clamp(0, n - 1);
       _visiblePageIndex = initial;
       _syncPagedController(initialLogical: initial);
     } else {
@@ -720,15 +707,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       }
       return;
     }
-    // 条漫：按页比例估算像素跳转（与 [_onScroll] 的可见页近似公式
-    // ratio×(n-1) 自洽，跳后 _onScroll 回读一致）
-    if (!_scrollController.hasClients) return;
-    final position = _scrollController.position;
-    final max = position.maxScrollExtent;
-    if (max <= 0) return;
-    final targetPixels = n > 1 ? max * target / (n - 1) : 0.0;
-    if ((targetPixels - position.pixels).abs() < 1) return; // 已在目标
-    position.jumpTo(targetPixels);
+    _webtoonAnchors.jumpToPage(target);
   }
 
   /// 图片渲染滤镜：灰度用 ColorFilter；电子纸走真像素二值化（见图片组件）
@@ -748,9 +727,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     final next = _reader.state;
     _observedSession = next;
     if (next.navigationId != previous.navigationId) {
-      _restorePageIndex = next.initialPage > 0 ? next.initialPage : null;
-      _visiblePageIndex = 0;
-      if (_scrollController.hasClients) _scrollController.jumpTo(0);
+      _visiblePageIndex = next.initialPage;
+      _lastVisiblePageIndex = next.initialPage;
     }
     if (next.book != previous.book) _onSettingsChanged();
     setState(() {
@@ -761,15 +739,11 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
         next.error == null &&
         next.imageUrls.isNotEmpty) {
       if (MangaScrollModes.isPaged(_scrollMode)) {
-        final initial = (_restorePageIndex ?? 0).clamp(
-          0,
-          _imageUrls.length - 1,
-        );
+        final initial = _visiblePageIndex.clamp(0, _imageUrls.length - 1);
         _visiblePageIndex = initial;
         _syncPagedController(initialLogical: initial);
       }
       _preloadVisibleImages();
-      _applyPageRestore();
     }
   }
 
@@ -777,122 +751,24 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
 
   Future<void> _loadChapterImages() => _reader.refreshChapter();
 
-  /// 滚动监听，触发预加载
-  void _onScroll() {
-    // [P4-1 C1] 区分「恢复跳转」与「用户滚动」：jumpTo 触发的本次滚动
-    // 不终止页级恢复锚定；用户手动滚动则消费待恢复目标（已离开记录页）
-    final fromRestoreJump = _isRestoreJump;
-    _isRestoreJump = false;
-    if (!fromRestoreJump && _restorePageIndex != null) {
-      _restorePageIndex = null;
+  /// 页码、持久化和预载共用已实际布局的可见图片区间。— Codex + UI
+  void _onVisiblePagesChanged(int first, int last) {
+    if (_visiblePageIndex != first) {
+      setState(() => _visiblePageIndex = first);
+      unawaited(_saveProgress());
     }
-    if (_imageUrls.isNotEmpty && _scrollController.hasClients) {
-      final max = _scrollController.position.maxScrollExtent;
-      if (max > 0) {
-        final ratio = (_scrollController.offset / max).clamp(0.0, 1.0);
-        final page = (ratio * (_imageUrls.length - 1)).round();
-        if (page != _visiblePageIndex) {
-          setState(() => _visiblePageIndex = page);
-          // [P4-1 C1] 页级进度：可见页变化即持久化（对齐文本阅读器
-          // 「每次页级位置变化保存一次」的事件驱动频率，非逐帧写入）
-          unawaited(_saveProgress());
-        }
-      }
-    }
+    _lastVisiblePageIndex = last;
     _preloadVisibleImages();
   }
 
-  /// 滚动度量（内容高度）变化监听 — [P4-1 C1]
-  ///
-  /// 图片解码期间内容高度不稳定（占位 → 0 → 实际），[ScrollMetricsNotification]
-  /// 在度量变化时派发（注意：控制器 listener 收不到纯度量变化，须用
-  /// Notification）。仍有待应用/锚定的页级恢复目标时，postFrame 里把视图
-  /// 重新锚定到记录页（布局阶段 jumpTo 无效，须推迟到帧结束）。
-  bool _onScrollMetricsChanged(ScrollMetricsNotification notification) {
-    if (_restorePageIndex != null && !_isRestoreJump) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _jumpToRestoredPage();
-      });
-    }
-    return false;
-  }
-
-  /// [P4-1 C1] 应用页级进度恢复：定位到 durChapterPos 记录页
-  ///
-  /// 对齐原版 ReadManga.upData/buildMangaContent：重开恢复记录页
-  /// （clamped 到 [0, imageCount-1]）。首跳在 postFrame 里执行（确保
-  /// ListView 已构建）；图片解码改变滚动范围时由 [_onScrollMetrics]
-  /// 补跳一次后消费。
-  void _applyPageRestore() {
-    final target = _restorePageIndex;
-    _restorePageIndex = null;
-    if (target == null || _imageUrls.length < 2) return;
-    final page = target.clamp(0, _imageUrls.length - 1);
-    if (page == 0) return; // 章首 = 默认位置，无需跳转
-    if (MangaScrollModes.isPaged(_scrollMode)) {
-      // [P4-3 E1] 单页式：定位已由 PageController.initialPage 完成
-      //（_loadChapterImages 同步控制器时消费），无需 ListView 跳转锚定
-      return;
-    }
-    _restorePageIndex = page; // 保持待应用：滚动范围稳定后补跳
-    _jumpToRestoredPage();
-  }
-
-  /// [P4-1 C1] 跳到记录页（按页比例估算，与 [_onScroll] 的可见页近似
-  /// 公式自洽，页脚/进度回读一致）
-  ///
-  /// 不在此消费 [_restorePageIndex]：图片解码后内容高度仍会变化，由
-  /// [_onScrollMetricsChanged] 的度量变化继续把视图锚定到记录页；用户
-  /// 手动滚动时由 [_onScroll] 消费（终止锚定）。
-  void _jumpToRestoredPage() {
-    final page = _restorePageIndex;
-    if (page == null || _imageUrls.length < 2) return;
-    if (!_scrollController.hasClients) return;
-    final max = _scrollController.position.maxScrollExtent;
-    if (max <= 0) return;
-    // 标记为恢复跳转：jumpTo 同步触发的 [_onScroll] 不误判为用户滚动
-    _isRestoreJump = true;
-    _scrollController.jumpTo(max * page / (_imageUrls.length - 1));
-  }
-
-  /// 预加载当前可见区域前后的图片。
-  ///
-  /// 有书源 / 复合 URL / imageDecode 时与正式渲染统一走 FFI
-  /// `fetchImageWithDecode`（写入共享解码缓存），禁止
-  /// CachedNetworkImageProvider 旁路（会截断复合 URL 或忽略防盗链）。
-  /// — Reasonix + UI
   void _preloadVisibleImages() {
-    if (_imageUrls.isEmpty || !mounted) return;
-    // [P4-3 E1] 单页式：按精确页索引预载（±2 页），无需比例估算
-    if (MangaScrollModes.isPaged(_scrollMode)) {
-      _preloadIndicesInRange(
-        _visiblePageIndex - _preloadRange,
-        _visiblePageIndex + _preloadRange,
-      );
-      return;
-    }
-    // 防御：loading 态 ListView 尚未构建时 ScrollController 未 attach，
-    // 访问 position 抛断言（加载完成 build 后由 _onScroll 再次触发）
-    if (!_scrollController.hasClients) return;
-
-    // 计算当前可见的图片索引范围
-    final viewportHeight = _scrollController.position.viewportDimension;
-    final scrollOffset = _scrollController.offset;
-
-    // 简单估算：假设每张图高度约为屏幕高度
-    final screenHeight = MediaQuery.of(context).size.height;
-    final firstVisible = (scrollOffset / screenHeight).floor().clamp(
-      0,
-      _imageUrls.length - 1,
-    );
-    final lastVisible = ((scrollOffset + viewportHeight) / screenHeight)
-        .ceil()
-        .clamp(0, _imageUrls.length - 1);
-
-    // 扩展预加载范围（前后各 2 页）
+    if (!mounted || _imageUrls.isEmpty) return;
     _preloadIndicesInRange(
-      firstVisible - _preloadRange,
-      lastVisible + _preloadRange,
+      _visiblePageIndex - _preloadRange,
+      (MangaScrollModes.isPaged(_scrollMode)
+              ? _visiblePageIndex
+              : _lastVisiblePageIndex) +
+          _preloadRange,
     );
   }
 
@@ -1077,13 +953,13 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       }
       return;
     }
-    if (position.pixels <= 0) {
+    if (position.pixels <= position.minScrollExtent) {
       unawaited(_prevChapter());
       return;
     }
     var target = position.pixels - position.viewportDimension;
-    if (target < 0) {
-      target = 0; // 滚完剩余距离（部分消费）
+    if (target < position.minScrollExtent) {
+      target = position.minScrollExtent; // 滚完剩余距离（部分消费）
     }
     if (_disableMangaPageAnim) {
       position.jumpTo(target);
@@ -1318,14 +1194,12 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     );
   }
 
-  /// 构建图片列表（纵向连续滚动 + 双指缩放）
-  ///
-  /// [P4-1 C1] 外层包 [NotificationListener] 监听 [ScrollMetricsNotification]：
-  /// 内容高度随图片解码变化时派发该通知，驱动页级进度恢复的「持续锚定到
-  /// 记录页」（ScrollController listener 收不到纯度量变化，须用 Notification）。
-  /// [P4-3 M3 修4] 条漫路径按 [_sidePadding] 百分比加水平 padding
-  /// （见方法尾部包裹逻辑）。
+  /// 条漫图片索引定位与可见项统计由视口统一管理。
   Widget _buildImageList() => ComicWebtoonView(
+    key: ValueKey(('webtoon', _loadSeq)),
+    anchors: _webtoonAnchors,
+    initialPage: _visiblePageIndex,
+    onVisibleRangeChanged: _onVisiblePagesChanged,
     controller: _scrollController,
     pageCount: _imageUrls.length,
     pageBuilder: (_, index) => _buildImageItem(index),
@@ -1333,7 +1207,6 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     disableScale: _disableMangaScale,
     withGap: _scrollMode == MangaScrollModes.webtoonWithGap,
     sidePadding: MangaScrollModes.isWebtoon(_scrollMode) ? _sidePadding : 0,
-    onMetricsChanged: _onScrollMetricsChanged,
   );
 
   Widget _buildImageItem(int index) => ComicImageItem(
