@@ -70,7 +70,9 @@ class _SourceEditorLinesSheetState extends State<SourceEditorLinesSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: TextField(
                 controller: _text,
+                autofocus: true,
                 keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.done,
                 onChanged: (_) {
                   if (_error != null) setState(() => _error = null);
                 },

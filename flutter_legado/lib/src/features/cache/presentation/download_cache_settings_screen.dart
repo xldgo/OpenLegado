@@ -431,7 +431,9 @@ class _IntegerSettingSheetState extends State<_IntegerSettingSheet> {
     contentPadding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
     child: TextField(
       controller: _text,
+      autofocus: true,
       keyboardType: TextInputType.number,
+      textInputAction: TextInputAction.done,
       onChanged: (_) {
         if (_error != null) setState(() => _error = null);
       },

@@ -386,6 +386,9 @@ glass使用半透明实色，liquidGlass在资源就绪时采用上述光学背�
 朗读管理的添加引擎类型列表及音色的引擎选择列表都使用该正文壳，避免仅调用
 showContent后手写标题/列表而绕过共用行主题；长列表由壳提供滚动，标题保持固定。
 `AppSettingsSheet` 组合取消/标题/保存栏，禁用状态和关闭回调由页面传入。
+单项设置编辑的主要输入框使用autofocus，数字输入以done提交已有保存校验；
+条件输入框只在显示时聚焦（如源编辑行数的“不限”模式不弹键盘）。
+聚焦由输入框声明，公用Sheet不扫描子组件或增加延时；列表、开关和多字段表单按各自交互决定。
 标题对齐由ThemeData的AppSheetTheme扩展统一配置，默认居中；AppBottomSheet与
 AppSettingsSheet共用NavigationToolbar，左右操作不等宽时标题仍居中，局部可显式覆盖。
 标题旁状态通过titleSuffix接入同一标题组，不另起一行。
