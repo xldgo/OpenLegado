@@ -39,6 +39,7 @@ All notable changes to this project will be documented in this file.
 - 搜索范围支持同时选择多个书源，确认后一次应用完整集合。
 
 ### Changed
+- 朗读管理的悬浮按钮仅显示加号，长按按当前页签提示添加音色或引擎；贡献者：Codex + UI。
 - 按页朗读保留原段落边界，跨页片段保持原文位置与真实段末信息；贡献者：Codex + UI。
 - 收紧替换净化卡片左右内边距，保留复选框与更多按钮点击区域；贡献者：Codex + UI。
 - 平面顶栏按钮保留48dp点击区域，移除内部重复尺寸和密度覆盖，沿用组件及主题默认值；贡献者：Codex + UI。

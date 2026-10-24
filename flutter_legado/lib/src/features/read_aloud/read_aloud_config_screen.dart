@@ -593,15 +593,14 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen>
         ),
       ],
     ),
-    floatingActionButton: FloatingActionButton.extended(
+    floatingActionButton: FloatingActionButton(
       tooltip: _tabs.index == 1 ? '添加引擎' : '添加音色',
       onPressed: _cloudBusy || _cloudEditing || _loading
           ? null
           : _tabs.index == 1
           ? _addEngine
           : () => _voicePanelKey.currentState?.addVoice(),
-      icon: const Icon(Symbols.add_rounded),
-      label: Text(_tabs.index == 1 ? '添加引擎' : '添加音色'),
+      child: const Icon(Symbols.add_rounded),
     ),
     body: TabBarView(
       controller: _tabs,
