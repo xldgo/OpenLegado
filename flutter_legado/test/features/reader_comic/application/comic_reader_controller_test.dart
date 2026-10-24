@@ -61,6 +61,7 @@ void main() {
         chapterCount: any(named: 'chapterCount'),
         nextCount: any(named: 'nextCount'),
         previousCount: any(named: 'previousCount'),
+        autoOffline: any(named: 'autoOffline'),
       ),
     ).thenAnswer((_) async {});
     controller = ComicReaderController(
@@ -302,5 +303,43 @@ void main() {
       'User-Agent': 'agent',
     });
     expect(parseComicImageHeaders(''), isEmpty);
+  });
+  test('阅读中切换自动缓存和前后数量更新窗口，不重载当前正文', () async {
+    await controller.open();
+    clearInteractions(reading);
+    clearInteractions(preloader);
+    controller.configurePreload(
+      images: true,
+      next: 3,
+      previous: 1,
+      autoOffline: true,
+    );
+    verify(
+      () => preloader.preloadAdjacent(
+        bookUrl: 'book',
+        chapterIndex: 0,
+        chapterCount: chapters.length,
+        nextCount: 3,
+        previousCount: 1,
+        autoOffline: true,
+      ),
+    ).called(1);
+    controller.configurePreload(images: true, next: 3, previous: 1);
+    verify(
+      () => preloader.preloadAdjacent(
+        bookUrl: 'book',
+        chapterIndex: 0,
+        chapterCount: chapters.length,
+        nextCount: 3,
+        previousCount: 1,
+        autoOffline: false,
+      ),
+    ).called(1);
+    verify(() => preloader.resetChapters()).called(2);
+    verifyZeroInteractions(reading);
+    expect(controller.state.imageUrls, [
+      'https://img/1.jpg',
+      'https://img/2.jpg',
+    ]);
   });
 }

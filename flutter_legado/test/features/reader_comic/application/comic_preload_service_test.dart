@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:flutter_legado/src/data/services/comic_image_decode_cache.dart';
 import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
+import 'package:flutter_legado/src/domain/contracts/cache_download_service.dart';
 import 'package:flutter_legado/src/domain/contracts/reading_repository.dart';
 import 'package:flutter_legado/src/features/reader_comic/application/comic_preload_service.dart';
 import 'package:flutter_legado/src/models/models.dart';
@@ -14,9 +15,12 @@ class _Images extends Mock implements BookImageRepository {}
 
 class _Reading extends Mock implements ReadingRepository {}
 
+class _Downloads extends Mock implements CacheDownloadService {}
+
 void main() {
   late _Images images;
   late _Reading reading;
+  late _Downloads downloads;
   late ComicPreloadService service;
   const book = Book(bookUrl: 'book', origin: 'source');
   const source = BookSource(bookSourceUrl: 'source');
@@ -46,7 +50,12 @@ void main() {
     direct.clear();
     images = _Images();
     reading = _Reading();
-    service = ComicPreloadService(images: images, reading: reading);
+    downloads = _Downloads();
+    service = ComicPreloadService(
+      images: images,
+      reading: reading,
+      downloads: downloads,
+    );
     when(() => images.getImageCache(any(), any()))
         .thenAnswer((_) async => null);
     when(() => images.fetchImageWithDecode(any(), any()))
@@ -317,5 +326,54 @@ void main() {
       previousCount: 0,
     );
     expect(requested, [3, 4, 1]);
+  });
+  test('自动完整缓存替代正文预取，窗口变更和关闭只退订自动任务', () async {
+    final windows = <StreamController<int>>[];
+    var cancelled = 0;
+    when(
+      () => downloads.prefetchMangaChapters(
+        bookUrl: any(named: 'bookUrl'),
+        currentChapter: any(named: 'currentChapter'),
+        nextCount: any(named: 'nextCount'),
+        previousCount: any(named: 'previousCount'),
+      ),
+    ).thenAnswer((_) {
+      final window = StreamController<int>(onCancel: () => cancelled++);
+      windows.add(window);
+      return window.stream;
+    });
+    Future<void> window(int chapter, bool auto) => service.preloadAdjacent(
+      bookUrl: 'book',
+      chapterIndex: chapter,
+      chapterCount: 4,
+      nextCount: 1,
+      previousCount: 1,
+      autoOffline: auto,
+    );
+    await window(1, true);
+    verifyZeroInteractions(reading);
+    verify(
+      () => downloads.prefetchMangaChapters(
+        bookUrl: 'book',
+        currentChapter: 1,
+        nextCount: 1,
+        previousCount: 1,
+      ),
+    ).called(1);
+    service.resetChapters();
+    await window(2, true);
+    await Future<void>.delayed(Duration.zero);
+    expect(cancelled, 1);
+    service.resetChapters();
+    await window(2, false);
+    await Future<void>.delayed(Duration.zero);
+    expect(cancelled, 2);
+    verify(() => reading.getChapterContentFull('book', 3)).called(1);
+    verify(() => reading.getChapterContentFull('book', 1)).called(1);
+    verifyNever(() => downloads.cacheDownloadStart(any(), any(), any()));
+    verifyNever(() => downloads.cacheDownloadCancel(any()));
+    for (final window in windows) {
+      await window.close();
+    }
   });
 }

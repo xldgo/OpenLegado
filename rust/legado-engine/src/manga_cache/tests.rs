@@ -365,3 +365,139 @@ fn invalid_image_and_disk_failure_count_failed_until_retry_has_complete_images()
         .with_image_cache(ImageCacheService::new(root));
     assert!(cache.list_cached_chapter_urls(&book).unwrap().is_empty());
 }
+
+#[test]
+fn automatic_window_uses_real_indices_direction_counts_and_continues_after_failure() {
+    let (engine, _runtime, book) = fixture("https://window.invalid", "正文", None);
+    engine
+        .storage()
+        .with_database(|db| {
+            BookChapterRepository::new(db.connection()).insert_batch(&[1, 2, 4, 7].map(|index| {
+                BookChapter {
+                    book_url: book.clone(),
+                    index,
+                    is_volume: index == 2,
+                    title: format!("章节{index}"),
+                    url: format!("https://window.invalid/{index}"),
+                    ..Default::default()
+                }
+            }))
+        })
+        .unwrap();
+    let requested = Arc::new(Mutex::new(Vec::new()));
+    let calls = requested.clone();
+    let execute: crate::ChapterDownload = Arc::new(move |_, index, _| {
+        calls.lock().unwrap().push(index);
+        if index == 1 {
+            Err(LegadoError::Network("单章失败".into()))
+        } else {
+            Ok(())
+        }
+    });
+    let task = engine.tasks().begin().unwrap();
+    let mut completed = Vec::new();
+    prefetch(
+        engine.storage(),
+        &execute,
+        PrefetchWindow {
+            book_url: &book,
+            current_chapter: 4,
+            next_count: 100,
+            previous_count: 100,
+        },
+        &task,
+        |index| {
+            completed.push(index);
+            true
+        },
+    )
+    .unwrap();
+    assert_eq!(*requested.lock().unwrap(), [7, 1, 0]);
+    assert_eq!(completed, [7, 0]);
+    prefetch(
+        engine.storage(),
+        &execute,
+        PrefetchWindow {
+            book_url: &book,
+            current_chapter: 4,
+            next_count: 0,
+            previous_count: 0,
+        },
+        &task,
+        |_| true,
+    )
+    .unwrap();
+    assert_eq!(requested.lock().unwrap().len(), 3);
+}
+
+#[test]
+fn automatic_window_cancellation_keeps_manual_download_running() {
+    let (engine, _runtime, book) = fixture("https://cancel-window.invalid", "正文", None);
+    engine
+        .storage()
+        .with_database(|db| {
+            BookChapterRepository::new(db.connection()).insert_batch(&[1, 2].map(|index| {
+                BookChapter {
+                    book_url: book.clone(),
+                    index,
+                    title: format!("章节{index}"),
+                    url: format!("https://cancel-window.invalid/{index}"),
+                    ..Default::default()
+                }
+            }))
+        })
+        .unwrap();
+    let (started, ready) = std::sync::mpsc::channel();
+    let (release, gate) = std::sync::mpsc::channel();
+    let gate = Mutex::new(gate);
+    let manual = Arc::new(CacheDownloads::new(
+        engine.storage().clone(),
+        engine.tasks().clone(),
+        Arc::new(move |_, _, task| {
+            started.send(()).unwrap();
+            gate.lock()
+                .unwrap()
+                .recv_timeout(Duration::from_secs(5))
+                .unwrap();
+            assert!(!task.is_cancelled());
+            Ok(())
+        }),
+    ));
+    let id = manual.start(&book, 0, 0).unwrap();
+    ready.recv_timeout(Duration::from_secs(5)).unwrap();
+    let task = engine.tasks().begin().unwrap();
+    let cancel = task.clone();
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let calls = requests.clone();
+    let execute: crate::ChapterDownload = Arc::new(move |_, index, _| {
+        calls.lock().unwrap().push(index);
+        cancel.cancel(); // 模拟关闭自动开关时，本章请求刚结束。
+        Ok(())
+    });
+    let mut completed = Vec::new();
+    prefetch(
+        engine.storage(),
+        &execute,
+        PrefetchWindow {
+            book_url: &book,
+            current_chapter: 0,
+            next_count: 2,
+            previous_count: 0,
+        },
+        &task,
+        |index| {
+            completed.push(index);
+            true
+        },
+    )
+    .unwrap();
+    assert_eq!(*requests.lock().unwrap(), [1]);
+    assert!(completed.is_empty());
+    assert_eq!(manual.progress(id).unwrap().status, "running");
+    release.send(()).unwrap();
+    let state = wait(&manual, id);
+    assert_eq!(
+        (state.status.as_str(), state.completed, state.failed),
+        ("completed", 1, 0)
+    );
+}

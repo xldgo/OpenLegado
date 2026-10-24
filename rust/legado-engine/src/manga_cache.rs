@@ -79,6 +79,67 @@ pub fn images_complete(
             .all(|url| cache.has_image_cache(book_url, url))
 }
 
+pub struct PrefetchWindow<'a> {
+    pub book_url: &'a str,
+    pub current_chapter: i32,
+    pub next_count: i32,
+    pub previous_count: i32,
+}
+
+/// 自动窗口只持有调用任务；手动队列、断点和任务ID完全不在此路径。
+pub fn prefetch(
+    storage: &StorageContext,
+    execute: &crate::ChapterDownload,
+    window: PrefetchWindow<'_>,
+    task: &TaskHandle,
+    mut completed: impl FnMut(i32) -> bool,
+) -> LegadoResult<()> {
+    let PrefetchWindow {
+        book_url,
+        current_chapter,
+        next_count,
+        previous_count,
+    } = window;
+    if !is_manga(storage, book_url)? || task.is_cancelled() {
+        return Ok(());
+    }
+    let chapters = storage.with_database(|db| {
+        BookChapterRepository::new(db.connection()).find_by_book_url(book_url)
+    })?;
+    let candidates = chapters.iter().filter(|chapter| {
+        let offset = i64::from(chapter.index) - i64::from(current_chapter);
+        !chapter.is_volume
+            && ((offset > 0 && offset <= i64::from(next_count))
+                || (offset < 0 && -offset <= i64::from(previous_count)))
+    });
+    // 使用真实目录索引，不能把稀疏目录条数当作最后一章索引。
+    let mut indices: Vec<i32> = candidates.map(|chapter| chapter.index).collect();
+    indices.sort_by_key(|&index| {
+        if index > current_chapter {
+            (0, i64::from(index))
+        } else {
+            (1, -i64::from(index))
+        }
+    });
+    for index in indices {
+        if task.is_cancelled() {
+            break;
+        }
+        match execute(book_url, index, task) {
+            Ok(()) => {
+                if task.with_active(|| completed(index)) != Some(true) {
+                    break;
+                }
+            }
+            Err(error) if !task.is_cancelled() => {
+                log::debug!("漫画自动缓存章节{index}失败: {error}")
+            }
+            Err(_) => break,
+        }
+    }
+    Ok(())
+}
+
 pub struct MangaCache {
     storage: StorageContext,
     network: Arc<NetworkContext>,

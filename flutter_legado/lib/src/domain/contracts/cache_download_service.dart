@@ -8,6 +8,14 @@ abstract interface class CacheDownloadService {
     int startChapter,
     int endChapter,
   );
+
+  /// 自动完整缓存窗口；退订仅取消该窗口，不复用或停止手动任务。
+  Stream<int> prefetchMangaChapters({
+    required String bookUrl,
+    required int currentChapter,
+    required int nextCount,
+    required int previousCount,
+  });
   Future<CacheDownloadTask> cacheDownloadProgress(int taskId);
   Future<bool> cacheDownloadCancel(int taskId);
   Future<List<CacheDownloadTask>> cacheDownloadList();

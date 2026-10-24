@@ -811,6 +811,24 @@ WebView URL选项或平台DOM实现。仅Rust行为测试验证，不构建DLL/�
 
 编写者：Codex + Bridge｜2026-10-19
 
+## 漫画自动离线缓存（MANGA-AUTO-OFFLINE-20261024，实施前冻结）
+
+- MangaSettings增加`autoOfflineCache`，复用上游键`mangaAutoOfflineCache`，默认false，纳入备份；
+  设置页提供“自动离线缓存”开关。前后数量仍取共享DownloadSettings，不另存数量。
+- 新增一个FRB入口`manga_cache_prefetch(bookUrl, currentChapter, nextCount, previousCount, request) → Stream<int>`，
+  对应CacheDownloadService.prefetchMangaChapters。每个订阅拥有既有StreamRequest取消凭据；返回每章
+  完整缓存成功的索引，单章失败不发成功事件并继续后续章节，不循环重试。
+- Rust生成相邻章节窗口（不含当前章，先后章升序、再前章降序，数量0关闭方向，边界按当前目录裁剪），
+  顺序复用手动下载的ChapterDownload执行器、图片完整性和书级磁盘缓存。卷跳过，本地书不启动。
+- 自动任务不创建/复用/取消持久化手动任务，退订只取消自身；关闭开关、切章、换书、数量变更和退出
+  均退订旧窗口，停止后续网络/落盘。已有缓存保留，不承诺中断同步JS或回滚已完成文件。
+- 开启自动缓存时，该窗口由Rust一次完成正文和图片，Dart不再同时推进另一份完整下载窗口；关闭后
+  保留前批已接的章节正文预取和独立当前章图片开关，两者不冒称完整离线缓存。
+- 既有方法签名、DTO、数据库及应用版本不变；FRB新增+1，同次生成两侧绑定并复核。Mock只提供空流，
+  不模拟Rust网络/窗口算法。定向验证设置往返、窗口顺序/失败/取消及手动任务隔离；不安装或推送。
+
+编写者：Codex + Rust / UI｜2026-10-24
+
 ## 漫画手动离线缓存（MANGA-OFFLINE-20261024，实施前冻结）
 
 - 复用`CacheDownloadService`及现有任务/失败章/取消/重试接口，签名、DTO、FRB方法数和数据库不变。

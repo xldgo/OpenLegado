@@ -201,6 +201,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       sources: ref.read(bookSourceRepositoryProvider),
       preloader: ComicPreloadService(
         images: ref.read(bookImageRepositoryProvider),
+        downloads: ref.read(cacheDownloadServiceProvider),
         reading: ref.read(readingRepositoryProvider),
       ),
     );
@@ -586,6 +587,11 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       preloadImages:
           ref.read(mangaSettingsProvider).value?.preloadImages ?? true,
       onPreloadImagesChanged: _settings.setPreloadImages,
+      autoOfflineCache:
+          ref.read(mangaSettingsProvider).value?.autoOfflineCache ?? false,
+      onAutoOfflineCacheChanged: _book?.origin == BookType.localTag
+          ? null
+          : _settings.setAutoOfflineCache,
       // [P4-3 E2] 分页适配类型（单页式映射 BoxFit；条漫恒 fitWidth）
       pageScaleType: _pageScaleType,
       onColorFilterChanged: (c) => unawaited(_settings.setColorFilter(c)),
@@ -784,6 +790,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     if (manga == null || download == null) return;
     _reader.configurePreload(
       images: manga.preloadImages,
+      autoOffline: manga.autoOfflineCache && _book?.origin != BookType.localTag,
       next: download.preDownloadNum,
       previous: download.preDownloadNumPrev,
     );

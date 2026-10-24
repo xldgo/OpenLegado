@@ -12,6 +12,13 @@ class MockCacheDownloadService implements CacheDownloadService {
     int endChapter,
   ) async => 1;
   @override
+  Stream<int> prefetchMangaChapters({
+    required String bookUrl,
+    required int currentChapter,
+    required int nextCount,
+    required int previousCount,
+  }) => const Stream.empty();
+  @override
   Future<CacheDownloadTask> cacheDownloadProgress(int taskId) async =>
       CacheDownloadTask(
         taskId: taskId,

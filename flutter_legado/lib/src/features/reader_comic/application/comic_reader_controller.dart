@@ -30,20 +30,25 @@ class ComicReaderController extends ChangeNotifier {
   int _generation = 0;
   bool _disposed = false;
   bool _preloadImages = false;
+  bool _autoOffline = false;
   int _preloadNext = 0, _preloadPrevious = 0;
 
   void configurePreload({
     required bool images,
     required int next,
     required int previous,
+    bool autoOffline = false,
   }) {
     if (_disposed) return;
     final imagesChanged = images != _preloadImages;
     final chaptersChanged =
-        next != _preloadNext || previous != _preloadPrevious;
+        next != _preloadNext ||
+        previous != _preloadPrevious ||
+        autoOffline != _autoOffline;
     _preloadImages = images;
     _preloadNext = next;
     _preloadPrevious = previous;
+    _autoOffline = autoOffline;
     if (imagesChanged) _preloader.resetImages();
     if (chaptersChanged) {
       _preloader.resetChapters();
@@ -61,6 +66,7 @@ class ComicReaderController extends ChangeNotifier {
         chapterCount: snapshot.chapters.length,
         nextCount: _preloadNext,
         previousCount: _preloadPrevious,
+        autoOffline: _autoOffline,
       ),
     );
   }

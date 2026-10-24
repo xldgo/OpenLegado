@@ -168,7 +168,7 @@ void main() {
     await local.setSidePadding(12);
     expect(stored.current.sidePadding, 12);
   });
-  test('图片预加载保存失败不改变开关，成功后按原配置键重读', () async {
+  test('预载开关保存失败不改变状态，成功后重读图片和自动离线配置', () async {
     var fail = true;
     final values = <String, String>{};
     final storage = TestConfigRepository(
@@ -185,13 +185,20 @@ void main() {
     addTearDown(subject.dispose);
     await subject.load();
     await expectLater(subject.setPreloadImages(false), throwsStateError);
+    await expectLater(subject.setAutoOfflineCache(true), throwsStateError);
+    expect(subject.current.autoOfflineCache, isFalse);
+    expect(repository.current.autoOfflineCache, isFalse);
     expect(subject.current.preloadImages, isTrue);
     expect(repository.current.preloadImages, isTrue);
     fail = false;
     await subject.setPreloadImages(false);
     expect(subject.current.preloadImages, isFalse);
     expect(values['mangaPreDownloadNum'], '0');
+    await subject.setAutoOfflineCache(true);
+    expect(subject.current.autoOfflineCache, isTrue);
+    expect(values['mangaAutoOfflineCache'], 'true');
     await repository.reload();
     expect(repository.current.preloadImages, isFalse);
+    expect(repository.current.autoOfflineCache, isTrue);
   });
 }

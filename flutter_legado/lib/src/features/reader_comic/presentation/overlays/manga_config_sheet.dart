@@ -58,6 +58,8 @@ class MangaConfigSheet extends StatefulWidget {
   /// [P4-3 E3] 自动翻页速度档 1..15（当前值）
   final int? autoReadSpeed;
   final bool preloadImages;
+  final bool autoOfflineCache;
+  final Future<void> Function(bool)? onAutoOfflineCacheChanged;
   final Future<void> Function(bool)? onPreloadImagesChanged;
 
   /// [P4-3 E3] 自动翻页开关变更（非 null 时渲染区块）
@@ -177,6 +179,8 @@ class MangaConfigSheet extends StatefulWidget {
     this.autoReadEnabled,
     this.autoReadSpeed,
     this.preloadImages = true,
+    this.autoOfflineCache = false,
+    this.onAutoOfflineCacheChanged,
     this.onPreloadImagesChanged,
     this.onAutoReadChanged,
     this.onAutoReadSpeedChanged,
@@ -236,6 +240,8 @@ class MangaConfigSheet extends StatefulWidget {
     bool? autoReadEnabled,
     int? autoReadSpeed,
     bool preloadImages = true,
+    bool autoOfflineCache = false,
+    Future<void> Function(bool)? onAutoOfflineCacheChanged,
     Future<void> Function(bool)? onPreloadImagesChanged,
     ValueChanged<bool>? onAutoReadChanged,
     ValueChanged<int>? onAutoReadSpeedChanged,
@@ -297,6 +303,8 @@ class MangaConfigSheet extends StatefulWidget {
         autoReadEnabled: autoReadEnabled,
         autoReadSpeed: autoReadSpeed,
         preloadImages: preloadImages,
+        autoOfflineCache: autoOfflineCache,
+        onAutoOfflineCacheChanged: onAutoOfflineCacheChanged,
         onPreloadImagesChanged: onPreloadImagesChanged,
         onAutoReadChanged: onAutoReadChanged,
         onAutoReadSpeedChanged: onAutoReadSpeedChanged,
@@ -355,6 +363,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
   /// [P4-3 E3] 自动翻页速度档
   late int _autoReadSpeed;
   late bool _preloadImages;
+  late bool _autoOfflineCache;
 
   /// [P4-3 E2] 分页适配类型 0..5
   late int _pageScaleType;
@@ -453,6 +462,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
   void initState() {
     super.initState();
     _preloadImages = widget.preloadImages;
+    _autoOfflineCache = widget.autoOfflineCache;
     _filter = MangaColorFilterConfig(
       r: widget.colorFilter.r,
       g: widget.colorFilter.g,
@@ -495,6 +505,17 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
     _clickActions = List<int>.from(
       widget.clickActions ?? MangaClickActions.defaultActions,
     );
+  }
+
+  Future<void> _savePreloadChange(Future<void> save, VoidCallback apply) async {
+    try {
+      await save;
+      if (mounted) setState(apply);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('预加载设置保存失败，请重试')));
+    }
   }
 
   @override
@@ -583,17 +604,19 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
                     SwitchListTile(
                       title: const Text('预加载当前章图片'),
                       value: _preloadImages,
-                      onChanged: (value) async {
-                        try {
-                          await widget.onPreloadImagesChanged!(value);
-                          if (mounted) setState(() => _preloadImages = value);
-                        } catch (_) {
-                          if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('预加载设置保存失败，请重试')),
-                          );
-                        }
-                      },
+                      onChanged: (value) => _savePreloadChange(
+                        widget.onPreloadImagesChanged!(value),
+                        () => _preloadImages = value,
+                      ),
+                    ),
+                  if (widget.onAutoOfflineCacheChanged != null)
+                    SwitchListTile(
+                      title: const Text('自动离线缓存'),
+                      value: _autoOfflineCache,
+                      onChanged: (value) => _savePreloadChange(
+                        widget.onAutoOfflineCacheChanged!(value),
+                        () => _autoOfflineCache = value,
+                      ),
                     ),
                   if (_showPageScale) ...[
                     _divider(),

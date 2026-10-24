@@ -4,6 +4,7 @@ import 'dart:convert';
 
 import '../../../data/services/comic_image_decode_cache.dart';
 import '../../../domain/contracts/book_image_repository.dart';
+import '../../../domain/contracts/cache_download_service.dart';
 import '../../../domain/contracts/reading_repository.dart';
 import '../../../models/models.dart';
 import '../../../utils/comic_image_utils.dart';
@@ -11,12 +12,18 @@ import '../../../utils/comic_image_utils.dart';
 typedef _ImageJob = ({int index, int generation, Future<void> Function() run});
 
 /// 当前章图片最多两个后台任务；视口变化只重排等待项。
-/// 单次领域请求不能中断，代次用于停止旧队列的后续工作。— Codex + UI
+/// 自动完整缓存独立退订；普通单次预载以代次停止后续推进。— Codex + UI
 class ComicPreloadService {
-  ComicPreloadService({required this._images, required this._reading});
+  ComicPreloadService({
+    required this._images,
+    required this._reading,
+    required this._downloads,
+  });
 
   final BookImageRepository _images;
   final ReadingRepository _reading;
+  final CacheDownloadService _downloads;
+  StreamSubscription<int>? _offline;
   final Set<int> _indices = {};
   final _pendingImages = Queue<_ImageJob>();
   int _workers = 0;
@@ -32,7 +39,11 @@ class ComicPreloadService {
     resetChapters();
   }
 
-  void resetChapters() => _chapterGeneration++;
+  void resetChapters() {
+    _chapterGeneration++;
+    unawaited(_offline?.cancel());
+    _offline = null;
+  }
 
   void resetImages() {
     _generation++;
@@ -49,8 +60,25 @@ class ComicPreloadService {
     required int chapterCount,
     required int nextCount,
     required int previousCount,
+    bool autoOffline = false,
   }) {
     if (_disposed) return Future.value();
+    if (autoOffline) {
+      _offline = _downloads
+          .prefetchMangaChapters(
+            bookUrl: bookUrl,
+            currentChapter: chapterIndex,
+            nextCount: nextCount,
+            previousCount: previousCount,
+          )
+          .listen(
+            (_) {},
+            onError: (Object error) {
+              // 后台缓存失败不阻断阅读，切章或设置变更后可重新发起。
+            },
+          );
+      return Future.value();
+    }
     final generation = _chapterGeneration;
     // 旧请求结束后再启动新窗口，避免配置变更堆叠章节请求。
     return _chapterTail = _chapterTail.then((_) async {

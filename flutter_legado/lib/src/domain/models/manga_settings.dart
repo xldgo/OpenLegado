@@ -38,6 +38,7 @@ final class MangaSettings {
     this.scrollMode = 4,
     this.autoReadSpeed = 3,
     this.preloadImages = true,
+    this.autoOfflineCache = false,
     this.pageScaleType = 0,
     this.sidePadding = 0,
     this.disableClickScroll = false,
@@ -59,6 +60,7 @@ final class MangaSettings {
   final int scrollMode;
   final int autoReadSpeed;
   final bool preloadImages;
+  final bool autoOfflineCache;
   final int pageScaleType;
   final int sidePadding;
   final bool disableClickScroll;
@@ -80,6 +82,7 @@ final class MangaSettings {
     int? scrollMode,
     int? autoReadSpeed,
     bool? preloadImages,
+    bool? autoOfflineCache,
     int? pageScaleType,
     int? sidePadding,
     bool? disableClickScroll,
@@ -101,6 +104,7 @@ final class MangaSettings {
     scrollMode: scrollMode ?? this.scrollMode,
     autoReadSpeed: autoReadSpeed ?? this.autoReadSpeed,
     preloadImages: preloadImages ?? this.preloadImages,
+    autoOfflineCache: autoOfflineCache ?? this.autoOfflineCache,
     pageScaleType: pageScaleType ?? this.pageScaleType,
     sidePadding: sidePadding ?? this.sidePadding,
     disableClickScroll: disableClickScroll ?? this.disableClickScroll,

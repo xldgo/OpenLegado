@@ -22,6 +22,7 @@ class AppMangaSettingsRepository
         'mangaScrollMode',
         'mangaAutoReadSpeed',
         'mangaPreDownloadNum',
+        'mangaAutoOfflineCache',
         'mangaPageScaleType',
         'mangaSidePadding',
         'disableClickScroll',
@@ -44,6 +45,7 @@ class AppMangaSettingsRepository
     eInkThreshold: int.tryParse(values['mangaEInkThreshold'] ?? '') ?? 150,
     scrollMode: MangaScrollModes.parse(values['mangaScrollMode']),
     autoReadSpeed: MangaAutoRead.parse(values['mangaAutoReadSpeed']),
+    autoOfflineCache: values['mangaAutoOfflineCache'] == 'true',
     preloadImages:
         (int.tryParse(values['mangaPreDownloadNum'] ?? '') ?? 10) > 0,
     pageScaleType: MangaPageScaleType.parse(values['mangaPageScaleType']),
@@ -78,6 +80,7 @@ class AppMangaSettingsRepository
     'mangaScrollMode': value.scrollMode.toString(),
     'mangaAutoReadSpeed': value.autoReadSpeed.toString(),
     'mangaPreDownloadNum': value.preloadImages ? '10' : '0',
+    'mangaAutoOfflineCache': value.autoOfflineCache.toString(),
     'mangaPageScaleType': value.pageScaleType.toString(),
     'mangaSidePadding': value.sidePadding.toString(),
     'disableClickScroll': value.disableClickScroll ? 'true' : 'false',

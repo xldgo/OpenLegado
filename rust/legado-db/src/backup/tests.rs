@@ -62,6 +62,9 @@ fn seed(conn: &Connection) {
         .put("config:mangaPreDownloadNum", "0", 0)
         .unwrap();
     CacheRepository::new(conn)
+        .put("config:mangaAutoOfflineCache", "true", 0)
+        .unwrap();
+    CacheRepository::new(conn)
         .put("config:secret-api-token", "不应导出", 0)
         .unwrap();
     CacheRepository::new(conn)
@@ -89,6 +92,7 @@ fn mixed_snapshot_preserves_ids_relations_and_reading_totals_on_repeat_restore()
         BTreeMap::from([
             ("threadCount".into(), "3".into()),
             ("mangaPreDownloadNum".into(), "0".into()),
+            ("mangaAutoOfflineCache".into(), "true".into()),
         ])
     );
     let target_repo = BackupRepository::new(target.connection());
