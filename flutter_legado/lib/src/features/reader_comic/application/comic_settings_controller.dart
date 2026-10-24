@@ -73,6 +73,9 @@ class ComicSettingsController extends ChangeNotifier {
   Future<void> setPageScaleType(int value) => _update(
     (s) => s.copyWith(pageScaleType: MangaPageScaleType.parse('$value')),
   );
+  Future<void> setWidePageMode(int value) => _update(
+    (s) => s.copyWith(widePageMode: MangaWidePageMode.parse('$value')),
+  );
   Future<void> setPreloadImages(bool enabled) async {
     await _repository.update((s) => s.copyWith(preloadImages: enabled));
     if (_disposed) return;

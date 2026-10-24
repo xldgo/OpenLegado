@@ -12,7 +12,7 @@ import 'package:flutter/painting.dart';
 ///   FillBounds≈fill、FillWidth≈fitWidth、FillHeight≈fitHeight、
 ///   None≈none）：
 ///   ```
-///   isWidePage && widePageMode==FIT_WIDTH → FillWidth（宽页模式，仅登记）
+///   isWidePage && widePageMode==FIT_WIDTH → FillWidth（宽页模式覆盖普通适配）
 ///   STRETCH    → FillBounds
 ///   FIT_WIDTH  → FillWidth
 ///   FIT_HEIGHT → FillHeight
@@ -116,14 +116,24 @@ abstract final class MangaPageScaleType {
   }
 }
 
-/// [P4-3 E2] 宽页模式常量登记（对齐参考版 MangaPageConfig.kt L19-23）
-///
-/// 仅登记取值，本波不实现行为（wide page 变体在 P4-3 后续波次）。
+/// 宽页设置取值与参考版MangaWidePageMode一致。— Codex + UI
 abstract final class MangaWidePageMode {
   static const int normal = 0;
   static const int fitWidth = 1;
   static const int rotateToFit = 2;
   static const int split = 3;
+  static const options = [normal, fitWidth, rotateToFit, split];
+  static int parse(String? value) {
+    final parsed = int.tryParse(value ?? '');
+    return options.contains(parsed) ? parsed! : normal;
+  }
+
+  static String labelOf(int value) => switch (value) {
+    fitWidth => '适配宽度',
+    rotateToFit => '旋转适配',
+    split => '拆分',
+    _ => '普通',
+  };
 }
 
 /// [P4-3 E2] 双页模式常量登记（对齐参考版 MangaPageConfig.kt L26-30）

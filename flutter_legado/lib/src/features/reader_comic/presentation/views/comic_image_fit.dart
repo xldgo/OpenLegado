@@ -12,9 +12,11 @@ class ComicImageFit extends StatefulWidget {
     required this.smartFit,
     required this.builder,
     this.onReady,
+    this.onWidePage,
   });
   final ImageProvider image;
   final VoidCallback? onReady;
+  final ValueChanged<bool>? onWidePage;
   final BoxFit fit;
   final bool smartFit;
   final Widget Function(BoxFit fit) builder;
@@ -54,7 +56,11 @@ class _ComicImageFitState extends State<ComicImageFit> {
 
   void _resolve() {
     _unsubscribe();
-    if (!widget.smartFit && widget.onReady == null) return;
+    if (!widget.smartFit &&
+        widget.onReady == null &&
+        widget.onWidePage == null) {
+      return;
+    }
     final stream = widget.image.resolve(createLocalImageConfiguration(context));
     _stream = stream;
     _listener = ImageStreamListener(
@@ -63,7 +69,9 @@ class _ComicImageFitState extends State<ComicImageFit> {
         info.dispose();
         if (wide != _wide) setState(() => _wide = wide);
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) widget.onReady?.call();
+          if (!mounted) return;
+          widget.onWidePage?.call(wide);
+          widget.onReady?.call();
         });
       },
       // 正式Image仍负责展示原有失败占位及重试。

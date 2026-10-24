@@ -191,6 +191,8 @@ Future<void> _enableAutoRead(WidgetTester tester) async {
   // 「自动翻页」开关（SwitchListTile 标题定位，避免命中灰度/电子纸开关）
   final switchTile = find.widgetWithText(SwitchListTile, '自动翻页');
   expect(switchTile, findsOneWidget);
+  await tester.ensureVisible(switchTile);
+  await tester.pumpAndSettle();
   await tester.tap(switchTile);
   await tester.pumpAndSettle();
 }
@@ -277,7 +279,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('翻页设置'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(SwitchListTile, '自动翻页'));
+    final autoReadSwitch = find.widgetWithText(SwitchListTile, '自动翻页');
+    await tester.ensureVisible(autoReadSwitch);
+    await tester.pumpAndSettle();
+    await tester.tap(autoReadSwitch);
     await tester.pumpAndSettle();
     await _closeSheetAndControls(tester);
 
@@ -420,7 +425,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('翻页设置'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(SwitchListTile, '自动翻页'));
+    final autoReadSwitch = find.widgetWithText(SwitchListTile, '自动翻页');
+    await tester.ensureVisible(autoReadSwitch);
+    await tester.pumpAndSettle();
+    await tester.tap(autoReadSwitch);
     await tester.pumpAndSettle();
     await _closeSheetAndControls(tester);
   });
@@ -499,7 +507,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('翻页设置'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(SwitchListTile, '自动翻页'));
+    final autoReadSwitch = find.widgetWithText(SwitchListTile, '自动翻页');
+    await tester.ensureVisible(autoReadSwitch);
+    await tester.pumpAndSettle();
+    await tester.tap(autoReadSwitch);
     await tester.pumpAndSettle();
     await _closeSheetAndControls(tester);
   });
@@ -651,7 +662,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('翻页设置'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(SwitchListTile, '自动翻页'));
+    final autoReadSwitch = find.widgetWithText(SwitchListTile, '自动翻页');
+    await tester.ensureVisible(autoReadSwitch);
+    await tester.pumpAndSettle();
+    await tester.tap(autoReadSwitch);
     await tester.pumpAndSettle();
     await _closeSheetAndControls(tester);
   });
@@ -739,7 +753,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('翻页设置'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(SwitchListTile, '自动翻页'));
+    final autoReadSwitch = find.widgetWithText(SwitchListTile, '自动翻页');
+    await tester.ensureVisible(autoReadSwitch);
+    await tester.pumpAndSettle();
+    await tester.tap(autoReadSwitch);
     await tester.pumpAndSettle();
     await _closeSheetAndControls(tester);
   });

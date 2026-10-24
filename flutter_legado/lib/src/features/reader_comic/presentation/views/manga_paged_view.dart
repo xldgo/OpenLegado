@@ -31,10 +31,10 @@ class MangaPagedView extends StatefulWidget {
   /// 分页控制器（initialPage 由调用方按逻辑页换算后创建）
   final PageController controller;
 
-  /// 逻辑图片页数（不含章节导航页）
+  /// 按阅读顺序排列的显示槽数（含半页，不含章节导航页）；原图映射由调用方持有。
   final int pageCount;
 
-  /// 页面构建器：按逻辑页索引构建
+  /// 页面构建器：按显示槽的阅读顺序索引构建。
   final Widget Function(BuildContext context, int logicalPage) pageBuilder;
 
   /// 章节导航页构建器（显示在末页之后 / 首页之前）

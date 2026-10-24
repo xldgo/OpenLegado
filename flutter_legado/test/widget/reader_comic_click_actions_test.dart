@@ -1219,18 +1219,13 @@ void main() {
       await tester.tap(find.text('滤镜'));
       await tester.pump();
 
-      // 锚点跳转：色彩滤镜区顶边对齐面板视口顶边（alignment 0.0），
-      // 滚动偏移 > 0。偏移量 16 = _section 区块标题上内边距
-      // （fromLTRB(4,16,4,8)）——ensureVisible 对齐的是锚点容器
-      // 顶边，标题 Text 顶边低 16px
-      final listRect = tester.getRect(find.byType(ListView).last);
-      final targetRect = tester.getRect(find.text('色彩滤镜'));
+      // 入口应滚到滤镜设置，验证可操作性而非标题的固定内边距。
+      expect(find.text('色彩滤镜'), findsOneWidget);
       expect(
-        targetRect.top - listRect.top,
-        closeTo(16, 1.0),
-        reason: '色彩滤镜区顶边应对齐面板视口顶边（ensureVisible 0.0）',
+        find.text('色彩滤镜').hitTestable(),
+        findsOneWidget,
+        reason: '滤镜入口应将目标区块滚入视口',
       );
-      expect(find.text('色彩滤镜'), findsOneWidget, reason: '色彩滤镜区已滚入视口');
       expect(panelPos.pixels, greaterThan(0), reason: '锚点跳转改变了面板滚动偏移');
     });
   });

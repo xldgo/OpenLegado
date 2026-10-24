@@ -1,3 +1,7 @@
+import 'package:flutter/foundation.dart' show listEquals;
+
+import '../application/comic_page_layout.dart';
+import 'views/comic_wide_page.dart';
 import '../../cache/presentation/chapter_download_dialog.dart';
 import '../../../providers/chapter_cache_provider.dart';
 import '../../../app/routing/app_navigation.dart';
@@ -137,8 +141,12 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   bool get _disableMangaCrossFade => _config.disableCrossFade;
   int get _mangaBgColor => _config.backgroundColor;
 
-  /// 页脚用「当前可见页」近似索引（滚动估算）
+  /// 当前可见原图索引，供页脚、进度和预载共用。
   int _visiblePageIndex = 0;
+  ComicPageSlice _visibleSlice = ComicPageSlice.full;
+  List<ComicPageSlot> _pagedSlots = const [];
+  final Set<int> _wideImages = {};
+  bool _pendingPageReflow = false;
 
   /// [P4-3 E1] 单页式 PageController（模式/章节/初始页变化时重建）
   PageController? _pagedController;
@@ -296,7 +304,12 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     final modeChanged = _appliedScrollMode != _scrollMode;
     _appliedScrollMode = _scrollMode;
     setState(() {});
-    if (modeChanged) _applyScrollMode();
+    if (modeChanged) {
+      _applyScrollMode();
+    } else if (previous.widePageMode != next.widePageMode &&
+        MangaScrollModes.isPaged(_scrollMode)) {
+      _syncPagedController(initialLogical: _visiblePageIndex);
+    }
     if (modeChanged || previous.autoReadSpeed != next.autoReadSpeed) {
       _restartAutoReadTimer();
     }
@@ -495,38 +508,79 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     }
   }
 
-  /// [P4-3 E1] 模式/章节/初始页变化时重建 PageController；规格一致时保留当前页
+  /// 重排按原图/半页身份定位；尺寸迟到只在翻页停止后更新显示页。
   void _syncPagedController({required int initialLogical}) {
     if (_imageUrls.isEmpty) return;
-    final n = _imageUrls.length;
     final axis = MangaScrollModes.axisOf(_scrollMode);
     final reversed = MangaScrollModes.isReversed(_scrollMode);
+    final slots = buildComicPageSlots(
+      imageCount: _imageUrls.length,
+      wideImages: _wideImages,
+      splitWidePages:
+          axis == Axis.horizontal &&
+          _config.widePageMode == MangaWidePageMode.split,
+      rightToLeft: reversed,
+    );
     final old = _pagedController;
-    // 控制器与当前规格一致 → 保留用户当前页（不重置 initialPage）
-    if (old != null &&
-        _pagedAxis == axis &&
-        _pagedReversed == reversed &&
-        _pagedGen == _loadSeq) {
+    final sameSession = old != null && _pagedGen == _loadSeq;
+    final sameSpec =
+        sameSession && _pagedAxis == axis && _pagedReversed == reversed;
+    if (sameSpec && listEquals(_pagedSlots, slots)) {
+      _pendingPageReflow = false;
       return;
     }
-    final display = MangaPagedView.displayIndexOf(
-      logicalPage: initialLogical,
-      pageCount: n,
-      reversed: reversed,
-    );
-    final next = PageController(initialPage: display, viewportFraction: 1.0)
+    if (sameSpec && old.hasClients && old.position.isScrollingNotifier.value) {
+      _pendingPageReflow = true;
+      return;
+    }
+    final navigation =
+        sameSession &&
+        old.hasClients &&
+        (old.page ?? old.initialPage.toDouble()).round() ==
+            (_pagedReversed ? 0 : _pagedSlots.length);
+    final slice = sameSession ? _visibleSlice : ComicPageSlice.full;
+    final target = navigation
+        ? slots.length - 1
+        : comicPageSlotTarget(slots, initialLogical, slice);
+    final display = navigation
+        ? (reversed ? 0 : slots.length)
+        : MangaPagedView.displayIndexOf(
+            logicalPage: target,
+            pageCount: slots.length,
+            reversed: reversed,
+          );
+    _pagedSlots = slots;
+    _pageZoomed = false;
+    _visibleSlice = slots[target].slice;
+    _pendingPageReflow = false;
+    _pagedController = PageController(initialPage: display)
       ..addListener(_onPagedScroll);
-    _pagedController = next;
     _pagedAxis = axis;
     _pagedReversed = reversed;
     _pagedGen = _loadSeq;
     if (mounted) setState(() {});
     if (old != null) {
-      // 旧控制器仍附着于 PageView：须待 didUpdateWidget 解绑后再释放
-      //（附着期同步 dispose 在 debug 断言）
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        old.dispose();
-      });
+      WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
+    }
+  }
+
+  void _onWidePage(int imageIndex, bool wide, int generation) {
+    if (!mounted ||
+        generation != _loadSeq ||
+        _wideImages.contains(imageIndex) == wide) {
+      return;
+    }
+    setState(() {
+      if (wide) {
+        _wideImages.add(imageIndex);
+      } else {
+        _wideImages.remove(imageIndex);
+      }
+    });
+    if (MangaScrollModes.isPaged(_scrollMode) &&
+        MangaScrollModes.axisOf(_scrollMode) == Axis.horizontal &&
+        _config.widePageMode == MangaWidePageMode.split) {
+      _syncPagedController(initialLogical: _visiblePageIndex);
     }
   }
 
@@ -543,23 +597,24 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
 
   /// [P4-3 E1] 单页式页切换：更新可见页（精确页索引）+ 持久化进度 + 预载
   void _onPagedPageChanged(int displayIndex) {
-    final n = _imageUrls.length;
-    if (n == 0) return;
-    final page = MangaPagedView.logicalPageOf(
-      displayIndex: displayIndex,
-      pageCount: n,
-      reversed: MangaScrollModes.isReversed(_scrollMode),
-    );
-    if (page != _visiblePageIndex) {
-      setState(() => _visiblePageIndex = page);
-      // [P4-3 E1] 页级进度：单页式记录精确页索引（非比例估算），
-      // 与 webtoon 的「可见页变化即持久化」事件驱动频率一致
-      unawaited(_saveProgress());
-    }
+    if (_pagedSlots.isEmpty) return;
+    final slot =
+        _pagedSlots[MangaPagedView.logicalPageOf(
+          displayIndex: displayIndex,
+          pageCount: _pagedSlots.length,
+          reversed: MangaScrollModes.isReversed(_scrollMode),
+        )];
+    final movedImage = slot.imageIndex != _visiblePageIndex;
+    setState(() {
+      _visiblePageIndex = slot.imageIndex;
+      _visibleSlice = slot.slice;
+    });
+    // 同一原图的左右半页不制造另一份书籍进度。
+    if (movedImage) unawaited(_saveProgress());
     _preloadVisibleImages();
   }
 
-  /// [P4-3 E1] 单页式滚动：触发前后预载（±2 页）
+  /// 单页式滚动：按当前原图位置更新预载优先级。
   void _onPagedScroll() => _preloadVisibleImages();
 
   Future<void> _applyBrightness(int l) async {
@@ -594,6 +649,9 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
           : _settings.setAutoOfflineCache,
       // [P4-3 E2] 分页适配类型（单页式映射 BoxFit；条漫恒 fitWidth）
       pageScaleType: _pageScaleType,
+      widePageMode: _config.widePageMode,
+      onWidePageModeChanged: (value) =>
+          unawaited(_settings.setWidePageMode(value)),
       onColorFilterChanged: (c) => unawaited(_settings.setColorFilter(c)),
       onFooterChanged: (c) => unawaited(_settings.setFooter(c)),
       onEnableEInkChanged: (v) => unawaited(_settings.setEInk(v)),
@@ -701,7 +759,6 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     final n = _imageUrls.length;
     if (n == 0) return;
     final target = page.clamp(0, n - 1);
-    if (target == _visiblePageIndex) return;
     if (MangaScrollModes.isPaged(_scrollMode)) {
       // 单页式：PageController 动画翻到目标显示索引（逻辑页 → 显示索引
       // 经 MangaPagedView.displayIndexOf 换算，R2L 时控制器方向取反，
@@ -709,8 +766,12 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       final controller = _pagedController;
       if (controller == null || !controller.hasClients) return;
       final display = MangaPagedView.displayIndexOf(
-        logicalPage: target,
-        pageCount: n,
+        logicalPage: comicPageSlotTarget(
+          _pagedSlots,
+          target,
+          ComicPageSlice.full,
+        ),
+        pageCount: _pagedSlots.length,
         reversed: MangaScrollModes.isReversed(_scrollMode),
       );
       final current = (controller.page ?? 0).round();
@@ -727,7 +788,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       }
       return;
     }
-    _webtoonAnchors.jumpToPage(target);
+    if (target != _visiblePageIndex) _webtoonAnchors.jumpToPage(target);
   }
 
   /// 图片渲染滤镜：灰度用 ColorFilter；电子纸走真像素二值化（见图片组件）
@@ -749,12 +810,15 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     if (next.navigationId != previous.navigationId) {
       _pageZoomed = false;
       _visiblePageIndex = next.initialPage;
+      _visibleSlice = ComicPageSlice.full;
     }
     if (next.book != previous.book) _onSettingsChanged();
     setState(() {
       if (next.loading) {
         _failedIndices.clear();
         _readyImageIndices.clear();
+        _wideImages.clear();
+        _pendingPageReflow = false;
       }
     });
     if (previous.loading &&
@@ -914,17 +978,14 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   void _stepPage(int direction) {
     if (MangaScrollModes.isPaged(_scrollMode)) {
       final controller = _pagedController;
-      final n = _imageUrls.length;
-      // [P4-3 W2-fix P2-6] 控制器尚未挂接（切章重建瞬间）空转
+      final n = _pagedSlots.length;
       if (controller == null || !controller.hasClients || n == 0) return;
       final reversed = MangaScrollModes.isReversed(_scrollMode);
-      // [P4-3 W2-fix P0-1] 边界按逻辑页判定（_visiblePageIndex 是逻辑页：
-      // 0 = 阅读首页 .. n-1 = 末页），对齐参考版 requestPageStep
-      // 「nextPageItemIndex 返回 null → openRelativeChapter」：
-      // R2L（reversed 布局：导航页占显示索引 0、真实页占 1..n）下原
-      // display 换算判定全错——第 2 页点上一页被误判边界直接切上一章、
-      // 第 1 页点上一页越界永不切章、末页点下一页落到导航页。
-      final logical = _visiblePageIndex;
+      final logical = comicPageSlotTarget(
+        _pagedSlots,
+        _visiblePageIndex,
+        _visibleSlice,
+      );
       final atBoundary = direction > 0 ? logical == n - 1 : logical == 0;
       if (atBoundary) {
         unawaited(direction > 0 ? _nextChapter() : _prevChapter());
@@ -1196,28 +1257,38 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       });
       return _buildImageList();
     }
-    return MangaPagedView(
-      // [P4-3 W2-fix P0-2] 代数 key：切章 _loadSeq 递增（见 _goToChapter）
-      // 时强制重建 PageView 子树（新 State / 新滚动位置），使新控制器的
-      // initialPage（章首 0 页）真正生效。无 key 时，加载间隙若未跨帧
-      // （图片已缓存 / 测试桩立即返回），PageView 不卸树，旧滚动位置
-      // 被保留、新控制器 initialPage 失效 → 新章按旧像素偏移停靠
-      // （durChapterPos=2 恢复进入后切章仍停在第 3 页，页脚却显示 1/3）。
-      // 参考版：切章原子置 currentItemIndex = 0 且 navigationId 换代
-      // （MangaReaderViewModel.kt L1112/L1118），上下章恒 pageIndex = 0
-      // （L1124）；分页器按代归位（MangaReaderScreen.kt L859-862
-      // rememberPagerState(initialPage)，L875-886 按 currentItemIndex /
-      // navigationId 的 LaunchedEffect → scrollToPage(target)）。
-      key: ValueKey('mangaPaged-$_loadSeq'),
-      controller: _pagedController!,
-      disableScale: _disableMangaScale,
-      onZoomChanged: (value) => _pageZoomed = value,
-      pageCount: _imageUrls.length,
-      axis: MangaScrollModes.axisOf(_scrollMode),
-      reversed: MangaScrollModes.isReversed(_scrollMode),
-      onDisplayIndexChanged: _onPagedPageChanged,
-      pageBuilder: (context, logicalPage) => _buildImageItem(logicalPage),
-      navBuilder: (context) => _buildChapterNavigation(),
+    return NotificationListener<ScrollEndNotification>(
+      onNotification: (_) {
+        if (_pendingPageReflow) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && _pendingPageReflow) {
+              _syncPagedController(initialLogical: _visiblePageIndex);
+            }
+          });
+        }
+        return false;
+      },
+      child: MangaPagedView(
+        key: ValueKey(('mangaPaged', _loadSeq, _pagedController)),
+        controller: _pagedController!,
+        disableScale: _disableMangaScale,
+        onZoomChanged: (value) => _pageZoomed = value,
+        pageCount: _pagedSlots.length,
+        axis: MangaScrollModes.axisOf(_scrollMode),
+        reversed: MangaScrollModes.isReversed(_scrollMode),
+        onDisplayIndexChanged: _onPagedPageChanged,
+        pageBuilder: (context, logicalPage) {
+          final slot = _pagedSlots[logicalPage];
+          return ComicWidePage(
+            slice: slot.slice,
+            rotate:
+                _wideImages.contains(slot.imageIndex) &&
+                _config.widePageMode == MangaWidePageMode.rotateToFit,
+            child: _buildImageItem(slot.imageIndex),
+          );
+        },
+        navBuilder: (context) => _buildChapterNavigation(),
+      ),
     );
   }
 
@@ -1238,41 +1309,50 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     sidePadding: MangaScrollModes.isWebtoon(_scrollMode) ? _sidePadding : 0,
   );
 
-  Widget _buildImageItem(int index) => ComicImageItem(
-    url: _imageUrls[index],
-    book: _book,
-    source: _bookSource,
-    bookUrl: _activeBookUrl,
-    images: ref.read(bookImageRepositoryProvider),
-    localBooks: ref.read(localBookServiceProvider),
-    network: ref.read(networkServiceProvider),
-    failed: _failedIndices.contains(index),
-    headers: _imageHeaders,
-    fit: _imageFit,
-    smartFit:
-        MangaScrollModes.isPaged(_scrollMode) &&
-        _pageScaleType == MangaPageScaleType.smartFit,
-    colorFilter: _imageColorFilter,
-    enableEInk: _enableEInk,
-    eInkThreshold: _eInkThreshold,
-    disableCrossFade: _disableMangaCrossFade,
-    onReady: () {
-      if (mounted && _readyImageIndices.add(index)) setState(() {});
-    },
-    onError: () => WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && !_failedIndices.contains(index)) {
-        setState(() => _failedIndices.add(index));
-      }
-    }),
-    onRetry: () => _retryImage(index),
-    onLongPress: () {
-      if (_mangaLongClickSaveImage) {
-        unawaited(_savePageImage(index));
-      } else {
-        _showPageActions(index);
-      }
-    },
-  );
+  Widget _buildImageItem(int index) {
+    final generation = _loadSeq;
+    return ComicImageItem(
+      url: _imageUrls[index],
+      book: _book,
+      source: _bookSource,
+      bookUrl: _activeBookUrl,
+      images: ref.read(bookImageRepositoryProvider),
+      localBooks: ref.read(localBookServiceProvider),
+      network: ref.read(networkServiceProvider),
+      failed: _failedIndices.contains(index),
+      headers: _imageHeaders,
+      fit:
+          MangaScrollModes.isPaged(_scrollMode) &&
+              _wideImages.contains(index) &&
+              _config.widePageMode == MangaWidePageMode.fitWidth
+          ? BoxFit.fitWidth
+          : _imageFit,
+      smartFit:
+          MangaScrollModes.isPaged(_scrollMode) &&
+          _pageScaleType == MangaPageScaleType.smartFit,
+      colorFilter: _imageColorFilter,
+      enableEInk: _enableEInk,
+      eInkThreshold: _eInkThreshold,
+      disableCrossFade: _disableMangaCrossFade,
+      onWidePage: (wide) => _onWidePage(index, wide, generation),
+      onReady: () {
+        if (mounted && _readyImageIndices.add(index)) setState(() {});
+      },
+      onError: () => WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_failedIndices.contains(index)) {
+          setState(() => _failedIndices.add(index));
+        }
+      }),
+      onRetry: () => _retryImage(index),
+      onLongPress: () {
+        if (_mangaLongClickSaveImage) {
+          unawaited(_savePageImage(index));
+        } else {
+          _showPageActions(index);
+        }
+      },
+    );
+  }
 
   /// 章节导航区域（显示在图片列表底部）
   Widget _buildChapterNavigation() {

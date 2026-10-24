@@ -40,6 +40,7 @@ final class MangaSettings {
     this.preloadImages = true,
     this.autoOfflineCache = false,
     this.pageScaleType = 0,
+    this.widePageMode = 0,
     this.sidePadding = 0,
     this.disableClickScroll = false,
     this.disableMangaScale = true,
@@ -62,6 +63,7 @@ final class MangaSettings {
   final bool preloadImages;
   final bool autoOfflineCache;
   final int pageScaleType;
+  final int widePageMode;
   final int sidePadding;
   final bool disableClickScroll;
   final bool disableMangaScale;
@@ -84,6 +86,7 @@ final class MangaSettings {
     bool? preloadImages,
     bool? autoOfflineCache,
     int? pageScaleType,
+    int? widePageMode,
     int? sidePadding,
     bool? disableClickScroll,
     bool? disableMangaScale,
@@ -106,6 +109,7 @@ final class MangaSettings {
     preloadImages: preloadImages ?? this.preloadImages,
     autoOfflineCache: autoOfflineCache ?? this.autoOfflineCache,
     pageScaleType: pageScaleType ?? this.pageScaleType,
+    widePageMode: widePageMode ?? this.widePageMode,
     sidePadding: sidePadding ?? this.sidePadding,
     disableClickScroll: disableClickScroll ?? this.disableClickScroll,
     disableMangaScale: disableMangaScale ?? this.disableMangaScale,

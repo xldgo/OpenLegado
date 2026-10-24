@@ -70,6 +70,8 @@ class MangaConfigSheet extends StatefulWidget {
 
   /// [P4-3 E2] 分页适配类型 0..5（当前值；null = 默认 0）
   final int? pageScaleType;
+  final int widePageMode;
+  final ValueChanged<int>? onWidePageModeChanged;
 
   /// [P4-3 E2] 分页适配类型变更（非 null 且当前为单页模式时渲染下拉）
   final ValueChanged<int>? onPageScaleTypeChanged;
@@ -185,6 +187,8 @@ class MangaConfigSheet extends StatefulWidget {
     this.onAutoReadChanged,
     this.onAutoReadSpeedChanged,
     this.pageScaleType,
+    this.widePageMode = MangaWidePageMode.normal,
+    this.onWidePageModeChanged,
     this.onPageScaleTypeChanged,
     this.sidePadding,
     this.onSidePaddingChanged,
@@ -247,6 +251,8 @@ class MangaConfigSheet extends StatefulWidget {
     ValueChanged<int>? onAutoReadSpeedChanged,
     // [P4-3 E2] 分页适配类型（可选；不传则不渲染下拉，既有调用方不受影响）
     int? pageScaleType,
+    int widePageMode = MangaWidePageMode.normal,
+    ValueChanged<int>? onWidePageModeChanged,
     ValueChanged<int>? onPageScaleTypeChanged,
     // [P4-3 M3 修4] 条漫侧边留白（可选；不传则不渲染滑杆，既有调用方不受影响）
     int? sidePadding,
@@ -309,6 +315,8 @@ class MangaConfigSheet extends StatefulWidget {
         onAutoReadChanged: onAutoReadChanged,
         onAutoReadSpeedChanged: onAutoReadSpeedChanged,
         pageScaleType: pageScaleType,
+        widePageMode: widePageMode,
+        onWidePageModeChanged: onWidePageModeChanged,
         onPageScaleTypeChanged: onPageScaleTypeChanged,
         sidePadding: sidePadding,
         onSidePaddingChanged: onSidePaddingChanged,
@@ -367,6 +375,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
 
   /// [P4-3 E2] 分页适配类型 0..5
   late int _pageScaleType;
+  late int _widePageMode;
 
   /// [P4-3 M3 修4] 条漫侧边留白百分比 0..45
   late int _sidePadding;
@@ -461,6 +470,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
   @override
   void initState() {
     super.initState();
+    _widePageMode = widget.widePageMode;
     _preloadImages = widget.preloadImages;
     _autoOfflineCache = widget.autoOfflineCache;
     _filter = MangaColorFilterConfig(
@@ -578,354 +588,372 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
             ),
           ),
           Flexible(
-            child: ListView(
-              // [P4-3 M4 批3] 滚动控制（「滤镜」入口锚点跳转）
+            child: SingleChildScrollView(
+              // 固定数量的设置区块整体布局，保证屏外滤镜锚点也可定位。
               controller: _scrollController,
               padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottom),
-              children: [
-                // [P4-3 M3 修4] 阅读模式：5 按钮组（单页式 ×3 + 条漫 ×2，
-                // Wrap 换行，选中 primaryContainer 高亮，对齐用户截图；
-                // 替代 M2「翻页模式」下拉）+ 模式条件行：单页式保留页面适配
-                // 下拉、条漫新增侧边留白滑杆（0..45%，对齐参考版
-                // SettingSlider sidePaddingPercent 仅 isWebtoon 显示）
-                _section(context.l10n.mangaReadType),
-                _card([
-                  // [漫画设置作用域] 翻页模式作用域选择（跟随全局/本书；
-                  // 无当前书或上游未接书级写路径时不渲染 → 仅全局）
-                  if (_showScrollModeScope)
-                    _scopeRow(
-                      title: context.l10n.flipMode,
-                      prefix: 'mangaScrollMode',
-                      bookScope: _bookScrollMode != null,
-                      onChanged: _changeScrollModeScope,
-                    ),
-                  _modeButtonGroup(),
-                  if (widget.onPreloadImagesChanged != null)
-                    SwitchListTile(
-                      title: const Text('预加载当前章图片'),
-                      value: _preloadImages,
-                      onChanged: (value) => _savePreloadChange(
-                        widget.onPreloadImagesChanged!(value),
-                        () => _preloadImages = value,
-                      ),
-                    ),
-                  if (widget.onAutoOfflineCacheChanged != null)
-                    SwitchListTile(
-                      title: const Text('自动离线缓存'),
-                      value: _autoOfflineCache,
-                      onChanged: (value) => _savePreloadChange(
-                        widget.onAutoOfflineCacheChanged!(value),
-                        () => _autoOfflineCache = value,
-                      ),
-                    ),
-                  if (_showPageScale) ...[
-                    _divider(),
-                    _dropdownTile(
-                      title: '页面适配',
-                      value: _pageScaleType,
-                      options: MangaPageScaleType.options,
-                      labelOf: MangaPageScaleType.labelOf,
-                      onChanged: (v) {
-                        setState(() => _pageScaleType = v);
-                        widget.onPageScaleTypeChanged!(v);
-                      },
-                    ),
-                  ],
-                  // [P4-3 M3 修4] 侧边留白（条漫专属；参考版 fraction =
-                  // 1 - p*2/100 ⇔ 每侧 padding = p% × 视口宽，漫画屏
-                  // 条漫渲染路径消费此值）
-                  if (_showSidePadding) ...[
-                    _divider(),
-                    _sliderTile(
-                      title: '侧边留白',
-                      // [漫画设置作用域] 侧边留白作用域选择（跟随全局/本书）
-                      titleTrailing: _showSidePaddingScope
-                          ? _scopePills(
-                              prefix: 'mangaSidePadding',
-                              bookScope: _bookSidePadding != null,
-                              onChanged: _changeSidePaddingScope,
-                            )
-                          : null,
-                      value: _sidePadding.toDouble(),
-                      min: 0,
-                      max: 45,
-                      label: '$_sidePadding%',
-                      onChanged: (v) {
-                        final rounded = v.round().clamp(0, 45);
-                        if (rounded == _sidePadding) return;
-                        // [漫画设置作用域] 按当前作用域写入全局键或书级字段
-                        final bookScope = _bookSidePadding != null;
-                        setState(() {
-                          _sidePadding = rounded;
-                          if (bookScope) {
-                            _bookSidePadding = rounded;
-                          } else {
-                            _globalSidePadding = rounded;
-                          }
-                        });
-                        if (bookScope) {
-                          widget.onBookSidePaddingChanged?.call(rounded);
-                        } else {
-                          widget.onSidePaddingChanged?.call(rounded);
-                        }
-                      },
-                    ),
-                  ],
-                ]),
-                // [P4-3 E3] 自动翻页（对齐参考版 AutoReadSettingsContent
-                // MangaSettingsPanel L755-767：开关 + 速度滑杆 1..15；
-                // 速度项随开关显隐，对齐原版 ReadMangaActivity L572-575）
-                if (_showAutoReadSection) ...[
-                  _section(context.l10n.readerAutoPageTurn),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // [P4-3 M3 修4] 阅读模式：5 按钮组（单页式 ×3 + 条漫 ×2，
+                  // Wrap 换行，选中 primaryContainer 高亮，对齐用户截图；
+                  // 替代 M2「翻页模式」下拉）+ 模式条件行：单页式保留页面适配
+                  // 下拉、条漫新增侧边留白滑杆（0..45%，对齐参考版
+                  // SettingSlider sidePaddingPercent 仅 isWebtoon 显示）
+                  _section(context.l10n.mangaReadType),
                   _card([
-                    _switchTile(
-                      title: context.l10n.readerAutoPageTurn,
-                      subtitle: '单页式定时翻页；条漫定时滚动',
-                      value: _autoRead,
-                      onChanged: (v) {
-                        setState(() => _autoRead = v);
-                        widget.onAutoReadChanged!(v);
-                      },
-                    ),
-                    if (_autoRead) ...[
+                    // [漫画设置作用域] 翻页模式作用域选择（跟随全局/本书；
+                    // 无当前书或上游未接书级写路径时不渲染 → 仅全局）
+                    if (_showScrollModeScope)
+                      _scopeRow(
+                        title: context.l10n.flipMode,
+                        prefix: 'mangaScrollMode',
+                        bookScope: _bookScrollMode != null,
+                        onChanged: _changeScrollModeScope,
+                      ),
+                    _modeButtonGroup(),
+                    if (widget.onPreloadImagesChanged != null)
+                      SwitchListTile(
+                        title: const Text('预加载当前章图片'),
+                        value: _preloadImages,
+                        onChanged: (value) => _savePreloadChange(
+                          widget.onPreloadImagesChanged!(value),
+                          () => _preloadImages = value,
+                        ),
+                      ),
+                    if (widget.onAutoOfflineCacheChanged != null)
+                      SwitchListTile(
+                        title: const Text('自动离线缓存'),
+                        value: _autoOfflineCache,
+                        onChanged: (value) => _savePreloadChange(
+                          widget.onAutoOfflineCacheChanged!(value),
+                          () => _autoOfflineCache = value,
+                        ),
+                      ),
+                    if (_showPageScale) ...[
+                      _divider(),
+                      _dropdownTile(
+                        title: '页面适配',
+                        value: _pageScaleType,
+                        options: MangaPageScaleType.options,
+                        labelOf: MangaPageScaleType.labelOf,
+                        onChanged: (v) {
+                          setState(() => _pageScaleType = v);
+                          widget.onPageScaleTypeChanged!(v);
+                        },
+                      ),
+                    ],
+                    if (MangaScrollModes.isPaged(_scrollMode) &&
+                        widget.onWidePageModeChanged != null)
+                      _dropdownTile(
+                        title: '宽页处理',
+                        value: _widePageMode,
+                        options: MangaWidePageMode.options,
+                        labelOf: MangaWidePageMode.labelOf,
+                        onChanged: (value) {
+                          setState(() => _widePageMode = value);
+                          widget.onWidePageModeChanged!(value);
+                        },
+                      ),
+                    // [P4-3 M3 修4] 侧边留白（条漫专属；参考版 fraction =
+                    // 1 - p*2/100 ⇔ 每侧 padding = p% × 视口宽，漫画屏
+                    // 条漫渲染路径消费此值）
+                    if (_showSidePadding) ...[
                       _divider(),
                       _sliderTile(
-                        title: '自动速度',
-                        value: _autoReadSpeed.toDouble(),
-                        min: MangaAutoRead.minSpeed.toDouble(),
-                        max: MangaAutoRead.maxSpeed.toDouble(),
-                        label: '$_autoReadSpeed 档',
+                        title: '侧边留白',
+                        // [漫画设置作用域] 侧边留白作用域选择（跟随全局/本书）
+                        titleTrailing: _showSidePaddingScope
+                            ? _scopePills(
+                                prefix: 'mangaSidePadding',
+                                bookScope: _bookSidePadding != null,
+                                onChanged: _changeSidePaddingScope,
+                              )
+                            : null,
+                        value: _sidePadding.toDouble(),
+                        min: 0,
+                        max: 45,
+                        label: '$_sidePadding%',
                         onChanged: (v) {
-                          final rounded = v.round().clamp(
-                            MangaAutoRead.minSpeed,
-                            MangaAutoRead.maxSpeed,
-                          );
-                          if (rounded == _autoReadSpeed) return;
-                          setState(() => _autoReadSpeed = rounded);
-                          widget.onAutoReadSpeedChanged?.call(_autoReadSpeed);
+                          final rounded = v.round().clamp(0, 45);
+                          if (rounded == _sidePadding) return;
+                          // [漫画设置作用域] 按当前作用域写入全局键或书级字段
+                          final bookScope = _bookSidePadding != null;
+                          setState(() {
+                            _sidePadding = rounded;
+                            if (bookScope) {
+                              _bookSidePadding = rounded;
+                            } else {
+                              _globalSidePadding = rounded;
+                            }
+                          });
+                          if (bookScope) {
+                            widget.onBookSidePaddingChanged?.call(rounded);
+                          } else {
+                            widget.onSidePaddingChanged?.call(rounded);
+                          }
                         },
                       ),
                     ],
                   ]),
-                ],
-                _section('显示效果'),
-                _card([
-                  _switchTile(
-                    title: context.l10n.mangaEnableMangaGray,
-                    value: _gray,
-                    onChanged: (v) {
-                      setState(() {
-                        _gray = v;
-                        if (v) _eInk = false;
-                      });
-                      widget.onEnableGrayChanged(_gray);
-                      if (v) widget.onEnableEInkChanged(false);
-                    },
-                  ),
-                  _divider(),
-                  _switchTile(
-                    title: '电子纸',
-                    subtitle: '灰度近似；阈值已持久化',
-                    value: _eInk,
-                    onChanged: (v) {
-                      setState(() {
-                        _eInk = v;
-                        if (v) _gray = false;
-                      });
-                      widget.onEnableEInkChanged(_eInk);
-                      if (v) widget.onEnableGrayChanged(false);
-                    },
-                  ),
-                  if (_eInk) ...[
+                  // [P4-3 E3] 自动翻页（对齐参考版 AutoReadSettingsContent
+                  // MangaSettingsPanel L755-767：开关 + 速度滑杆 1..15；
+                  // 速度项随开关显隐，对齐原版 ReadMangaActivity L572-575）
+                  if (_showAutoReadSection) ...[
+                    _section(context.l10n.readerAutoPageTurn),
+                    _card([
+                      _switchTile(
+                        title: context.l10n.readerAutoPageTurn,
+                        subtitle: '单页式定时翻页；条漫定时滚动',
+                        value: _autoRead,
+                        onChanged: (v) {
+                          setState(() => _autoRead = v);
+                          widget.onAutoReadChanged!(v);
+                        },
+                      ),
+                      if (_autoRead) ...[
+                        _divider(),
+                        _sliderTile(
+                          title: '自动速度',
+                          value: _autoReadSpeed.toDouble(),
+                          min: MangaAutoRead.minSpeed.toDouble(),
+                          max: MangaAutoRead.maxSpeed.toDouble(),
+                          label: '$_autoReadSpeed 档',
+                          onChanged: (v) {
+                            final rounded = v.round().clamp(
+                              MangaAutoRead.minSpeed,
+                              MangaAutoRead.maxSpeed,
+                            );
+                            if (rounded == _autoReadSpeed) return;
+                            setState(() => _autoReadSpeed = rounded);
+                            widget.onAutoReadSpeedChanged?.call(_autoReadSpeed);
+                          },
+                        ),
+                      ],
+                    ]),
+                  ],
+                  _section('显示效果'),
+                  _card([
+                    _switchTile(
+                      title: context.l10n.mangaEnableMangaGray,
+                      value: _gray,
+                      onChanged: (v) {
+                        setState(() {
+                          _gray = v;
+                          if (v) _eInk = false;
+                        });
+                        widget.onEnableGrayChanged(_gray);
+                        if (v) widget.onEnableEInkChanged(false);
+                      },
+                    ),
                     _divider(),
+                    _switchTile(
+                      title: '电子纸',
+                      subtitle: '灰度近似；阈值已持久化',
+                      value: _eInk,
+                      onChanged: (v) {
+                        setState(() {
+                          _eInk = v;
+                          if (v) _gray = false;
+                        });
+                        widget.onEnableEInkChanged(_eInk);
+                        if (v) widget.onEnableGrayChanged(false);
+                      },
+                    ),
+                    if (_eInk) ...[
+                      _divider(),
+                      _sliderTile(
+                        title: '电子纸阈值',
+                        value: _threshold.toDouble(),
+                        min: 0,
+                        max: 255,
+                        label: '$_threshold',
+                        onChanged: (v) {
+                          setState(() => _threshold = v.round());
+                          widget.onEInkThresholdChanged(_threshold);
+                        },
+                      ),
+                    ],
+                  ]),
+                  // [P4-3 M4 批3] 「滤镜」入口跳转锚点（ensureVisible 目标）
+                  Container(
+                    key: _colorFilterSectionKey,
+                    child: _section('色彩滤镜'),
+                  ),
+                  _card([
                     _sliderTile(
-                      title: '电子纸阈值',
-                      value: _threshold.toDouble(),
+                      title: context.l10n.mangaBrightness,
+                      value: _filter.l.toDouble(),
                       min: 0,
                       max: 255,
-                      label: '$_threshold',
+                      label: '${_filter.l}',
                       onChanged: (v) {
-                        setState(() => _threshold = v.round());
-                        widget.onEInkThresholdChanged(_threshold);
-                      },
-                    ),
-                  ],
-                ]),
-                // [P4-3 M4 批3] 「滤镜」入口跳转锚点（ensureVisible 目标）
-                Container(key: _colorFilterSectionKey, child: _section('色彩滤镜')),
-                _card([
-                  _sliderTile(
-                    title: context.l10n.mangaBrightness,
-                    value: _filter.l.toDouble(),
-                    min: 0,
-                    max: 255,
-                    label: '${_filter.l}',
-                    onChanged: (v) {
-                      setState(() => _filter.l = v.round());
-                      widget.onColorFilterChanged(_filter);
-                    },
-                  ),
-                  _divider(),
-                  _sliderTile(
-                    title: 'R',
-                    value: _filter.r.toDouble(),
-                    min: 0,
-                    max: 255,
-                    label: '${_filter.r}',
-                    onChanged: (v) {
-                      setState(() => _filter.r = v.round());
-                      widget.onColorFilterChanged(_filter);
-                    },
-                  ),
-                  _divider(),
-                  _sliderTile(
-                    title: 'G',
-                    value: _filter.g.toDouble(),
-                    min: 0,
-                    max: 255,
-                    label: '${_filter.g}',
-                    onChanged: (v) {
-                      setState(() => _filter.g = v.round());
-                      widget.onColorFilterChanged(_filter);
-                    },
-                  ),
-                  _divider(),
-                  _sliderTile(
-                    title: 'B',
-                    value: _filter.b.toDouble(),
-                    min: 0,
-                    max: 255,
-                    label: '${_filter.b}',
-                    onChanged: (v) {
-                      setState(() => _filter.b = v.round());
-                      widget.onColorFilterChanged(_filter);
-                    },
-                  ),
-                  _divider(),
-                  _sliderTile(
-                    title: 'A',
-                    value: _filter.a.toDouble(),
-                    min: 0,
-                    max: 255,
-                    label: '${_filter.a}',
-                    onChanged: (v) {
-                      setState(() => _filter.a = v.round());
-                      widget.onColorFilterChanged(_filter);
-                    },
-                  ),
-                ]),
-                // [P4-3 M3 修4] 页脚设置区（对齐用户截图快捷行：三按钮
-                // 左对齐/居中/隐藏页脚 + 页脚预览条，替代 M2 8 开关 +
-                // 对齐 segmented control；复用既有键 footerOrientation /
-                // hideFooter，字段零新增；「长按设为全局默认」语义登记
-                // 不做——需书级/全局设置分层，残余差异汇报注明）
-                _section('页脚设置'),
-                _card([
-                  _footerQuickRow(),
-                  _divider(),
-                  _footerPreview(),
-                  // [P4-3 M4 批1] 页脚内容胶囊组：一排组成段胶囊
-                  //（第三话/页数/4/30/章节/1/45/总进度/0.3%），点击
-                  // toggle 对应 hide* 字段并经 onFooterChanged 持久化，
-                  // 预览条随胶囊即时刷新（buildLabel 已按开关逐段渲染）；
-                  // hideFooter 时整条页脚隐藏，组成段胶囊随之不渲染
-                  if (!_footer.hideFooter) ...[
-                    _divider(),
-                    _footerCapsuleGroup(),
-                  ],
-                ]),
-                // [P4-3 M4 批2] 「其他」区块：行为开关组（8 复选框行，
-                // 对齐参考版 MangaSettingsPanel L334-561 开关顺序：
-                // 缩放/动画/点击/标题/音量键 ×2/长按存图/淡入）+
-                // 背景色板行（黑/白/灰/绿/蓝 + 当前色圆点；键名对齐
-                // 原版 PreferKey，键持久化经各 on*Changed 回调落库）
-                if (_showBehaviorSection) ...[
-                  _section(context.l10n.otherSettings),
-                  _card([
-                    _checkboxTile(
-                      title: context.l10n.mangaDisableMangaClickScroll,
-                      value: _disableClickScroll,
-                      onChanged: (v) {
-                        setState(() => _disableClickScroll = v);
-                        widget.onDisableClickScrollChanged?.call(v);
+                        setState(() => _filter.l = v.round());
+                        widget.onColorFilterChanged(_filter);
                       },
                     ),
                     _divider(),
-                    _checkboxTile(
-                      title: context.l10n.mangaDisableMangaScale,
-                      value: _disableMangaScale,
+                    _sliderTile(
+                      title: 'R',
+                      value: _filter.r.toDouble(),
+                      min: 0,
+                      max: 255,
+                      label: '${_filter.r}',
                       onChanged: (v) {
-                        setState(() => _disableMangaScale = v);
-                        widget.onDisableMangaScaleChanged?.call(v);
+                        setState(() => _filter.r = v.round());
+                        widget.onColorFilterChanged(_filter);
                       },
                     ),
                     _divider(),
-                    _checkboxTile(
-                      title: context.l10n.mangaDisableMangaScrollAnimation,
-                      value: _disableMangaPageAnim,
+                    _sliderTile(
+                      title: 'G',
+                      value: _filter.g.toDouble(),
+                      min: 0,
+                      max: 255,
+                      label: '${_filter.g}',
                       onChanged: (v) {
-                        setState(() => _disableMangaPageAnim = v);
-                        widget.onDisableMangaPageAnimChanged?.call(v);
+                        setState(() => _filter.g = v.round());
+                        widget.onColorFilterChanged(_filter);
                       },
                     ),
                     _divider(),
-                    _checkboxTile(
-                      title: context.l10n.mangaHideMangaTitle,
-                      value: _hideMangaTitle,
+                    _sliderTile(
+                      title: 'B',
+                      value: _filter.b.toDouble(),
+                      min: 0,
+                      max: 255,
+                      label: '${_filter.b}',
                       onChanged: (v) {
-                        setState(() => _hideMangaTitle = v);
-                        widget.onHideMangaTitleChanged?.call(v);
+                        setState(() => _filter.b = v.round());
+                        widget.onColorFilterChanged(_filter);
                       },
                     ),
                     _divider(),
-                    _checkboxTile(
-                      title: context.l10n.readerVolumeKeyPage,
-                      value: _volumeKeyPage,
+                    _sliderTile(
+                      title: 'A',
+                      value: _filter.a.toDouble(),
+                      min: 0,
+                      max: 255,
+                      label: '${_filter.a}',
                       onChanged: (v) {
-                        setState(() => _volumeKeyPage = v);
-                        widget.onVolumeKeyPageChanged?.call(v);
+                        setState(() => _filter.a = v.round());
+                        widget.onColorFilterChanged(_filter);
                       },
                     ),
-                    _divider(),
-                    _checkboxTile(
-                      title: context.l10n.mangaReverseVolumeKeyPage,
-                      value: _reverseVolumeKeyPage,
-                      onChanged: (v) {
-                        setState(() => _reverseVolumeKeyPage = v);
-                        widget.onReverseVolumeKeyPageChanged?.call(v);
-                      },
-                    ),
-                    _divider(),
-                    _checkboxTile(
-                      title: context.l10n.mangaLongClick,
-                      value: _mangaLongClickSaveImage,
-                      onChanged: (v) {
-                        setState(() => _mangaLongClickSaveImage = v);
-                        widget.onMangaLongClickSaveImageChanged?.call(v);
-                      },
-                    ),
-                    _divider(),
-                    _checkboxTile(
-                      title: context.l10n.mangaCrossFade,
-                      value: _disableMangaCrossFade,
-                      onChanged: (v) {
-                        setState(() => _disableMangaCrossFade = v);
-                        widget.onDisableMangaCrossFadeChanged?.call(v);
-                      },
-                    ),
-                    _divider(),
-                    _bgColorRow(),
                   ]),
+                  // [P4-3 M3 修4] 页脚设置区（对齐用户截图快捷行：三按钮
+                  // 左对齐/居中/隐藏页脚 + 页脚预览条，替代 M2 8 开关 +
+                  // 对齐 segmented control；复用既有键 footerOrientation /
+                  // hideFooter，字段零新增；「长按设为全局默认」语义登记
+                  // 不做——需书级/全局设置分层，残余差异汇报注明）
+                  _section('页脚设置'),
+                  _card([
+                    _footerQuickRow(),
+                    _divider(),
+                    _footerPreview(),
+                    // [P4-3 M4 批1] 页脚内容胶囊组：一排组成段胶囊
+                    //（第三话/页数/4/30/章节/1/45/总进度/0.3%），点击
+                    // toggle 对应 hide* 字段并经 onFooterChanged 持久化，
+                    // 预览条随胶囊即时刷新（buildLabel 已按开关逐段渲染）；
+                    // hideFooter 时整条页脚隐藏，组成段胶囊随之不渲染
+                    if (!_footer.hideFooter) ...[
+                      _divider(),
+                      _footerCapsuleGroup(),
+                    ],
+                  ]),
+                  // [P4-3 M4 批2] 「其他」区块：行为开关组（8 复选框行，
+                  // 对齐参考版 MangaSettingsPanel L334-561 开关顺序：
+                  // 缩放/动画/点击/标题/音量键 ×2/长按存图/淡入）+
+                  // 背景色板行（黑/白/灰/绿/蓝 + 当前色圆点；键名对齐
+                  // 原版 PreferKey，键持久化经各 on*Changed 回调落库）
+                  if (_showBehaviorSection) ...[
+                    _section(context.l10n.otherSettings),
+                    _card([
+                      _checkboxTile(
+                        title: context.l10n.mangaDisableMangaClickScroll,
+                        value: _disableClickScroll,
+                        onChanged: (v) {
+                          setState(() => _disableClickScroll = v);
+                          widget.onDisableClickScrollChanged?.call(v);
+                        },
+                      ),
+                      _divider(),
+                      _checkboxTile(
+                        title: context.l10n.mangaDisableMangaScale,
+                        value: _disableMangaScale,
+                        onChanged: (v) {
+                          setState(() => _disableMangaScale = v);
+                          widget.onDisableMangaScaleChanged?.call(v);
+                        },
+                      ),
+                      _divider(),
+                      _checkboxTile(
+                        title: context.l10n.mangaDisableMangaScrollAnimation,
+                        value: _disableMangaPageAnim,
+                        onChanged: (v) {
+                          setState(() => _disableMangaPageAnim = v);
+                          widget.onDisableMangaPageAnimChanged?.call(v);
+                        },
+                      ),
+                      _divider(),
+                      _checkboxTile(
+                        title: context.l10n.mangaHideMangaTitle,
+                        value: _hideMangaTitle,
+                        onChanged: (v) {
+                          setState(() => _hideMangaTitle = v);
+                          widget.onHideMangaTitleChanged?.call(v);
+                        },
+                      ),
+                      _divider(),
+                      _checkboxTile(
+                        title: context.l10n.readerVolumeKeyPage,
+                        value: _volumeKeyPage,
+                        onChanged: (v) {
+                          setState(() => _volumeKeyPage = v);
+                          widget.onVolumeKeyPageChanged?.call(v);
+                        },
+                      ),
+                      _divider(),
+                      _checkboxTile(
+                        title: context.l10n.mangaReverseVolumeKeyPage,
+                        value: _reverseVolumeKeyPage,
+                        onChanged: (v) {
+                          setState(() => _reverseVolumeKeyPage = v);
+                          widget.onReverseVolumeKeyPageChanged?.call(v);
+                        },
+                      ),
+                      _divider(),
+                      _checkboxTile(
+                        title: context.l10n.mangaLongClick,
+                        value: _mangaLongClickSaveImage,
+                        onChanged: (v) {
+                          setState(() => _mangaLongClickSaveImage = v);
+                          widget.onMangaLongClickSaveImageChanged?.call(v);
+                        },
+                      ),
+                      _divider(),
+                      _checkboxTile(
+                        title: context.l10n.mangaCrossFade,
+                        value: _disableMangaCrossFade,
+                        onChanged: (v) {
+                          setState(() => _disableMangaCrossFade = v);
+                          widget.onDisableMangaCrossFadeChanged?.call(v);
+                        },
+                      ),
+                      _divider(),
+                      _bgColorRow(),
+                    ]),
+                  ],
+                  // [P4-3 M5] 「点击区域」区块：九宫格编辑器（对齐参考版
+                  // MangaSettingsPanel L772-802 ClickActionsSettingsContent：
+                  // 3x3 网格每格显示当前动作名，点击循环切换
+                  // -1→0→1→2→3→4→-1 并持久化，屏内即时生效）
+                  if (_showClickActionsSection) ...[
+                    _section(context.l10n.readerTapAreas),
+                    _card([_clickActionsGrid()]),
+                  ],
                 ],
-                // [P4-3 M5] 「点击区域」区块：九宫格编辑器（对齐参考版
-                // MangaSettingsPanel L772-802 ClickActionsSettingsContent：
-                // 3x3 网格每格显示当前动作名，点击循环切换
-                // -1→0→1→2→3→4→-1 并持久化，屏内即时生效）
-                if (_showClickActionsSection) ...[
-                  _section(context.l10n.readerTapAreas),
-                  _card([_clickActionsGrid()]),
-                ],
-              ],
+              ),
             ),
           ),
         ],

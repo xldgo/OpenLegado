@@ -34,6 +34,7 @@ class ComicImageItem extends StatelessWidget {
     required this.fit,
     this.smartFit = false,
     this.onReady,
+    this.onWidePage,
     required this.colorFilter,
     required this.enableEInk,
     required this.eInkThreshold,
@@ -54,6 +55,7 @@ class ComicImageItem extends StatelessWidget {
   final BoxFit fit;
   final bool smartFit;
   final VoidCallback? onReady;
+  final ValueChanged<bool>? onWidePage;
   final ColorFilter? colorFilter;
   final VoidCallback onError, onRetry, onLongPress;
 
@@ -101,6 +103,7 @@ class ComicImageItem extends StatelessWidget {
           fit: fit,
           smartFit: smartFit,
           onReady: onReady,
+          onWidePage: onWidePage,
           eInkThreshold: enableEInk ? eInkThreshold : null,
           onError: onError,
         ),
@@ -127,6 +130,7 @@ class ComicImageItem extends StatelessWidget {
           fit: fit,
           smartFit: smartFit,
           onReady: onReady,
+          onWidePage: onWidePage,
           eInkThreshold: enableEInk ? eInkThreshold : null,
           onError: onError,
         ),
@@ -147,6 +151,7 @@ class ComicImageItem extends StatelessWidget {
         fit: fit,
         smartFit: smartFit,
         onReady: onReady,
+        onWidePage: onWidePage,
         onError: onError,
       );
     }
@@ -167,6 +172,7 @@ class ComicImageItem extends StatelessWidget {
           fit: fit,
           smartFit: smartFit,
           onReady: onReady,
+          onWidePage: onWidePage,
           builder: (effectiveFit) =>
               Image(image: provider, fit: effectiveFit, width: double.infinity),
         ),
@@ -358,6 +364,7 @@ class _DecodedComicImage extends StatefulWidget {
   final BoxFit fit;
   final bool smartFit;
   final VoidCallback? onReady;
+  final ValueChanged<bool>? onWidePage;
 
   const _DecodedComicImage({
     required this.images,
@@ -371,6 +378,7 @@ class _DecodedComicImage extends StatefulWidget {
     this.fit = BoxFit.fitWidth,
     this.smartFit = false,
     this.onReady,
+    this.onWidePage,
   });
 
   @override
@@ -535,8 +543,11 @@ class _DecodedComicImageState extends State<_DecodedComicImage> {
     }
     final epaper = _epaperImage;
     if (widget.eInkThreshold != null && epaper != null) {
+      final wide = epaper.width > epaper.height;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) widget.onReady?.call();
+        if (!mounted) return;
+        widget.onWidePage?.call(wide);
+        widget.onReady?.call();
       });
       return RawImage(
         image: epaper,
@@ -557,6 +568,7 @@ class _DecodedComicImageState extends State<_DecodedComicImage> {
         fit: widget.fit,
         smartFit: widget.smartFit,
         onReady: widget.onReady,
+        onWidePage: widget.onWidePage,
         builder: (effectiveFit) => Image.memory(
           bytes,
           // [P4-3 E2] 分页适配类型映射的 BoxFit
@@ -641,6 +653,7 @@ class _LocalCbzImage extends StatefulWidget {
     this.fit = BoxFit.fitWidth,
     this.smartFit = false,
     this.onReady,
+    this.onWidePage,
   });
 
   final bool crossFade;
@@ -664,6 +677,7 @@ class _LocalCbzImage extends StatefulWidget {
   final BoxFit fit;
   final bool smartFit;
   final VoidCallback? onReady;
+  final ValueChanged<bool>? onWidePage;
 
   @override
   State<_LocalCbzImage> createState() => _LocalCbzImageState();
@@ -800,8 +814,11 @@ class _LocalCbzImageState extends State<_LocalCbzImage> {
     }
     final epaper = _epaperImage;
     if (widget.eInkThreshold != null && epaper != null) {
+      final wide = epaper.width > epaper.height;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) widget.onReady?.call();
+        if (!mounted) return;
+        widget.onWidePage?.call(wide);
+        widget.onReady?.call();
       });
       return RawImage(
         image: epaper,
@@ -821,6 +838,7 @@ class _LocalCbzImageState extends State<_LocalCbzImage> {
         fit: widget.fit,
         smartFit: widget.smartFit,
         onReady: widget.onReady,
+        onWidePage: widget.onWidePage,
         builder: (effectiveFit) => Image.memory(
           bytes,
           fit: effectiveFit,
@@ -885,6 +903,7 @@ class _EpaperNetworkImage extends StatefulWidget {
     this.fit = BoxFit.fitWidth,
     this.smartFit = false,
     this.onReady,
+    this.onWidePage,
   });
 
   final NetworkService network;
@@ -897,6 +916,7 @@ class _EpaperNetworkImage extends StatefulWidget {
   final BoxFit fit;
   final bool smartFit;
   final VoidCallback? onReady;
+  final ValueChanged<bool>? onWidePage;
 
   @override
   State<_EpaperNetworkImage> createState() => _EpaperNetworkImageState();
@@ -983,8 +1003,11 @@ class _EpaperNetworkImageState extends State<_EpaperNetworkImage> {
     }
     final img = _image;
     if (img != null) {
+      final wide = img.width > img.height;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) widget.onReady?.call();
+        if (!mounted) return;
+        widget.onWidePage?.call(wide);
+        widget.onReady?.call();
       });
       return RawImage(
         image: img,

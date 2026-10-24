@@ -24,6 +24,7 @@ class AppMangaSettingsRepository
         'mangaPreDownloadNum',
         'mangaAutoOfflineCache',
         'mangaPageScaleType',
+        'mangaWidePageMode',
         'mangaSidePadding',
         'disableClickScroll',
         'disableMangaScale',
@@ -49,6 +50,7 @@ class AppMangaSettingsRepository
     preloadImages:
         (int.tryParse(values['mangaPreDownloadNum'] ?? '') ?? 10) > 0,
     pageScaleType: MangaPageScaleType.parse(values['mangaPageScaleType']),
+    widePageMode: MangaWidePageMode.parse(values['mangaWidePageMode']),
     sidePadding: (int.tryParse(values['mangaSidePadding'] ?? '') ?? 0).clamp(
       0,
       45,
@@ -82,6 +84,7 @@ class AppMangaSettingsRepository
     'mangaPreDownloadNum': value.preloadImages ? '10' : '0',
     'mangaAutoOfflineCache': value.autoOfflineCache.toString(),
     'mangaPageScaleType': value.pageScaleType.toString(),
+    'mangaWidePageMode': value.widePageMode.toString(),
     'mangaSidePadding': value.sidePadding.toString(),
     'disableClickScroll': value.disableClickScroll ? 'true' : 'false',
     'disableMangaScale': value.disableMangaScale ? 'true' : 'false',

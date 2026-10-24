@@ -236,9 +236,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      // 页脚设置区在列表底部（测试视口 800×600，sheet 内容超可视区，
-      // ListView 懒构建未到达）→ 先滚到底再断言
-      await tester.fling(find.byType(ListView), const Offset(0, -800), 2000);
+      // 先将操作目标滚入视野，不依赖设置区块数量和滚动容器类型。
+      await tester.ensureVisible(find.text('居中'));
       await tester.pumpAndSettle();
 
       // 三按钮 + 预览条（默认 MangaFooterConfig：hideFooter=false、左对齐、
@@ -327,9 +326,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      // 页脚设置区在列表底部，[M4 批1] 胶囊组又在预览条下方 →
-      // 滚到列表末端再断言
-      await tester.fling(find.byType(ListView), const Offset(0, -1600), 3000);
+      await tester.ensureVisible(find.text('第三话'));
       await tester.pumpAndSettle();
 
       // 默认全段显示：7 个内容胶囊 + 预览条全段样例文案
@@ -361,6 +358,8 @@ void main() {
       expect(find.text('第三话'), findsOneWidget);
 
       // 点「总进度」→ hideProgressRatioLabel 置位（隐藏段标签，值保留）
+      await tester.ensureVisible(find.text('总进度'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('总进度'));
       await tester.pumpAndSettle();
       expect(records.length, 2);

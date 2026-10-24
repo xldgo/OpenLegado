@@ -1,3 +1,8 @@
+import 'package:flutter_legado/src/features/reader_comic/presentation/views/comic_image_item.dart';
+import 'package:flutter_legado/src/data/services/comic_image_decode_cache.dart';
+import 'package:flutter_legado/src/features/reader_comic/presentation/views/comic_wide_page.dart';
+import 'package:flutter_legado/src/features/reader_comic/application/comic_page_layout.dart';
+
 import '../fixtures/app_test_api.dart';
 import '../fixtures/config_repository.dart';
 import '../mocks/book_image_fixture.dart';
@@ -24,6 +29,7 @@ import '../mocks/bookshelf_fixture.dart';
 // 2. 条漫模式（默认 4）：设置面板不渲染「页面适配」项；
 // 3. 已配置值（mangaPageScaleType=3）：下拉回显「适配高度」。
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -71,13 +77,19 @@ class _ScaleMockApi extends MockBookApi {
   @override
   TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
 
-  _ScaleMockApi({required this.configWrites, Map<String, String>? configs})
-    : _configs = configs ?? {};
+  _ScaleMockApi({
+    required this.configWrites,
+    Map<String, String>? configs,
+    this.imageCacheRead,
+  }) : _configs = configs ?? {};
 
   /// 每章图片数（与 E1/E3 mock 一致取 3，保证单页式有页可翻）
   static const int imageCount = 3;
 
   final List<List<String>> configWrites;
+  final Future<List<int>?> Function(String)? imageCacheRead;
+  final progress = <(int, int)>[];
+  final imageRequests = <String>[];
   final Map<String, String> _configs;
 
   Future<List<BookSource>> _fixtureGetBookSources() async => [
@@ -127,6 +139,7 @@ class _ScaleMockApi extends MockBookApi {
   }
 
   Future<String> _fixtureFetchImage(String url, String sourceJson) async {
+    imageRequests.add(url);
     return jsonEncode({'base64': _kPngBase64, 'len': 68});
   }
 
@@ -147,10 +160,12 @@ class _ScaleMockApi extends MockBookApi {
     required String bookUrl,
     required int chapterIndex,
     required int chapterPos,
-  }) async {}
+  }) async {
+    progress.add((chapterIndex, chapterPos));
+  }
 
   Future<List<int>?> _fixtureGetImageCache(String bookUrl, String url) async =>
-      null;
+      imageCacheRead == null ? null : await imageCacheRead!(url);
 }
 
 /// 打开漫画设置面板（控制栏 → 底栏「翻页设置」键 [P4-3 M1]）
@@ -162,7 +177,164 @@ Future<void> _openSheet(WidgetTester tester) async {
 }
 
 void main() {
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    ComicImageDecodeCache.clearForTest();
+  });
+  tearDown(ComicImageDecodeCache.clearForTest);
+  for (final mode in [1, 2]) {
+    testWidgets('宽页拆分模式$mode：半页翻动/窗口重排保持原图进度，关闭拆分后仍在原图', (tester) async {
+      final wide = base64Decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAC0lEQVR4nGP4DwUAI+UH+Yo0eLMAAAAASUVORK5CYII=',
+      );
+      await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+      await tester.runAsync(
+        () => precacheImage(
+          MemoryImage(wide),
+          tester.element(find.byType(SizedBox)),
+        ),
+      );
+      const imageUrl = 'https://cdn.example.com/img/0.jpg';
+      ComicImageDecodeCache.put('https://manga.example.com', imageUrl, wide);
+      final delayedImage = Completer<List<int>?>();
+      final api = _ScaleMockApi(
+        configWrites: [],
+        imageCacheRead: mode == 1
+            ? (url) async =>
+                  url.endsWith('/1.jpg') ? await delayedImage.future : null
+            : null,
+        configs: {
+          'mangaScrollMode': '$mode',
+          'mangaWidePageMode': '3',
+          'mangaPreDownloadNum': '0',
+        },
+      );
+      final container = ProviderContainer(
+        overrides: mergeTestOverrides([...api.overrides]),
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: ReaderComicScreen(bookUrl: 'mock://wide'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      PageView pager() => tester.widget<PageView>(find.byType(PageView));
+      expect(
+        pager().childrenDelegate.estimatedChildCount,
+        5,
+        reason: '三张原图中一张拆分，再加章尾导航',
+      );
+      expect(find.textContaining('页数1/3'), findsOneWidget);
+      final firstSlice = mode == 1 ? ComicPageSlice.left : ComicPageSlice.right;
+      final secondSlice = mode == 1
+          ? ComicPageSlice.right
+          : ComicPageSlice.left;
+      expect(
+        tester
+            .widgetList<ComicWidePage>(find.byType(ComicWidePage))
+            .any((page) => page.slice == firstSlice),
+        isTrue,
+      );
+      final direction = mode == 1 ? -1.0 : 1.0;
+      await tester.drag(find.byType(PageView), Offset(direction * 650, 0));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('页数1/3'),
+        findsOneWidget,
+        reason: '第二半仍属于第一张原图',
+      );
+      expect(api.progress, isEmpty);
+      final display = pager().controller!.page!.round();
+      if (mode == 1) {
+        // 相邻图在拖动途中才解码为宽图，先保持旧显示列表，结束后再重排。
+        final gesture = await tester.startGesture(
+          tester.getCenter(find.byType(PageView)),
+        );
+        await gesture.moveBy(const Offset(-30, 0));
+        await tester.pump(const Duration(milliseconds: 16));
+        await gesture.moveBy(const Offset(-120, 0));
+        await tester.pump(const Duration(milliseconds: 100));
+        delayedImage.complete(wide);
+        final nextImage = find.descendant(
+          of: find.byWidgetPredicate(
+            (widget) =>
+                widget is ComicImageItem && widget.url.endsWith('/1.jpg'),
+          ),
+          matching: find.byType(RawImage),
+        );
+        bool nextDecoded() => tester
+            .widgetList<RawImage>(nextImage)
+            .any(
+              (image) => image.image?.width == 2 && image.image?.height == 1,
+            );
+        // 实际codec运行在引擎线程，不能只推进测试假时间就假定尺寸已返回。
+        for (var attempt = 0; attempt < 50 && !nextDecoded(); attempt++) {
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 10)),
+          );
+          await tester.pump();
+        }
+        expect(nextDecoded(), isTrue);
+        await tester.pumpAndSettle();
+        expect(pager().childrenDelegate.estimatedChildCount, 5);
+        await tester.pump(const Duration(milliseconds: 200));
+        await gesture.up();
+        await tester.pumpAndSettle();
+        expect(pager().childrenDelegate.estimatedChildCount, 6);
+        expect(pager().controller!.page!.round(), display);
+      }
+
+      final activeWidePage = find.descendant(
+        of: find.byType(PageView),
+        matching: find.byWidgetPredicate(
+          (widget) => widget is ComicWidePage && widget.slice == secondSlice,
+        ),
+      );
+      expect(activeWidePage, findsOneWidget);
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(600, 900);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      await tester.pumpAndSettle();
+      expect(pager().controller!.page!.round(), display);
+      expect(find.textContaining('页数1/3'), findsOneWidget);
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(PageView), Offset(direction * 650, 0));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('页数2/3'), findsOneWidget);
+      expect(api.progress, contains((0, 1)));
+      await tester.drag(find.byType(PageView), Offset(-direction * 650, 0));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('页数1/3'), findsOneWidget);
+      await _openSheet(tester);
+      await tester.ensureVisible(find.text('拆分'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('拆分'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('普通').last);
+      await tester.pumpAndSettle();
+      expect(api.configWrites, contains(equals(['mangaWidePageMode', '0'])));
+      Navigator.of(tester.element(find.text('宽页处理'))).pop();
+      await tester.pumpAndSettle();
+      expect(pager().childrenDelegate.estimatedChildCount, 4);
+      expect(find.textContaining('页数1/3'), findsOneWidget);
+      expect(
+        api.imageRequests.where((url) => url == imageUrl),
+        isEmpty,
+        reason: '两半显示仍复用同一份原图缓存',
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    });
+  }
+
   group('[P4-3 E2] 分页适配类型设置项', () {
     testWidgets('单页模式：下拉切换「拉伸」→ 持久化 mangaPageScaleType=1', (tester) async {
       final configWrites = <List<String>>[];

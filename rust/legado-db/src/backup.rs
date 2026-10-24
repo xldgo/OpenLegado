@@ -75,6 +75,7 @@ pub const CONFIG_KEYS: &[&str] = &[
     "mangaPreDownloadNum",
     "mangaAutoOfflineCache",
     "mangaPageScaleType",
+    "mangaWidePageMode",
     "mangaSidePadding",
     "disableClickScroll",
     "disableMangaScale",

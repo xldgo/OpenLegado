@@ -91,11 +91,16 @@ void main() {
     await controller.setSidePadding(99);
     await controller.setAutoReadSpeed(0);
     await controller.setPageScaleType(99);
+    await controller.setWidePageMode(99);
     await controller.setThreshold(-5);
     expect(controller.current.scrollMode, 4);
     expect(controller.current.sidePadding, 45);
     expect(controller.current.autoReadSpeed, 1);
     expect(controller.current.pageScaleType, 0);
+    expect(controller.current.widePageMode, 0);
+    await controller.setWidePageMode(3);
+    await repository.reload();
+    expect(repository.current.widePageMode, 3);
     expect(controller.current.eInkThreshold, 0);
   });
 

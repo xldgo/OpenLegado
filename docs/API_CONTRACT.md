@@ -824,6 +824,22 @@ WebView URL选项或平台DOM实现。仅Rust行为测试验证，不构建DLL/�
 
 编写者：Codex + Bridge｜2026-10-19
 
+## 漫画宽页显示（MANGA-WIDE-PAGE-20261025，实施前冻结）
+
+- MangaSettings增加`widePageMode`，由漫画仓储读写Rust配置键`mangaWidePageMode`，默认0；
+  0普通、1适配宽度、2旋转适配、3拆分，沿用MD3 MangaPageConfig取值，纳入备份。
+- 宽图按正式解码的width>height判断；普通不额外变换，适配宽度覆盖普通适配规则，旋转在分页
+  模式交换测量约束并顺时针90度；拆分仅横向分页生效，左起LEFT→RIGHT，右起RIGHT→LEFT。
+  纵向分页和条漫不拆分，条漫不旋转，竖图不受宽页模式影响。
+- 显示页由`原图索引+FULL/LEFT/RIGHT`构成，不生成半张缓存文件或重复网络请求；设置、尺寸或方向
+  重排时优先保留同半页身份，身份失效才回退原图的阅读起始页；尺寸迟到不打断正在进行的翻页。
+- 数据进度、页脚、滑杆、图片预载及保存/分享继续使用原图索引和原始图片；拆分的两半不各算一张
+  原图，也不变更durChapterPos语义。退出重开恢复原图起始显示页，不新增半页持久化或历史迁移。
+- Flutter只增加显示投影和图像布局；不改Rust业务/FFI/DTO/数据库或下载链路。Rust仅补备份配置白名单。
+  本批不实现双页配对、跨章窗口、自动背景，不增加依赖或应用版本，不安装或推送。
+
+编写者：Codex + UI / Bridge｜2026-10-25
+
 ## 漫画自动离线缓存（MANGA-AUTO-OFFLINE-20261024，实施前冻结）
 
 - MangaSettings增加`autoOfflineCache`，复用上游键`mangaAutoOfflineCache`，默认false，纳入备份；

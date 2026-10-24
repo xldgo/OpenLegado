@@ -1,3 +1,6 @@
+import 'package:flutter_legado/src/features/reader_comic/presentation/views/comic_wide_page.dart';
+import 'package:flutter_legado/src/features/reader_comic/application/comic_page_layout.dart';
+
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
@@ -67,6 +70,67 @@ void main() {
       ),
     ),
   );
+
+  testWidgets('左右半页裁切命中对应内容，旋转交换子布局约束而不溢出', (tester) async {
+    final tapped = <String>[];
+    Widget halves(ComicPageSlice slice) => MaterialApp(
+      home: Center(
+        child: SizedBox(
+          width: 200,
+          height: 400,
+          child: ComicWidePage(
+            slice: slice,
+            child: Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => tapped.add('left'),
+                    child: const Text('左半内容'),
+                  ),
+                ),
+                Expanded(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => tapped.add('right'),
+                    child: const Text('右半内容'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpWidget(halves(ComicPageSlice.left));
+    await tester.tapAt(tester.getCenter(find.byType(ComicWidePage)));
+    await tester.pumpWidget(halves(ComicPageSlice.right));
+    await tester.tapAt(tester.getCenter(find.byType(ComicWidePage)));
+    expect(tapped, ['left', 'right']);
+    Size? measured;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Center(
+          child: SizedBox(
+            width: 200,
+            height: 400,
+            child: ComicWidePage(
+              rotate: true,
+              child: LayoutBuilder(
+                builder: (_, constraints) {
+                  measured = constraints.biggest;
+                  return const SizedBox.expand();
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    final viewport = tester.getSize(find.byType(ComicWidePage));
+    expect(measured, Size(viewport.height, viewport.width));
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('CBZ图片可独立加载并直接复用共享缓存，不需要ProviderScope', (tester) async {
     ComicImageDecodeCache.put('book', 'cbz://001.png', png);
