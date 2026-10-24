@@ -219,21 +219,58 @@ void main() {
     directory = await Directory.systemTemp.createTemp('legado-backup-test-');
     addTearDown(() => directory.delete(recursive: true));
   });
-  BackupService service({BackupPreferencesService? preferences}) =>
-      BackupService(
-        repository: repository,
-        settings: policy,
-        remoteServers: PreferencesRemoteServerRepository(),
-        metadata: metadata,
-        clock: () => now,
-        webDav: dav,
-        ignore: ignore,
-        passwords: passwords,
-        connections: PreferencesWebDavConnectionRepository(),
-        cloudTts: clouds,
-        cloudCredentials: credentials,
-        preferences: preferences,
-      );
+  BackupService service({
+    BackupPreferencesService? preferences,
+    Future<String> Function()? defaultDeviceName,
+  }) => BackupService(
+    repository: repository,
+    settings: policy,
+    remoteServers: PreferencesRemoteServerRepository(),
+    metadata: metadata,
+    clock: () => now,
+    defaultDeviceName: defaultDeviceName ?? () async => '自动设备',
+    webDav: dav,
+    ignore: ignore,
+    passwords: passwords,
+    connections: PreferencesWebDavConnectionRepository(),
+    cloudTts: clouds,
+    cloudCredentials: credentials,
+    preferences: preferences,
+  );
+  test('空设备名自动命名，自定义覆盖且清空后恢复自动，不回写自动名称', () async {
+    var reads = 0;
+    final workflow = service(
+      defaultDeviceName: () async {
+        reads++;
+        return '我的手机';
+      },
+    );
+    final prefs = await SharedPreferences.getInstance();
+    final automatic = await workflow.createBackup(directory.path);
+    expect(
+      File(automatic.path).uri.pathSegments.last,
+      startsWith('openlegado_我的手机_'),
+    );
+    expect(prefs.containsKey('sync_webdav_device_name'), isFalse);
+
+    await workflow.connections.save(const WebDavConnection(deviceName: '旅行手机'));
+    final custom = await workflow.createBackup(directory.path);
+    expect(
+      File(custom.path).uri.pathSegments.last,
+      startsWith('openlegado_旅行手机_'),
+    );
+    expect(reads, 1);
+
+    await workflow.connections.save(const WebDavConnection(deviceName: ''));
+    now = now.add(const Duration(seconds: 1));
+    final cleared = await workflow.createBackup(directory.path);
+    expect(
+      File(cleared.path).uri.pathSegments.last,
+      startsWith('openlegado_我的手机_'),
+    );
+    expect(prefs.getString('sync_webdav_device_name'), '');
+  });
+
   test('本地备份一次收齐普通偏好和字体引用，连接密码只进入加密敏感区', () async {
     final font = File('${directory.path}/font.ttf');
     await font.writeAsBytes([1, 2]);

@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [2.0.439] - 2026-10-22
 
 ### Added
+- 备份设备名称支持自动读取系统名称，手动名称优先，清空后恢复自动；贡献者：Codex + UI。
 - 备份覆盖24类业务集合与用户字体、背景资源，本地和WebDAV共用完整ZIP并可选择远程备份恢复；贡献者：Codex + Rust / UI。
 - 备份页加入本地密码、认证加密及可选云TTS凭据导出；连接密码与远程服务器配置只进入加密载荷；贡献者：Codex + Rust / UI。
 - 接通设备命名、仅保留本机最新包、前台到期自动备份及云端新备份提示；上传失败保留本地包和旧备份；贡献者：Codex + Rust / UI。

@@ -3,6 +3,7 @@ import '../../../widgets/bottom_sheet_widget.dart';
 import '../../../app/routing/app_navigation.dart';
 
 import '../../../providers/backup_provider.dart';
+import '../../../providers/device_name_provider.dart';
 import '../../../providers/restored_settings_provider.dart';
 import '../../../l10n/app_localization.dart';
 import '../../../widgets/app_menu.dart';
@@ -457,6 +458,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
     final automation = ref.watch(backupAutomationStateProvider).value;
     final metadata = ref.watch(backupMetadataProvider).value;
     final syncState = ref.watch(syncNotifierProvider);
+    final automaticDeviceName = ref.watch(systemDeviceNameProvider).value;
     final notifier = ref.read(syncNotifierProvider.notifier);
 
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
@@ -553,13 +555,17 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
                 SettingTile(
                   title: context.l10n.backupWebdavDeviceName,
                   subtitle: _device.isEmpty
-                      ? context.l10n.backupDeviceDescription
+                      ? automaticDeviceName ??
+                            context.l10n.backupDeviceDescription
                       : _device,
                   onTap: _savingConnection
                       ? null
                       : () => _editTextPref(
                           title: context.l10n.backupWebdavDeviceName,
                           initial: _device,
+                          hint: automaticDeviceName == null
+                              ? '留空自动获取设备名称'
+                              : '留空使用：$automaticDeviceName',
                           onSaved: (value) => _saveWebDav(deviceName: value),
                         ),
                 ),

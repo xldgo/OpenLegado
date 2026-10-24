@@ -13,6 +13,7 @@ import '../domain/contracts/backup_password_store.dart';
 import '../platform/backup/backup_password_store.dart';
 import '../app/bootstrap/application_dependencies.dart' show mockModeProvider;
 import 'webdav_connection_provider.dart';
+import 'device_name_provider.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -54,6 +55,7 @@ final backupServiceProvider = Provider<BackupService>((ref) {
     webDav: ref.watch(webDavServiceProvider),
     passwords: ref.watch(backupPasswordStoreProvider),
     connections: ref.watch(webDavConnectionRepositoryProvider),
+    defaultDeviceName: () => ref.read(systemDeviceNameProvider.future),
     cloudTts: ref.watch(cloudTtsRepositoryProvider),
     cloudCredentials: ref.watch(cloudTtsCredentialStoreProvider),
     ignore: ref.watch(restoreIgnoreRepositoryProvider),

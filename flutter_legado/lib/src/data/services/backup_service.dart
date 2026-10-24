@@ -16,6 +16,7 @@ import '../../domain/contracts/webdav_connection_repository.dart';
 import '../../domain/contracts/cloud_tts_repository.dart';
 import '../../domain/contracts/cloud_tts_credential_store.dart';
 import '../../domain/models/webdav_connection.dart';
+import '../../platform/device_name.dart';
 import 'backup_preferences_service.dart';
 
 /// 文件、远程传输与凭据的应用编排；业务校验、资源重定位和事务由Rust执行。
@@ -32,6 +33,7 @@ class BackupService {
     required this.metadata,
     required this.remoteServers,
     this.clock = DateTime.now,
+    this.defaultDeviceName = readSystemDeviceName,
     BackupPreferencesService? preferences,
   }) : _preferences = preferences ?? BackupPreferencesService();
   final BackupRepository repository;
@@ -46,6 +48,7 @@ class BackupService {
   final RemoteServerRepository remoteServers;
   final BackupMetadataRepository metadata;
   final DateTime Function() clock;
+  final Future<String> Function() defaultDeviceName;
   bool _busy = false;
   bool get isBusy => _busy;
   Future<T> _exclusive<T>(Future<T> Function() action) async {
@@ -92,7 +95,10 @@ class BackupService {
     final policy = await settings.load();
     final state = await metadata.load();
     final connection = await connections.load();
-    final names = BackupFilePolicy(connection.deviceName, state.deviceId);
+    final deviceName = connection.deviceName.trim().isEmpty
+        ? await defaultDeviceName()
+        : connection.deviceName;
+    final names = BackupFilePolicy(deviceName, state.deviceId);
     final now = clock();
     final path = await _backupLocal(
       directory,
