@@ -8,6 +8,19 @@ HapeLee/legado-with-MD3 的 `60a7cca34dd3e0be456e0f05c10c036c64b70e35`。
 
 ## 1. 设计目标
 
+### 漫画浏览（2026-10-24）
+
+`showMangaUi`沿用Preferences原键与默认true，统一归GeneralSettingsRepository读写。
+高级页消费同一快照，保存失败沿用共享回退；书架、详情、公共开书及启动恢复经
+BookOpenUtils读取设置后分流：在线图片书开启时进入专用漫画阅读器，关闭时进入
+普通阅读器已有图片展示路径。不改书籍类型，也不切换已经打开的阅读会话。
+本地漫画保留既有专用路径（含CBZ）；参考版主要入口排除本地书，但本项目普通
+阅读器没有CBZ条目读取能力，不照搬该分支而损失已有功能。音视频仍优先按媒体位分流。
+参考本地HapeLee `91e19d0d0`的MainNavGraph与BookInfoRouteScreen；其ContextExtensions
+未排除本地书，不作为新增第二套规则的依据。本批无Rust/FRB、数据库或依赖变更。
+
+编写者：Codex + UI｜2026-10-24
+
 ### 源编辑框行数（2026-10-24）
 
 既有Preferences键`sourceEditMaxLine`由GeneralSettingsRepository统一读写，投影为
@@ -209,7 +222,7 @@ Active 只登记任务状态，不在多个文件维护相互竞争的进度表�
 | 自动清理过期缓存 / `autoClearExpired` | bool / true | DownloadCache | 未接线；手动清缓存能力保持独立 |
 | 返回时加入书架提醒 / `showAddToShelfAlert` | bool / true | General | 已接线；ReaderScreen 退出未入架书籍时读取 |
 | 自动更新版本 / `autoUpdateVariant` | bool / true | General | 未接线；更新服务没有消费此值 |
-| 显示漫画界面 / `showMangaUi` | bool / true | Ui | 未接线；当前漫画路由按书籍类型选择 |
+| 显示漫画界面 / `showMangaUi` | bool / true | General | 已接线；在线漫画按共享设置选择阅读器，本地漫画保留专用路径 |
 | Web 端口 / `webPort` | int / 1122；1024–60000 | General | 已接线；SettingsScreen 启动服务读取；其他页保存后另调 setServerPort |
 | 更新与搜索线程数 / `threadCount` | int / 16；1–999 | DownloadCache | 未接线；不能把 Rust 现有并发限额当成此键的消费 |
 | 选中文字操作 / `process_text` | bool / true | General | 未接线；Manifest 的 PROCESS_TEXT 查询声明未受此值控制 |

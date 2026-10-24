@@ -3,6 +3,7 @@ final class GeneralSettings {
   const GeneralSettings({
     this.defaultBookTreeUri = '',
     this.showAddToShelfAlert = true,
+    this.showMangaUi = true,
     this.webPort = 1122,
     this.defaultToRead = false,
     this.sourceEditMaxLines = 0,
@@ -10,6 +11,7 @@ final class GeneralSettings {
 
   final String defaultBookTreeUri;
   final bool showAddToShelfAlert;
+  final bool showMangaUi;
   final int webPort;
 
   /// 冷启动默认进入上次阅读（对齐上游 OtherSettings.defaultToRead）
@@ -24,6 +26,7 @@ final class GeneralSettings {
       other is GeneralSettings &&
       defaultBookTreeUri == other.defaultBookTreeUri &&
       showAddToShelfAlert == other.showAddToShelfAlert &&
+      showMangaUi == other.showMangaUi &&
       webPort == other.webPort &&
       defaultToRead == other.defaultToRead &&
       sourceEditMaxLines == other.sourceEditMaxLines;
@@ -32,6 +35,7 @@ final class GeneralSettings {
   int get hashCode => Object.hash(
     defaultBookTreeUri,
     showAddToShelfAlert,
+    showMangaUi,
     webPort,
     defaultToRead,
     sourceEditMaxLines,

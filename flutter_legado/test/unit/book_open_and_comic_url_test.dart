@@ -17,6 +17,24 @@ void main() {
       );
       expect(BookOpenUtils.routeForTypeBits(BookType.text), AppRoutes.reader);
       expect(BookOpenUtils.routeForTypeBits(0), AppRoutes.reader);
+      expect(
+        BookOpenUtils.routeForTypeBits(BookType.image, showMangaUi: false),
+        AppRoutes.reader,
+      );
+      expect(
+        BookOpenUtils.routeForTypeBits(
+          BookType.audio | BookType.image,
+          showMangaUi: false,
+        ),
+        AppRoutes.audio,
+      );
+      expect(
+        BookOpenUtils.routeForTypeBits(
+          BookType.video | BookType.image,
+          showMangaUi: false,
+        ),
+        AppRoutes.video,
+      );
     });
 
     test('argumentsForRoute 漫画传 bookUrl，音视频传 Book', () {

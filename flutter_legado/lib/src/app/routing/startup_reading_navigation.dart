@@ -7,6 +7,7 @@ import '../../models/book.dart';
 import '../../features/book_detail/book_detail_notifier.dart';
 import '../../services/crash_log_service.dart';
 import '../../utils/book_open_utils.dart';
+import '../../providers/general_settings_provider.dart';
 import '../../widgets/crash_log_dialog.dart';
 import 'app_navigation.dart';
 import 'route_names.dart';
@@ -21,11 +22,16 @@ final startupReadingNavigationProvider = Provider<StartupReadingNavigation>((
       final nav = navigation.navigator;
       if (nav == null) return;
       final router = GoRouter.of(nav.context);
+      final settings = ref.read(generalSettingsRepositoryProvider);
       final prepared = await ref
           .read(bookDetailServiceProvider)
           .resolveReading(book);
+      final route = await BookOpenUtils.routeForBook(
+        book: book,
+        typeBits: prepared.typeBits,
+        settings: settings,
+      );
       if (!isCurrent()) return;
-      final route = BookOpenUtils.routeForTypeBits(prepared.typeBits);
       // 文本会话由ReaderRouteEntry在书籍门禁通过后激活。
       unawaited(
         router.pushAppRoute(

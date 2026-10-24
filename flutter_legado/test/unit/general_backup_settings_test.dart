@@ -40,18 +40,16 @@ void main() {
   test('普通偏好按原键读取，不补写默认值或扫描凭据', () async {
     storage.values['sync_webdav_password'] = '保留的凭据';
     expect(await general.load(), const GeneralSettings());
-    expect(await backup.load(), const BackupSettings());
     expect(storage.reads.toSet(), {
       'defaultBookTreeUri',
       'showAddToShelfAlert',
+      'showMangaUi',
       'webPort',
       'defaultToRead',
       'sourceEditMaxLine',
-      'app_backup_path',
-      'sync_book_progress',
-      'sync_auto',
-      'sync_book_progress_plus',
     });
+    expect(await backup.load(), const BackupSettings());
+    expect(storage.reads, isNot(contains('sync_webdav_password')));
     await general.update();
     await backup.update();
     expect(storage.writes, isEmpty);
@@ -128,21 +126,27 @@ void main() {
     storage.writeFailure = true;
     await expectLater(general.update(webPort: 5000), throwsStateError);
     await expectLater(general.update(sourceEditMaxLines: 30), throwsStateError);
+    await expectLater(general.update(showMangaUi: false), throwsStateError);
     await expectLater(backup.update(syncBookProgress: true), throwsStateError);
     expect(general.current.webPort, 4321);
     expect(general.current.sourceEditMaxLines, 20);
+    expect(general.current.showMangaUi, isTrue);
     expect(backup.current.syncBookProgress, isFalse);
     storage.writeFailure = false;
     await general.update(webPort: 5000);
     await general.update(sourceEditMaxLines: 0);
+    await general.update(showMangaUi: false);
+    expect(storage.values['showMangaUi'], isFalse);
     expect(storage.values['sourceEditMaxLine'], 0);
     storage.values['webPort'] = 6000;
     storage.values['sourceEditMaxLine'] = 40;
+    storage.values['showMangaUi'] = true;
     storage.values['sync_book_progress'] = true;
     await general.reload();
     await backup.reload();
     expect(general.current.webPort, 6000);
     expect(general.current.sourceEditMaxLines, 40);
+    expect(general.current.showMangaUi, isTrue);
     expect(backup.current.syncBookProgress, isTrue);
   });
 

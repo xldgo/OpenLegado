@@ -813,6 +813,16 @@ WebView URL选项或平台DOM实现。仅Rust行为测试验证，不构建DLL/�
 
 ## Flutter 开书导航（2026-10-19，实施前冻结）
 
+漫画浏览设置（MANGA-VIEWER-20261024，实施前冻结）：GeneralSettings及其仓储增加
+showMangaUi，复用Preferences原键showMangaUi，缺省true；高级页与开书入口消费同一快照，
+不维护页面副本。在线图片书开启时进专用漫画阅读器，关闭时进普通阅读器的图片展示路径。
+书架、详情、公共开书与启动恢复使用同一导航判定，音视频优先级、封面动效和书籍类型不变。
+设置只影响后续开书，不切换正在运行的阅读会话；读取或保存失败不伪装成功。
+本地漫画（含CBZ和WebDAV本地格式）保留专用漫画阅读器，不受在线开关影响；
+参考版书架/详情入口排除本地书，但本项目普通阅读器尚不能读取CBZ条目，保留既有能力。
+不新增FRB方法、DTO、数据库或依赖。
+编写者：Codex + UI｜2026-10-24。
+
 书架与公共 BookOpenUtils.openBook 不再按零阅读进度转入详情，统一按书籍类型
 进入阅读器或播放器，文本继续由 ReaderNotifier.openBook 加载目录与章节。
 删除 unreadOpensBookInfo、BookInfoArgs、BookInfoScreen.openReaderImmediately

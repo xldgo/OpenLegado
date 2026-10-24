@@ -9,6 +9,8 @@ import '../features/reader/application/reader_notifier.dart';
 import '../app/routing/route_names.dart';
 import '../services/platform_bridge_service.dart';
 import '../widgets/book_cover.dart';
+import '../domain/contracts/general_settings_repository.dart';
+import '../providers/general_settings_provider.dart';
 
 /// 按 BookType 位标记打开阅读器（对齐原版 `startActivityForBook` /
 /// `BookInfoActivity.startReadActivity`）。
@@ -18,13 +20,32 @@ import '../widgets/book_cover.dart';
 class BookOpenUtils {
   BookOpenUtils._();
 
-  /// 按类型位选择路由名（video→/video、audio→/audio、image→/reader-comic、
-  /// 其余→/reader）
-  static String routeForTypeBits(int typeBits) {
+  /// 音视频保持优先；关闭漫画界面时，图片书使用普通阅读器。
+  static String routeForTypeBits(int typeBits, {bool showMangaUi = true}) {
     if ((typeBits & BookType.video) != 0) return AppRoutes.video;
     if ((typeBits & BookType.audio) != 0) return AppRoutes.audio;
-    if ((typeBits & BookType.image) != 0) return AppRoutes.readerComic;
+    if ((typeBits & BookType.image) != 0 && showMangaUi) {
+      return AppRoutes.readerComic;
+    }
     return AppRoutes.reader;
+  }
+
+  /// 所有开书入口共享漫画偏好；本地漫画保留现有CBZ专用读取能力。
+  /// 设置只影响导航，不改写书籍类型。— Codex + UI
+  static Future<String> routeForBook({
+    required Book book,
+    required int typeBits,
+    required GeneralSettingsRepository settings,
+  }) async {
+    final route = routeForTypeBits(typeBits);
+    if (route != AppRoutes.readerComic) return route;
+    final isLocal =
+        book.origin == BookType.localTag ||
+        book.origin.startsWith(BookType.webDavTag) ||
+        (book.bookType & BookType.local) != 0;
+    if (isLocal) return route;
+    final preferences = await settings.load();
+    return routeForTypeBits(typeBits, showMangaUi: preferences.showMangaUi);
   }
 
   /// 路由参数：video/audio 传 [Book]；漫画传 bookUrl；文字阅读器额外携带
@@ -73,16 +94,20 @@ class BookOpenUtils {
         : Navigator.of(context);
     if (navigator == null) return;
     final router = GoRouter.of(navigator.context);
+    final settings = ref.read(generalSettingsRepositoryProvider);
     final prepared = await ref
         .read(bookDetailServiceProvider)
         .resolveReading(book);
+    final route = await routeForBook(
+      book: book,
+      typeBits: prepared.typeBits,
+      settings: settings,
+    );
     if (!useGlobalNavigator &&
         (!context.mounted || ModalRoute.of(context)?.isCurrent == false)) {
       return;
     }
     final bookToOpen = prepared.book;
-    final typeBits = prepared.typeBits;
-    final route = routeForTypeBits(typeBits);
     if (needsReaderNotifier(route)) {
       ref.read(readerNotifierProvider.notifier).openBook(bookToOpen);
       final origin = coverContext != null

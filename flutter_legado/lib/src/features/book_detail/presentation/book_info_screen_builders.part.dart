@@ -1324,15 +1324,20 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     if (_openingReader) return;
     _openingReader = true;
     try {
+      final settings = ref.read(generalSettingsRepositoryProvider);
       final prepared = await ref
           .read(bookDetailServiceProvider)
           .prepareReading(book, chapterIndex);
+      final route = await BookOpenUtils.routeForBook(
+        book: book,
+        typeBits: prepared.typeBits,
+        settings: settings,
+      );
       if (!context.mounted || ModalRoute.of(context)?.isCurrent == false) {
         return;
       }
       final container = ProviderScope.containerOf(context);
       final bookToRead = prepared.book;
-      final route = BookOpenUtils.routeForTypeBits(prepared.typeBits);
       if (BookOpenUtils.needsReaderNotifier(route)) {
         container.read(readerNotifierProvider.notifier).openBook(bookToRead);
         // [UI-fix v2.0.11 | 2026-08-10] 阅读返回后重新加载详情数据 — Reasonix
