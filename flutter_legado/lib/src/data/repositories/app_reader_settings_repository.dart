@@ -6,6 +6,7 @@ import '../../domain/models/reader_screen_settings.dart';
 import '../settings/reader_page_layout_codec.dart';
 import '../settings/reader_interaction_codec.dart';
 import '../settings/reader_menu_settings_codec.dart';
+import '../settings/reader_style_store.dart';
 import '../../domain/models/reader_interaction_settings.dart';
 import '../../domain/models/page_turn_mode.dart';
 import '../../domain/models/book_open_speed.dart';
@@ -14,12 +15,14 @@ import '../services/app_settings_service.dart';
 
 /// 阅读普通偏好统一经共享服务读取、订阅及逐字段保存。— Codex + UI
 class AppReaderSettingsRepository implements ReaderSettingsRepository {
-  AppReaderSettingsRepository(this._service);
+  AppReaderSettingsRepository(this._service)
+    : _styles = ReaderStyleStore(_service, layoutAddresses: layoutAddresses);
 
   static const _pageLayout = ReaderPageLayoutCodec();
   static const _interaction = ReaderInteractionCodec();
   static const _menu = ReaderMenuSettingsCodec();
   final AppSettingsService _service;
+  final ReaderStyleStore _styles;
   bool _loaded = false;
   Future<ReaderSettings>? _loading;
   static const _mode = (
@@ -125,6 +128,26 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
 
   static int _keepScreenOn(int value) =>
       const {-1, 0, 60, 300, 600}.contains(value) ? value : 0;
+
+  /// 预设只拥有排版参数；操作、屏幕、菜单及开书速度继续全局保存。— Codex + Data
+  static final Set<SettingsAddress> layoutAddresses = Set.unmodifiable({
+    _mode,
+    _legacyIndex,
+    _fontSize,
+    _lineHeight,
+    _fontFamily,
+    _titleFont,
+    _paragraphSpacing,
+    _letterSpacing,
+    _paragraphIndent,
+    _textFullJustify,
+    _textBottomJustify,
+    _textBold,
+    _italic,
+    _useZhLayout,
+    _hangingPunctuation,
+    ..._pageLayout.addresses,
+  });
 
   static const _addresses = {
     _autoChangeSource,
@@ -262,14 +285,18 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
   );
 
   @override
-  ReaderSettings get current => _decode(_service.current);
+  ReaderSettings get current => _decode(_styles.effective(_service.current));
   @override
-  Stream<ReaderSettings> watch() => _service.watch().map(_decode).distinct();
+  Stream<ReaderSettings> watch() => _service
+      .watch()
+      .map((snapshot) => _decode(_styles.effective(snapshot)))
+      .distinct();
   @override
   Future<ReaderSettings> load() {
     if (_loaded) return Future.value(current);
     return _loading ??= _service
         .load({
+          ReaderStyleStore.document,
           ..._addresses,
           ..._pageLayout.addresses,
           ..._interaction.addresses,
@@ -285,12 +312,24 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
   @override
   Future<void> reload() async {
     await _service.reload({
+      ReaderStyleStore.document,
       ..._addresses,
       ..._pageLayout.addresses,
       ..._interaction.addresses,
       ..._menu.addresses,
     });
     _loaded = true;
+  }
+
+  Future<void> _update(Map<SettingsAddress, Object?> values) {
+    if (values.isEmpty) return Future.value();
+    if (!values.keys.any(layoutAddresses.contains)) {
+      return _service.update(values);
+    }
+    return _service.mutate({
+      ReaderStyleStore.document,
+      ...layoutAddresses,
+    }, (snapshot) => _styles.layoutPatch(snapshot, values));
   }
 
   @override
@@ -306,7 +345,7 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     bool? autoChangeSource,
     bool? showTitleAddition,
     bool? showMenuLabels,
-  }) => _service.update({
+  }) => _update({
     _mode: ?pageTurnMode?.name,
     _bookOpenSpeed: ?bookOpenSpeed?.name,
     _fontSize: ?fontSize,
@@ -331,7 +370,7 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     bool? italic,
     bool? useZhLayout,
     bool? hangingPunctuation,
-  }) => _service.update({
+  }) => _update({
     _paragraphSpacing: ?paragraphSpacing?.clamp(0.0, 20.0),
     _letterSpacing: ?letterSpacing?.clamp(-0.5, 1.0),
     _paragraphIndent: ?paragraphIndent?.clamp(0, 3),
@@ -350,7 +389,7 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     double? left,
     double? right,
     int? doubleHorizontalPage,
-  }) => _service.update(
+  }) => _update(
     _pageLayout.pagePatch(
       top: top,
       bottom: bottom,
@@ -372,14 +411,13 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     int? leftTip,
     int? middleTip,
     int? rightTip,
-  }) async {
-    if (leftTip != null || middleTip != null || rightTip != null) {
-      await load();
-    }
-    await _service.update(
+  }) => _service.mutate(
+    {ReaderStyleStore.document, ...layoutAddresses},
+    (snapshot) => _styles.layoutPatch(
+      snapshot,
       _pageLayout.edgePatch(
         edge,
-        current: current.pageLayout,
+        current: _decode(_styles.effective(snapshot)).pageLayout,
         top: top,
         bottom: bottom,
         left: left,
@@ -390,8 +428,8 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
         middleTip: middleTip,
         rightTip: rightTip,
       ),
-    );
-  }
+    ),
+  );
 
   @override
   Future<void> updateTitle({
@@ -407,7 +445,7 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     double? segmentSpacing,
     int? topSpacing,
     int? bottomSpacing,
-  }) => _service.update(
+  }) => _update(
     _pageLayout.titlePatch(
       mode: mode,
       size: size,
@@ -432,7 +470,7 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     bool? hideNavigationBar,
     bool? avoidDisplayCutouts,
     bool? extendPageTips,
-  }) => _service.update({
+  }) => _update({
     _orientation: ?orientation?.clamp(0, 5),
     if (keepScreenOnSeconds != null)
       _keepScreenOnSeconds: _keepScreenOn(keepScreenOnSeconds),
@@ -447,7 +485,7 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     bool? enabled,
     double? intervalSeconds,
     bool? forward,
-  }) => _service.update(
+  }) => _update(
     _interaction.autoPageTurnPatch(
       enabled: enabled,
       intervalSeconds: intervalSeconds,
@@ -466,7 +504,7 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     int? pageTouchSlop,
     int? pageTouchClick,
     String? progressBarBehavior,
-  }) => _service.update(
+  }) => _update(
     _interaction.interactionPatch(
       tapActions: tapActions,
       selectText: selectText,
@@ -493,7 +531,7 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     int? containerColorNight,
     int? textColor,
     int? textColorNight,
-  }) => _service.update(
+  }) => _update(
     _menu.themePatch(
       mode: mode,
       paletteStyle: paletteStyle,
@@ -511,5 +549,5 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
 
   @override
   Future<void> updateBrightnessControl({int? mode, bool? onLeft}) =>
-      _service.update(_menu.brightnessControlPatch(mode: mode, onLeft: onLeft));
+      _update(_menu.brightnessControlPatch(mode: mode, onLeft: onLeft));
 }

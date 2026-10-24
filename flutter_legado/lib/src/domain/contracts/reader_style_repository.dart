@@ -7,6 +7,9 @@ abstract interface class ReaderStyleRepository {
   Future<ReaderStyles> load();
   Future<void> reload();
   Future<void> select(String id);
+  Future<void> setShareLayout(bool enabled);
+  Future<String> createFromTemplate(String id, String name);
+  Future<void> restorePreset(String presetId);
   Future<void> updateColors({
     required bool isNight,
     required ReaderColors Function(ReaderColors colors) update,

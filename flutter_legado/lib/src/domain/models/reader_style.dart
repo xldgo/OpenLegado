@@ -42,7 +42,7 @@ final class ReaderColors {
   int get hashCode => Object.hash(background, text);
 }
 
-/// 同一份样式保存日夜配色，不包含字号、边距和翻页参数。— Codex + UI
+/// 样式的配色投影；排版由ReaderSettingsRepository按当前样式统一提供。— Codex + UI
 final class ReaderStyle {
   const ReaderStyle({
     required this.id,
@@ -54,6 +54,8 @@ final class ReaderStyle {
   final String name;
   final ReaderColors day;
   final ReaderColors night;
+
+  bool get isPreset => readerStylePresets.any((preset) => preset.id == id);
 
   ReaderColors colors(bool isNight) => isNight ? night : day;
   ReaderStyle withColors(bool isNight, ReaderColors colors) => ReaderStyle(
@@ -75,7 +77,7 @@ final class ReaderStyle {
 }
 
 /// 色值来自 HapeLee/legado-with-MD3@60a7cca 的 defaultData/readConfig.json。
-/// 仅复刻配色，模板内的排版参数不覆盖现有阅读设置。— Codex + UI
+/// 独立布局在首次关闭共用时以当前排版初始化，不套用Android的排版单位。— Codex + UI
 const readerStylePresets = <ReaderStyle>[
   ReaderStyle(
     id: 'wechat',
@@ -120,6 +122,7 @@ final class ReaderStyles {
   ReaderStyles({
     required this.selectedId,
     required Iterable<ReaderStyle> styles,
+    this.shareLayout = true,
   }) : styles = List.unmodifiable(styles);
   factory ReaderStyles.defaults() => ReaderStyles(
     selectedId: 'custom',
@@ -134,6 +137,7 @@ final class ReaderStyles {
     ],
   );
   final String selectedId;
+  final bool shareLayout;
   final List<ReaderStyle> styles;
   ReaderStyle get selected =>
       styles.firstWhere((style) => style.id == selectedId);
@@ -141,11 +145,19 @@ final class ReaderStyles {
     if (!styles.any((style) => style.id == id)) {
       throw ArgumentError('阅读样式不存在：$id');
     }
-    return ReaderStyles(selectedId: id, styles: styles);
+    return ReaderStyles(
+      selectedId: id,
+      styles: styles,
+      shareLayout: shareLayout,
+    );
   }
+
+  ReaderStyles withShareLayout(bool value) =>
+      ReaderStyles(selectedId: selectedId, styles: styles, shareLayout: value);
 
   ReaderStyles replace(ReaderStyle style) => ReaderStyles(
     selectedId: selectedId,
+    shareLayout: shareLayout,
     styles: [
       for (final current in styles) current.id == style.id ? style : current,
     ],
@@ -155,11 +167,13 @@ final class ReaderStyles {
   bool operator ==(Object other) =>
       other is ReaderStyles &&
       selectedId == other.selectedId &&
+      shareLayout == other.shareLayout &&
       styles.length == other.styles.length &&
       List.generate(
         styles.length,
         (i) => styles[i] == other.styles[i],
       ).every((same) => same);
   @override
-  int get hashCode => Object.hash(selectedId, Object.hashAll(styles));
+  int get hashCode =>
+      Object.hash(selectedId, shareLayout, Object.hashAll(styles));
 }

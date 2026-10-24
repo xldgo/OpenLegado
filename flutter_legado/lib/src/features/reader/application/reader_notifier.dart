@@ -205,6 +205,14 @@ class ReaderNotifier extends Notifier<ReaderState> {
     () => ref.read(readerStyleRepositoryProvider).select(id),
   );
 
+  Future<void> setReaderShareLayout(bool enabled) => _saveReadingSettings(
+    () => ref.read(readerStyleRepositoryProvider).setShareLayout(enabled),
+  );
+
+  Future<void> restoreReaderPreset(String presetId) => _saveReadingSettings(
+    () => ref.read(readerStyleRepositoryProvider).restorePreset(presetId),
+  );
+
   Future<void> updateCustomTextColor(Color? color) => _saveReadingSettings(
     () => ref
         .read(readerStyleRepositoryProvider)

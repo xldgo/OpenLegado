@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [2.0.439] - 2026-10-22
 
 ### Added
+- 阅读预设支持独立排版与共用布局切换，补齐微信读书默认排版；支持直接编辑样式、恢复预设及创建命名副本；贡献者：Codex + UI / Data。
 - 高亮管理改用右下角新增按钮与通用编辑面板，加入预设、导入、导出和只读效果预览；规则资源随完整备份恢复；贡献者：Codex + Rust / UI。
 - 阅读器自动高亮接入统一测量与分页，支持标题/正文范围、线条、背景图与字体样式，保留原生选区；贡献者：Codex + UI。
 - 高亮规则增加稳定UUID、MD3预设及完整样式解析，导入按UUID原子合并并保留本地主键；贡献者：Codex + Rust / UI。

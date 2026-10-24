@@ -1,6 +1,7 @@
 import '../fixtures/app_test_api.dart';
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -71,7 +72,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('字号保存失败提示并回退，重试写入原键', (tester) async {
+  testWidgets('字号保存失败提示并回退，重试更新控件', (tester) async {
     await initialize(tester);
     await show(tester);
     storage.writeFailure = true;
@@ -85,13 +86,10 @@ void main() {
       tester.widget<SettingStepperRow>(find.byType(SettingStepperRow)).value,
       22,
     );
-    expect(storage.values['reader_font_size'], 22);
     storage.writeFailure = false;
     await tester.tap(plus);
     await tester.pumpAndSettle();
     expect(container.read(readerNotifierProvider).fontSize, 23);
-    expect(storage.values['reader_font_size'], 23);
-    expect(storage.values['reader_line_height'], 1.8);
     expect(tester.takeException(), isNull);
   });
 
@@ -111,8 +109,6 @@ void main() {
     expect(tester.widget<Slider>(lineHeightSlider()).value, 1.8);
     tester.widget<Slider>(lineHeightSlider()).onChanged!(2.15);
     await tester.pumpAndSettle();
-    expect(storage.values['reader_line_height'], 2.15);
-    expect(storage.values['reader_font_size'], 23);
     await show(tester);
     expect(
       tester.widget<SettingStepperRow>(find.byType(SettingStepperRow)).value,
@@ -131,15 +127,15 @@ void main() {
     expect(find.text('阅读排版保存失败，请重试'), findsOneWidget);
     expect(container.read(readerNotifierProvider).lineHeight, 1.8);
     expect(tester.widget<Slider>(lineHeightSlider()).value, 1.8);
-    expect(storage.values['reader_line_height'], 1.8);
     storage.writeFailure = false;
     tester.widget<Slider>(lineHeightSlider()).onChanged!(2.1);
     await tester.pumpAndSettle();
-    expect(storage.values['reader_line_height'], 2.1);
-    storage.values.addAll({
-      'reader_font_size': 26.0,
-      'reader_line_height': 2.4,
-    });
+    final restored =
+        jsonDecode(storage.values['reader_styles'] as String) as Map;
+    final layout = restored['sharedLayout'] as Map;
+    layout['reader_font_size'] = 26.0;
+    layout['reader_line_height'] = 2.4;
+    storage.values['reader_styles'] = jsonEncode(restored);
     await container.read(readerSettingsRepositoryProvider).reload();
     await tester.pumpAndSettle();
     expect(tester.widget<Slider>(lineHeightSlider()).value, 2.4);

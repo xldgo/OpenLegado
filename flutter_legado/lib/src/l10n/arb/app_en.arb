@@ -1419,6 +1419,7 @@
       }
     }
   },
+  "readerShareLayout": "Shared layout",
   "readerBookOpenSpeed": "Book opening speed",
   "readerBookOpenFast": "Fast",
   "readerBookOpenStandard": "Standard",

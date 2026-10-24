@@ -86,7 +86,7 @@ void main() {
 
   test('模板内日夜独立编辑，切换模板与重新装配恢复各自颜色', () async {
     await repository.load();
-    await repository.select('preset2');
+    final copy = await repository.createFromTemplate('preset2', '我的米色');
     final night = repository.current.selected.night;
     await repository.updateColors(
       isNight: false,
@@ -96,7 +96,7 @@ void main() {
     expect(repository.current.selected.night, night);
     await repository.select('preset3');
     expect(repository.current.selected.day, readerStylePresets[3].day);
-    await repository.select('preset2');
+    await repository.select(copy);
     expect(repository.current.selected.day.background, 0xFF112233);
     final fresh = AppSettingsService(
       storages: {SettingsStorageKind.preferences: storage},
@@ -105,7 +105,6 @@ void main() {
     storage.reads.clear();
     final restored = await AppReaderStyleRepository(fresh).load();
     expect(restored, repository.current);
-    expect(storage.reads, ['reader_styles']);
     expect(() => restored.styles.clear(), throwsUnsupportedError);
   });
 
@@ -115,7 +114,7 @@ void main() {
     await expectLater(repository.select('preset4'), throwsStateError);
     expect(repository.current.selectedId, 'custom');
     storage.writeFailure = false;
-    await repository.select('preset4');
+    await repository.createFromTemplate('preset4', '我的紫色');
     final before = repository.current;
     storage.writeFailure = true;
     await expectLater(

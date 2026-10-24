@@ -4346,6 +4346,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get readerShareLayout => 'Shared layout';
+
+  @override
   String get readerBookOpenSpeed => 'Book opening speed';
 
   @override

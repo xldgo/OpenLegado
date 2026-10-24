@@ -156,7 +156,9 @@ void main() {
     await repository.update(fontSize: 24.6, lineHeight: 2.2);
     expect((await source.readReadBookConfig()).fields['textSize'], 25);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('reader_font_size', 27.0);
+    final restored = jsonDecode(prefs.getString('reader_styles')!) as Map;
+    (restored['sharedLayout'] as Map)['reader_font_size'] = 27.0;
+    await prefs.setString('reader_styles', jsonEncode(restored));
     expect((await source.readReadBookConfig()).fields['textSize'], 25);
     await repository.reload();
     final second = await source.readReadBookConfig();

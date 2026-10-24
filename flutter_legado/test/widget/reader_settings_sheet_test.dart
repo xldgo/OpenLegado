@@ -48,12 +48,11 @@ void main() {
     await tester.tap(find.text('打开阅读设置'));
     await tester.pumpAndSettle();
 
-    expect(find.text('阅读设置'), findsNothing);
     expect(find.text('字号'), findsOneWidget);
     expect(find.text('背景'), findsOneWidget);
     expect(find.text('翻页动画'), findsOneWidget);
-    await tester.ensureVisible(find.text('开书动画速度'));
-    await tester.tap(find.text('开书动画速度'));
+    await tester.ensureVisible(find.byTooltip('开书动画速度'));
+    await tester.tap(find.byTooltip('开书动画速度'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(CheckboxMenuButton, '舒缓'));
     await tester.pumpAndSettle();

@@ -54,17 +54,33 @@ final class AppSettingsService {
     _checkActive();
     if (values.isEmpty) return Future.value();
     final mutation = _store.stage(values);
+    return _enqueue(() => _persist(mutation));
+  }
+
+  /// 文档读改写在同一IO队列中计算，避免把先前失败的字段带进后续保存。— Codex + Data
+  Future<void> mutate(
+    Set<SettingsAddress> addresses,
+    Map<SettingsAddress, Object?> Function(AppSettingsSnapshot snapshot) change,
+  ) {
+    _checkActive();
+    final requested = Set<SettingsAddress>.of(addresses);
     return _enqueue(() async {
-      try {
-        await _read(mutation.values.keys.toSet().difference(_loaded));
-        for (final entry in mutation.values.entries) {
-          await _storage(entry.key).write(entry.key.key, entry.value);
-          _store.markPersisted(mutation, entry.key);
-        }
-      } finally {
-        _store.finish(mutation);
-      }
+      await _read(requested.difference(_loaded));
+      final values = change(current);
+      if (values.isNotEmpty) await _persist(_store.stage(values));
     });
+  }
+
+  Future<void> _persist(SettingsMutation mutation) async {
+    try {
+      await _read(mutation.values.keys.toSet().difference(_loaded));
+      for (final entry in mutation.values.entries) {
+        await _storage(entry.key).write(entry.key.key, entry.value);
+        _store.markPersisted(mutation, entry.key);
+      }
+    } finally {
+      _store.finish(mutation);
+    }
   }
 
   /// 外部恢复或尚未迁移的原生写入后显式重读；与当前写队列有序执行。

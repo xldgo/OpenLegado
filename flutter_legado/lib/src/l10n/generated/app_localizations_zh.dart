@@ -4114,6 +4114,9 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get readerShareLayout => '共用布局';
+
+  @override
   String get readerBookOpenSpeed => '开书动画速度';
 
   @override

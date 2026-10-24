@@ -58,6 +58,19 @@ class AppBottomSheet extends StatelessWidget {
     final titleStyle = theme.textTheme.titleMedium?.copyWith(
       fontWeight: FontWeight.w600,
     );
+    final showHandle =
+        context
+            .dependOnInheritedWidgetOfExactType<_SheetHandleScope>()
+            ?.showHandle ??
+        false;
+    final titleHeight =
+        MediaQuery.textScalerOf(context).scale(titleStyle?.fontSize ?? 16) *
+        1.5;
+    final toolbarHeight = math.max(kMinInteractiveDimension, titleHeight);
+    // 大字体时让标题始终位于横条下方，普通字号共用60dp头部。— Codex + UI
+    final topInset = showHandle
+        ? math.max(12.0, 24 - (toolbarHeight - titleHeight) / 2)
+        : 0.0;
     return Padding(
       padding: EdgeInsets.only(
         bottom: avoidKeyboard ? MediaQuery.viewInsetsOf(context).bottom : 0,
@@ -68,42 +81,61 @@ class AppBottomSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 标题组相对整张Sheet居中，左右操作宽度不同也不推偏。— Codex + UI
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-              child: SizedBox(
-                height: math.max(
-                  kMinInteractiveDimension,
-                  MediaQuery.textScalerOf(context)
-                          .scale(titleStyle?.fontSize ?? 16) *
-                      1.5,
-                ),
-                child: NavigationToolbar(
-                  centerMiddle: centered,
-                  leading: leading,
-                  trailing: trailing,
-                  middle: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          title,
-                          textAlign: centered
-                              ? TextAlign.center
-                              : TextAlign.start,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: titleStyle,
-                        ),
+            // 横条与标题共用头部，左右按钮保留48dp操作区。— Codex + UI
+            Stack(
+              children: [
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    topInset,
+                    16,
+                    showHandle ? 0 : 4,
+                  ),
+                  child: SizedBox(
+                    height: toolbarHeight,
+                    child: NavigationToolbar(
+                      centerMiddle: centered,
+                      leading: leading,
+                      trailing: trailing,
+                      middle: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              title,
+                              textAlign: centered
+                                  ? TextAlign.center
+                                  : TextAlign.start,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: titleStyle,
+                            ),
+                          ),
+                          if (titleSuffix != null) ...[
+                            const SizedBox(width: 8),
+                            Flexible(child: titleSuffix!),
+                          ],
+                        ],
                       ),
-                      if (titleSuffix != null) ...[
-                        const SizedBox(width: 8),
-                        Flexible(child: titleSuffix!),
-                      ],
-                    ],
+                    ),
                   ),
                 ),
-              ),
+                if (showHandle)
+                  Positioned(
+                    top: 12,
+                    left: 0,
+                    right: 0,
+                    child: Semantics(
+                      label: MaterialLocalizations.of(context)
+                          .modalBarrierDismissLabel,
+                      button: true,
+                      onTap: () => Navigator.maybePop(context),
+                      child: const Center(
+                        child: SheetDragHandle(margin: EdgeInsets.zero),
+                      ),
+                    ),
+                  ),
+              ],
             ),
             // 内容
             Flexible(
@@ -176,22 +208,10 @@ class AppBottomSheet extends StatelessWidget {
           (enableDrag &&
               (Theme.of(sheetContext).bottomSheetTheme.showDragHandle ??
                   false));
-      if (!displayHandle) return builder(sheetContext);
-
-      // 紧凑横条与正文共用外层拖动，不再叠加框架的48dp横条区域。— Codex + UI
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Semantics(
-            label: MaterialLocalizations.of(sheetContext)
-                .modalBarrierDismissLabel,
-            button: true,
-            onTap: () => Navigator.maybePop(sheetContext),
-            child: const Center(child: SheetDragHandle()),
-          ),
-          Flexible(child: builder(sheetContext)),
-        ],
+      // 显隐传给公共头部，入口不再单独叠加一行横条。— Codex + UI
+      return _SheetHandleScope(
+        showHandle: displayHandle,
+        child: builder(sheetContext),
       );
     },
     isScrollControlled: isScrollControlled,
@@ -204,6 +224,16 @@ class AppBottomSheet extends StatelessWidget {
     shape: shape,
     clipBehavior: Clip.antiAlias,
   );
+}
+
+class _SheetHandleScope extends InheritedWidget {
+  const _SheetHandleScope({required this.showHandle, required super.child});
+
+  final bool showHandle;
+
+  @override
+  bool updateShouldNotify(_SheetHandleScope oldWidget) =>
+      showHandle != oldWidget.showHandle;
 }
 
 /// 快捷项等宽铺满可用宽度，大字体或窄屏时减少列数。— Codex + UI

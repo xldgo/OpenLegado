@@ -148,6 +148,15 @@ void main() {
     for (final style in readerStylePresets) {
       expect(find.byKey(ValueKey('reader-style-${style.id}')), findsOneWidget);
     }
+    await tester.tap(find.byTooltip('共用布局'));
+    await tester.pumpAndSettle();
+    final reading = container.read(readerNotifierProvider.notifier);
+    await reading.updateFontSize(25);
+    await tester.pumpAndSettle();
+    await select(tester, 'preset3');
+    expect(container.read(readerNotifierProvider).fontSize, 20);
+    await select(tester, 'custom');
+    expect(container.read(readerNotifierProvider).fontSize, 25);
     await select(tester, 'preset3');
     colors(0xFFC2D8AA, 0xFF596C44);
     expect(find.byTooltip('切换夜间'), findsOneWidget);
@@ -179,14 +188,25 @@ void main() {
     );
   });
 
-  testWidgets('长按编辑当前模板的夜间颜色，切换日夜与模板保留各自修改', (tester) async {
+  testWidgets('创建副本并编辑夜间配色，可从预设恢复当前副本', (tester) async {
     initialize();
     await show(tester);
     await select(tester, 'preset2');
     await mode(tester, '夜间');
-    final style = find.byKey(const ValueKey('reader-style-preset2'));
-    await tester.ensureVisible(style);
-    await tester.longPress(style);
+    final add = find.byTooltip('基于当前样式创建');
+    await tester.ensureVisible(add);
+    await tester.tap(add);
+    await tester.pumpAndSettle();
+    expect(find.text('基于模板创建样式'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.pumpAndSettle();
+    final copy = container
+        .read(readerStyleRepositoryProvider)
+        .current
+        .selectedId;
+    final copyCard = find.byKey(ValueKey('reader-style-$copy'));
+    await tester.ensureVisible(copyCard);
+    await tester.longPress(copyCard);
     await tester.pumpAndSettle();
     expect(find.text('自定义夜间配色'), findsOneWidget);
     await tester.tap(find.byKey(ValueKey('reader-text-color-${0xFF616161}')));
@@ -201,9 +221,24 @@ void main() {
     await mode(tester, '日间');
     colors(0xFFDDC090, 0xFF3E3422);
     await select(tester, 'preset4');
-    await select(tester, 'preset2');
+    await select(tester, copy);
     await mode(tester, '夜间');
     colors(0xFFF5F5DC, 0xFF616161);
+    await tester.ensureVisible(copyCard);
+    await tester.longPress(copyCard);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('恢复预设'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('微信读书').last);
+    await tester.pumpAndSettle();
+    colors(0xFF000000, 0xFFADADAD);
+    expect(
+      container.read(readerStyleRepositoryProvider).current.selectedId,
+      copy,
+    );
+    expect(container.read(readerNotifierProvider).fontSize, 24);
+    await tester.tap(find.text('完成'));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('模板保存失败回退，日夜覆盖不依赖存储且两个设置入口同步', (tester) async {

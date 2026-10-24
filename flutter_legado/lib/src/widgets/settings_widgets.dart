@@ -604,14 +604,19 @@ class SettingSwitchRow extends StatelessWidget {
 
 /// MD3 拖拽把手（Bottom Sheet 顶部短横条，对齐 M3 drag handle 规格）。
 class SheetDragHandle extends StatelessWidget {
-  const SheetDragHandle({super.key});
+  const SheetDragHandle({
+    super.key,
+    this.margin = const EdgeInsets.symmetric(vertical: 8),
+  });
+
+  final EdgeInsetsGeometry margin;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final size = theme.bottomSheetTheme.dragHandleSize ?? const Size(32, 4);
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
+      margin: margin,
       width: size.width,
       height: size.height,
       decoration: BoxDecoration(

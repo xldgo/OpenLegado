@@ -16,7 +16,11 @@ import '../../../../providers/ui_settings/ui_settings_notifier.dart';
 import '../../../../providers/ui_settings/eye_protection_notifier.dart';
 import '../../../../domain/models/book_open_speed.dart';
 import '../../../../widgets/app_snack_bar.dart';
+import '../../../../widgets/app_menu.dart';
+import '../../../../widgets/bottom_sheet_widget.dart';
+import '../../../../widgets/app_settings_sheet.dart';
 
+import 'reader_brightness_control.dart';
 import 'reader_config_panel.dart';
 import '../../../../widgets/app_scaffold.dart';
 import '../../../../widgets/legado_app_bar.dart';
@@ -62,7 +66,7 @@ class ReaderSettingsSheet extends ConsumerStatefulWidget {
   }
 
   static void show(BuildContext context) {
-    showModalBottomSheet<void>(
+    AppBottomSheet.showContent<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -71,9 +75,14 @@ class ReaderSettingsSheet extends ConsumerStatefulWidget {
         initialChildSize: MediaQuery.sizeOf(context).height < 500 ? 0.95 : 0.72,
         minChildSize: 0.4,
         maxChildSize: 0.95,
-        builder: (_, controller) => SingleChildScrollView(
-          controller: controller,
-          child: const ReaderSettingsSheet(),
+        builder: (_, controller) => AppBottomSheet.content(
+          title: context.l10n.readingSettings,
+          scrollable: false,
+          child: SingleChildScrollView(
+            controller: controller,
+            padding: const EdgeInsets.only(bottom: 16),
+            child: const ReaderSettingsSheet(),
+          ),
         ),
       ),
     );
@@ -185,46 +194,44 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
       );
     }
 
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildFontSizeGroup(state, notifier),
+        const SizedBox(height: 12),
+        _buildBackgroundGroup(state, notifier),
+        const SizedBox(height: 12),
+        _buildFlipGroup(state, notifier),
+        const SizedBox(height: 12),
+        const SettingsGroup(
+          flat: true,
+          showDividers: false,
+          children: [ReaderBrightnessControl()],
+        ),
+        const SizedBox(height: 12),
+        SettingsGroup(
+          flat: true,
+          showDividers: false,
+          margin: EdgeInsets.zero,
           children: [
-            _buildFontSizeGroup(state, notifier),
-            const SizedBox(height: 12),
-            _buildBackgroundGroup(state, notifier),
-            const SizedBox(height: 12),
-            _buildFlipGroup(state, notifier),
-            const SizedBox(height: 12),
-            _configPanel(ReaderConfigSection.brightness),
-            const SizedBox(height: 12),
-            SettingsGroup(
-              showDividers: false,
-              margin: EdgeInsets.zero,
-              children: [
-                SettingTile(
-                  icon: Icons.tune,
-                  title: '全部阅读设置',
-                  onTap: () {
-                    // 先关闭快捷面板，避免在完整设置页下方残留弹层。
-                    final navigator = Navigator.of(context);
-                    navigator.pop();
-                    navigator.push<void>(
-                      MaterialPageRoute<void>(
-                        builder: (_) =>
-                            const ReaderSettingsSheet(fullPage: true),
-                      ),
-                    );
-                  },
-                ),
-              ],
+            SettingTile(
+              icon: Icons.tune,
+              title: '全部阅读设置',
+              onTap: () {
+                // 先关闭快捷面板，避免在完整设置页下方残留弹层。
+                final navigator = Navigator.of(context);
+                navigator.pop();
+                navigator.push<void>(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const ReaderSettingsSheet(fullPage: true),
+                  ),
+                );
+              },
             ),
           ],
         ),
-      ),
+      ],
     );
   }
 
@@ -305,37 +312,57 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
     );
   }
 
-  Widget _buildFlipGroup(ReaderState state, ReaderNotifier notifier) =>
-      SettingsGroup(
-        showDividers: false,
-        children: [
-          SettingMenuRow<PageTurnMode>(
-            title: context.l10n.readerPageAnimation,
-            icon: Icons.auto_stories_outlined,
-            value: state.pageTurnMode,
-            options: _flipLabels,
-            onChanged: _savePageTurnMode,
-          ),
-          SettingMenuRow<BookOpenSpeed>(
-            title: context.l10n.readerBookOpenSpeed,
-            icon: Icons.open_in_new,
-            value: ref
-                .read(readerSettingsRepositoryProvider)
-                .current
-                .bookOpenSpeed,
-            options: {
-              BookOpenSpeed.fast: context.l10n.readerBookOpenFast,
-              BookOpenSpeed.standard: context.l10n.readerBookOpenStandard,
-              BookOpenSpeed.relaxed: context.l10n.readerBookOpenRelaxed,
-            },
-            onChanged: _saveBookOpenSpeed,
-          ),
-        ],
-      );
+  Widget _buildFlipGroup(ReaderState state, ReaderNotifier notifier) {
+    final speed = ref
+        .read(readerSettingsRepositoryProvider)
+        .current
+        .bookOpenSpeed;
+    final speedOptions = {
+      BookOpenSpeed.fast: context.l10n.readerBookOpenFast,
+      BookOpenSpeed.standard: context.l10n.readerBookOpenStandard,
+      BookOpenSpeed.relaxed: context.l10n.readerBookOpenRelaxed,
+    };
+    return SettingsGroup(
+      flat: !widget.fullPage,
+      showDividers: false,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: SettingMenuRow<PageTurnMode>(
+                title: context.l10n.readerPageAnimation,
+                icon: Icons.auto_stories_outlined,
+                value: state.pageTurnMode,
+                options: _flipLabels,
+                onChanged: _savePageTurnMode,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: AppMenuButton<BookOpenSpeed>(
+                tooltip: context.l10n.readerBookOpenSpeed,
+                icon: const Icon(Icons.open_in_new),
+                itemBuilder: (_) => [
+                  for (final entry in speedOptions.entries)
+                    AppMenuItem(
+                      value: entry.key,
+                      checked: entry.key == speed,
+                      child: Text(entry.value),
+                    ),
+                ],
+                onSelected: _saveBookOpenSpeed,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 
   /// 快捷面板和字体分组共用字号步进控件。
   Widget _buildFontSizeGroup(ReaderState state, ReaderNotifier notifier) =>
       SettingsGroup(
+        flat: !widget.fullPage,
         showDividers: false,
         children: [_buildFontSizeControl(state, notifier)],
       );
@@ -358,6 +385,7 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
     ref.watch(readerThemeModeProvider);
     final themeMode = ref.read(readerThemeSessionProvider).mode;
     return SettingsGroup(
+      flat: !widget.fullPage,
       showDividers: false,
       children: [
         if (widget.fullPage)
@@ -427,25 +455,116 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
           ),
         ),
         const SizedBox(height: 12),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Row(
-              children: [
-                for (final style in styles.styles)
-                  _styleChip(
-                    state,
-                    notifier,
-                    style,
-                    style.id == styles.selectedId,
-                  ),
-              ],
+        Row(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 16, right: 8),
+              child: IconButton.filledTonal(
+                tooltip: context.l10n.readerShareLayout,
+                isSelected: styles.shareLayout,
+                icon: const Icon(Icons.grid_view_outlined),
+                selectedIcon: const Icon(Icons.grid_view_rounded),
+                onPressed: () => _saveTypography(
+                  () => notifier.setReaderShareLayout(!styles.shareLayout),
+                ),
+              ),
             ),
-          ),
+            Expanded(
+              child: Stack(
+                children: [
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsetsDirectional.fromSTEB(16, 4, 16, 4),
+                    child: Row(
+                      children: [
+                        for (final style in styles.styles)
+                          _styleChip(
+                            state,
+                            notifier,
+                            style,
+                            style.id == styles.selectedId,
+                          ),
+                        IconButton(
+                          tooltip: '基于当前样式创建',
+                          icon: const Icon(Icons.add),
+                          onPressed: () => _createStyle(styles.selected),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PositionedDirectional(
+                    start: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: 16,
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: AlignmentDirectional.centerStart,
+                            end: AlignmentDirectional.centerEnd,
+                            colors: [
+                              Theme.of(context).colorScheme.surfaceContainer,
+                              Theme.of(context).colorScheme.surfaceContainer
+                                  .withValues(alpha: 0),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ],
     );
+  }
+
+  Future<void> _createStyle(ReaderStyle template) async {
+    var name = '${template.name} 副本';
+    String? error;
+    String? createdId;
+    var saving = false;
+    await AppBottomSheet.showContent<void>(
+      context: context,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => AppSettingsSheet(
+          title: '基于模板创建样式',
+          contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          onSave: saving
+              ? null
+              : () async {
+                  setSheetState(() => saving = true);
+                  try {
+                    createdId = await ref
+                        .read(readerStyleRepositoryProvider)
+                        .createFromTemplate(template.id, name);
+                    if (sheetContext.mounted) Navigator.pop(sheetContext);
+                  } catch (e) {
+                    if (sheetContext.mounted) {
+                      setSheetState(() {
+                        saving = false;
+                        error = '创建失败：$e';
+                      });
+                    }
+                  }
+                },
+          child: TextFormField(
+            initialValue: name,
+            onChanged: (value) => name = value,
+            autofocus: true,
+            decoration: InputDecoration(labelText: '样式名称', errorText: error),
+          ),
+        ),
+      ),
+    );
+    if (createdId != null && mounted) {
+      await ref
+          .read(readerNotifierProvider.notifier)
+          .selectReaderStyle(createdId!);
+    }
   }
 
   Future<bool> _saveColors(Future<void> Function() operation) async {
@@ -512,6 +631,8 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
             children: [
               Text(
                 style.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(color: foreground, fontSize: 12),
               ),
               const SizedBox(height: 2),
@@ -615,6 +736,38 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
               ),
             ),
             actions: [
+              TextButton(
+                onPressed: () async {
+                  final presetId = await AppBottomSheet.show<String>(
+                    context: dialogContext,
+                    title: '恢复预设',
+                    children: [
+                      for (final preset in readerStylePresets)
+                        ListTile(
+                          title: Text(preset.name),
+                          onTap: () => Navigator.pop(dialogContext, preset.id),
+                        ),
+                    ],
+                  );
+                  if (presetId == null) return;
+                  if (await _saveColors(
+                        () => notifier.restoreReaderPreset(presetId),
+                      ) &&
+                      dialogContext.mounted) {
+                    final colors = ref
+                        .read(readerStyleRepositoryProvider)
+                        .current
+                        .selected
+                        .colors(state.isNightMode);
+                    setDialogState(() {
+                      textColorValue = colors.text ?? 0;
+                      bgColorValue =
+                          colors.background ?? state.backgroundColor.toARGB32();
+                    });
+                  }
+                },
+                child: const Text('恢复预设'),
+              ),
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext),
                 child: Text(dialogContext.l10n.readerDone),

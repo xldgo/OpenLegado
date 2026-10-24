@@ -7743,6 +7743,12 @@ abstract class AppLocalizations {
   /// **'书源列表刷新失败：{error}。导入计数已保留，可重新加载列表。'**
   String sourceImportRefreshFailed(String error);
 
+  /// No description provided for @readerShareLayout.
+  ///
+  /// In zh, this message translates to:
+  /// **'共用布局'**
+  String get readerShareLayout;
+
   /// No description provided for @readerBookOpenSpeed.
   ///
   /// In zh, this message translates to:
