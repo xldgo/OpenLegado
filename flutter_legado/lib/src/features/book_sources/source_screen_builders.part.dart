@@ -42,16 +42,10 @@ extension _SourceBuilders on _SourceScreenState {
           onSelected: (value) => _handleGroupAction(context, value),
           itemBuilder: (context) => [
             AppMenuItem(
-              enabled: false,
-              child: Text(
-                context.l10n.group,
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ),
-            AppMenuItem(
               value: 'group_manage',
               child: Text(context.l10n.groupManagement),
             ),
+            const AppMenuDivider(),
             AppMenuItem(
               value: SourceSpecialGroup.enabled,
               checked: state.selectedGroup == SourceSpecialGroup.enabled,
