@@ -45,6 +45,7 @@ def fixture(root: Path):
     shutil.copytree(ROOT / "scripts" / "tooling", root / "scripts" / "tooling",
                     ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"))
     write(root / "rust" / "legado-ffi" / "Cargo.toml",
+          '[package]\nname = "legado-ffi"\nversion = "0.2.0"\n'
           '[dependencies]\nflutter_rust_bridge = "=2.13.0"\n')
     write(root / "rust" / "rust-toolchain.toml", '[toolchain]\nchannel = "stable"\n')
     write(root / "rust" / "Cargo.lock", "# 测试锁文件\n")
@@ -58,7 +59,7 @@ def fixture(root: Path):
     write(root / "rust" / "legado-ffi" / "src" / "business.rs", "业务实现\n")
     write(root / "flutter_legado" / "pubspec.yaml", "dependencies:\n  flutter_rust_bridge: 2.13.0\n")
     write(root / "flutter_legado" / "lib" / "src" / "bridge" / "frb_generated.dart",
-          "String get codegenVersion => '2.13.0';\nint get rustContentHash => -123456;\n")
+          "stem: 'legado_ffi',\nString get codegenVersion => '2.13.0';\nint get rustContentHash => -123456;\n")
 
 
 def artifact(root: Path, abi="arm64-v8a", profile="debug", cargo_dir=None):

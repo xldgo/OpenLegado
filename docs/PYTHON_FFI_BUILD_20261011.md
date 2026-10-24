@@ -35,7 +35,9 @@ python scripts/dev.py test tooling
   依赖，不默认删除冲突输出。`--check`复制当前lib与生成配置到临时目录，实际生成并比对
   新增/删除/修改，核对依赖声明及锁文件；不覆盖原工作区。
 - FRB：从双方 runtime 读取精确版本，检查已安装生成器版本和 cargo-expand；执行现有
-  `flutter_rust_bridge.yaml`，生成后核对两端 hash/版本。缺少工具时报告安装命令，不由
+  `flutter_rust_bridge.yaml`；生成前确保完整的 `cargo metadata --locked` 成功，生成后核对两端
+  hash/版本及Dart加载库名与Cargo库名一致，防止metadata失败后FRB静默生成`UNKNOWN`。
+  离线生成需预先缓存metadata涉及的各平台依赖；缺少工具时报告安装命令，不由
   Python 安装；不关闭应用，不重编 DLL，也没有增加 `--skip-fvm-install`。
 - Windows 直接调用 Flutter SDK 自带的 `dart.exe`，保持同一 SDK 的 FLUTTER_ROOT；
   工程编排不拼接 bat/cmd。FRB 内部保留其默认的 SDK/FVM 检测行为。

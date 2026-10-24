@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from support import fixture, write
 from tooling.bridge import generate_bridge, generate_dart, replace_output
-from tooling.common import ToolError
+from tooling.common import CommandError, ToolError
 
 
 class BridgeTests(unittest.TestCase):
@@ -42,6 +42,21 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(self.commands[-1][1:], ["generate", "--config-file", "flutter_rust_bridge.yaml"])
         self.assertFalse(any("build" in args or "Stop-Process" in args for args in self.commands))
         self.assertFalse(any("--skip-fvm-install" in args for args in self.commands))
+
+    def test_metadata_failure_stops_generation_without_publishing(self):
+        path = self.root / "flutter_legado/lib/src/bridge/frb_generated.dart"
+        original = path.read_bytes()
+
+        def unavailable_metadata(args, cwd, env, capture=False):
+            if args[1] == "metadata":
+                raise CommandError("cargo metadata", 101)
+            return self.fake_run(args, cwd, env, capture)
+
+        with patch("tooling.bridge.run_command", side_effect=unavailable_metadata):
+            with self.assertRaises(CommandError):
+                generate_bridge(self.root)
+        self.assertFalse(any("generate" in args for args in self.commands))
+        self.assertEqual(path.read_bytes(), original)
 
     def test_generate_dart_restores_locked_dependencies(self):
         generate_dart(self.root)

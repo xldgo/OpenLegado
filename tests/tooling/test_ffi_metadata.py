@@ -54,6 +54,21 @@ class MetadataTests(unittest.TestCase):
             with self.subTest(value=value), self.assertRaisesRegex(ToolError, "精确固定"):
                 bridge_contract(self.root)
 
+    def test_generated_loader_must_target_the_cargo_library(self):
+        path = self.root / "flutter_legado/lib/src/bridge/frb_generated.dart"
+        original = path.read_text()
+        for stem in ("UNKNOWN", "another_library"):
+            with self.subTest(stem=stem):
+                write(path, original.replace("legado_ffi", stem))
+                with self.assertRaisesRegex(ToolError, "原生库名错误"):
+                    bridge_contract(self.root)
+        write(path, original)
+        self.assertEqual(bridge_contract(self.root).version, "2.13.0")
+        manifest = self.root / "rust/legado-ffi/Cargo.toml"
+        write(manifest, manifest.read_text() + '\n[lib]\nname = "custom_ffi"\n')
+        write(path, original.replace("legado_ffi", "custom_ffi"))
+        self.assertEqual(bridge_contract(self.root).version, "2.13.0")
+
     def test_pubspec_requires_a_pinned_runtime_dependency(self):
         path = self.root / "flutter_legado" / "pubspec.yaml"
         for text in ("dev_dependencies:\n  flutter_rust_bridge: 2.13.0\n",

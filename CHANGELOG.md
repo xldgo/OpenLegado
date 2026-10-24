@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 - 接通设备命名、仅保留本机最新包、前台到期自动备份及云端新备份提示；上传失败保留本地包和旧备份；贡献者：Codex + Rust / UI。
 
 ### Fixed
+- 修复绑定库名异常导致Android启动时Rust初始化失败的问题，生成及安装检查加入实际加载和初始化确认；贡献者：Codex + Tool / Bridge。
 - 修复WSL关闭Windows PATH继承时无法发现已启动MuMu的问题，自动读取宿主安装信息并连接实际ADB端点；贡献者：Codex + Tool。
 - 单项数字设置面板打开时自动聚焦，支持键盘完成后提交校验；源编辑行数的不限模式不弹键盘；贡献者：Codex + UI。
 - 精简公用底部面板的横条与标题留白，移除滚轮和RSS操作面板的重复横条；贡献者：Codex + UI。

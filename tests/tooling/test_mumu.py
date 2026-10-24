@@ -168,7 +168,7 @@ class MumuTests(unittest.TestCase):
                 patch.object(mumu, "_mumu_install_locations", return_value=["", str(self.manager.parent.parent)]):
             self.assertEqual(mumu.find_mumu_manager({}), self.manager)
 
-    def build(self, code=0, startup="device ready", args=None, invalid_library=False):
+    def build(self, code=0, startup="device ready\n[启动] 总启动耗时：100ms", args=None, invalid_library=False):
         with patch.object(mumu, "find_adb", return_value=self.adb), \
                 patch.object(mumu, "select_mumu_device", return_value="local:99"), \
                 patch.object(mumu, "run_logged_build", return_value=code) as build, \
@@ -213,6 +213,8 @@ class MumuTests(unittest.TestCase):
     def test_startup_crash_or_missing_process_fails_and_logs_reason(self):
         with self.assertRaisesRegex(ToolError, "未处理异常"):
             self.build(startup="FATAL EXCEPTION: main")
+        with self.assertRaisesRegex(ToolError, "初始化失败"):
+            self.build(startup="[Legado] 初始化失败：无法加载 libUNKNOWN.so")
         with patch.object(mumu, "find_adb", return_value=self.adb), \
                 patch.object(mumu, "select_mumu_device", return_value="local:99"), \
                 patch.object(mumu, "run_logged_build", return_value=0), \
@@ -222,6 +224,19 @@ class MumuTests(unittest.TestCase):
             with self.assertRaises(CommandError):
                 mumu.build_mumu_app(self.root, self.args)
         self.assertIn("失败：", (self.root / "build/mumu/build-install.log").read_text(encoding="utf-8"))
+
+    def test_startup_waits_for_initialization_and_times_out_if_not_ready(self):
+        path = self.root / "startup.log"
+        with path.open("w", encoding="utf-8") as log, \
+                patch.object(mumu.time, "sleep"), \
+                patch.object(mumu, "run_command", side_effect=[
+                    "321", "[启动] 初始化中", "321", "[启动] 总启动耗时：3000ms"]):
+            self.assertEqual(mumu.wait_for_app_ready(self.root, self.adb, {}, "local:99", log), "321")
+        with path.open("w", encoding="utf-8") as log, \
+                patch.object(mumu.time, "monotonic", side_effect=[0, 31]), \
+                patch.object(mumu, "run_command", side_effect=["321", "[启动] 初始化中"]):
+            with self.assertRaisesRegex(ToolError, "超时"):
+                mumu.wait_for_app_ready(self.root, self.adb, {}, "local:99", log)
 
     def test_real_child_output_and_exit_code_are_logged_and_previous_log_is_replaced(self):
         path = self.root / "build.log"

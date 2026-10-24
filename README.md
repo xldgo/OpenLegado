@@ -72,7 +72,7 @@ python scripts/dev.py build android --emulator mumu --install
 WSL支持读取宿主Windows安装信息并转换路径，关闭Windows PATH继承时也可自动发现；需要启用Windows互操作。
 连接最多等待10秒，失败显示端点和原因；不会重启共享ADB服务。找不到MuMuManager时仍可使用已连接实例。
 Rust库通过现有指纹、ABI、模式与摘要校验就自动复用，否则重新编译；失败不使用旧库兜底。
-沿用默认MainActivity启动，检查进程和近期未处理异常；不清除应用数据。
+沿用默认MainActivity启动，最多等待30秒确认应用初始化完成，同时检查初始化失败及未处理异常；不清除应用数据。
 每次日志覆盖保存至 `build/mumu/build-install.log`。使用其他当前目录时指定 `dev.py` 的绝对路径。
 
 Android Release 的分 ABI APK 校验与收集复用同一工具，命令见 [Release 工具说明](docs/过期文档/PYTHON_ANDROID_RELEASE_20261011.md)。

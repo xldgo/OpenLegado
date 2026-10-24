@@ -22,6 +22,13 @@ def unique_match(pattern: str, text: str, field: str) -> str:
     return matches[0]
 
 
+def _ffi_manifest(root: Path) -> dict:
+    try:
+        return tomllib.loads(read_text(root / "rust" / "legado-ffi" / "Cargo.toml"))
+    except tomllib.TOMLDecodeError as exc:
+        raise ToolError("legado-ffi/Cargo.toml 无法解析。") from exc
+
+
 def runtime_version(root: Path) -> str:
     pubspec = read_text(root / "flutter_legado" / "pubspec.yaml")
     # 仅支持当前工程使用的直接标量版本声明，不假装实现通用 YAML 解析器。
@@ -30,10 +37,7 @@ def runtime_version(root: Path) -> str:
         r"^  flutter_rust_bridge:[ \t]*(\d+\.\d+\.\d+|'\d+\.\d+\.\d+'|\"\d+\.\d+\.\d+\")[ \t]*(?:#.*)?$",
         dependencies, "pubspec FRB 精确版本",
     ).strip("'\"")
-    try:
-        cargo = tomllib.loads(read_text(root / "rust" / "legado-ffi" / "Cargo.toml"))
-    except tomllib.TOMLDecodeError as exc:
-        raise ToolError("legado-ffi/Cargo.toml 无法解析。") from exc
+    cargo = _ffi_manifest(root)
     runtime_rust = cargo.get("dependencies", {}).get("flutter_rust_bridge")
     if runtime_rust != f"={runtime_dart}":
         raise ToolError("Dart/Rust FRB runtime 必须精确固定为同一版本。")
@@ -52,6 +56,11 @@ def bridge_contract(root: Path) -> BridgeContract:
     runtime_dart = runtime_version(root)
     if dart_version != rust_version or dart_version != runtime_dart:
         raise ToolError("FRB 生成物版本与 Dart/Rust runtime 不一致，需要重新生成绑定。")
+    manifest = _ffi_manifest(root)
+    expected_stem = manifest.get("lib", {}).get("name") or manifest.get("package", {}).get("name", "").replace("-", "_")
+    stem = unique_match(r"^\s*stem:\s*['\"]([^'\"]+)['\"],?\s*$", dart, "FRB 原生库名")
+    if not expected_stem or stem != expected_stem:
+        raise ToolError(f"FRB 原生库名错误：{stem}，应为 {expected_stem}；请确保 cargo metadata 成功后重新生成绑定。")
     return BridgeContract(rust_hash, dart_version)
 
 

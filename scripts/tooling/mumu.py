@@ -240,17 +240,7 @@ def build_mumu_app(root: Path, args) -> int:
             code = run_logged_build(command, root, env, log)
             if code:
                 return code
-            # am start -W由原入口检查；短暂等待后检查进程及本进程近期崩溃日志。
-            time.sleep(2)
-            pid = run_command([adb, "-s", serial, "shell", "pidof", PACKAGE],
-                              root, env, capture=True).strip()
-            if not re.fullmatch(r"[0-9]+", pid):
-                raise ToolError("应用启动后没有有效进程。")
-            startup = run_command([adb, "-s", serial, "logcat", "-d", "-t", "200", f"--pid={pid}"],
-                                  root, env, capture=True)
-            log.write(f"\n启动进程：{pid}\n{startup}")
-            if "FATAL EXCEPTION:" in startup or "Unhandled Exception:" in startup:
-                raise ToolError("应用启动日志存在未处理异常，请查看本次日志。")
+            pid = wait_for_app_ready(root, adb, env, serial, log)
             message = f"MuMu安装及启动检查通过：{serial}；PID {pid}"
             print(message)
             log.write(f"\n{message}\n")
@@ -258,3 +248,29 @@ def build_mumu_app(root: Path, args) -> int:
         except (ToolError, OSError) as exc:
             log.write(f"\n失败：{exc}\n")
             raise
+
+
+def wait_for_app_ready(root: Path, adb: Path, env: dict, serial: str, log) -> str:
+    """初始化失败会被应用捕获并显示错误页，进程存活不能证明启动成功。"""
+    deadline = time.monotonic() + 30
+    while True:
+        pid = run_command([adb, "-s", serial, "shell", "pidof", PACKAGE],
+                          root, env, capture=True).strip()
+        if not re.fullmatch(r"[0-9]+", pid):
+            raise ToolError("应用启动后没有有效进程。")
+        startup = run_command([adb, "-s", serial, "logcat", "-d", "-t", "200", f"--pid={pid}"],
+                              root, env, capture=True)
+        failed = "[Legado] 初始化失败" in startup
+        crashed = "FATAL EXCEPTION:" in startup or "Unhandled Exception:" in startup
+        ready = "[启动] 总启动耗时：" in startup
+        expired = time.monotonic() >= deadline
+        if failed or crashed or ready or expired:
+            log.write(f"\n启动进程：{pid}\n{startup}")
+            if failed:
+                raise ToolError("应用初始化失败，请查看本次启动日志。")
+            if crashed:
+                raise ToolError("应用启动日志存在未处理异常，请查看本次日志。")
+            if ready:
+                return pid
+            raise ToolError("等待应用初始化完成超时（30秒），请查看本次启动日志。")
+        time.sleep(1)

@@ -100,6 +100,10 @@ def invoke_bridge(root: Path, codegen: Path, dart: Path, env: dict):
     app = root / "flutter_legado"
     protected = [root / "rust" / "Cargo.lock", app / "pubspec.yaml", app / "pubspec.lock"]
     before = {path: path.read_bytes() for path in protected}
+    # FRB 会吞掉 metadata 失败并生成 UNKNOWN 库名，必须先确认元数据依赖可用。
+    run_command([find_tool("cargo", env), "metadata", "--locked", "--format-version", "1",
+                 "--manifest-path", root / "rust" / "legado-ffi" / "Cargo.toml"],
+                root / "rust", env, capture=True)
     run_command([dart, "pub", "get", "--enforce-lockfile"], app, env)
     run_command([codegen, "generate", "--config-file", "flutter_rust_bridge.yaml"], app, env)
     changed = [str(path) for path, content in before.items() if not path.is_file() or path.read_bytes() != content]
