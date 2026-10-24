@@ -1,7 +1,12 @@
+import 'package:collection/collection.dart';
+
+import '../highlight/reader_highlight_style.dart';
+import '../highlight/reader_highlight_painter.dart';
+import '../highlight/reader_highlight_resources.dart';
+
 import 'dart:ui' as ui;
 
 import 'package:flutter/rendering.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../layout/text_layout_environment.dart';
@@ -118,6 +123,7 @@ class ReaderLineText extends StatelessWidget {
 class ReaderSelectableText extends RichText {
   final List<ReaderGlyph> glyphs;
   final TextStyle? glyphStyle;
+  final ReaderHighlightResources? resources;
 
   ReaderSelectableText({
     super.key,
@@ -136,6 +142,7 @@ class ReaderSelectableText extends RichText {
     super.selectionColor,
     this.glyphs = const [],
     this.glyphStyle,
+    this.resources,
   }) : super(
          text: glyphs.isEmpty
              ? text
@@ -162,6 +169,7 @@ class ReaderSelectableText extends RichText {
         _geometry(context),
         glyphs: glyphs,
         glyphStyle: glyphStyle,
+        resources: resources ?? ReaderHighlightResourceScope.maybeOf(context),
         textAlign: textAlign,
         textDirection: textDirection ?? Directionality.of(context),
         softWrap: softWrap,
@@ -185,7 +193,11 @@ class ReaderSelectableText extends RichText {
     (renderObject as _ReaderRenderParagraph).selectionGeometry = _geometry(
       context,
     );
-    renderObject.updateGlyphs(glyphs, glyphStyle);
+    renderObject.updateGlyphs(
+      glyphs,
+      glyphStyle,
+      resources ?? ReaderHighlightResourceScope.maybeOf(context),
+    );
   }
 }
 
@@ -195,6 +207,7 @@ class _ReaderRenderParagraph extends RenderParagraph {
     this._selectionGeometry, {
     this.glyphs = const [],
     this.glyphStyle,
+    this.resources,
     super.textAlign,
     required super.textDirection,
     super.softWrap,
@@ -213,12 +226,23 @@ class _ReaderRenderParagraph extends RenderParagraph {
   _ReaderSelectionGeometry? _selectionGeometry;
   List<ReaderGlyph> glyphs;
   TextStyle? glyphStyle;
+  ReaderHighlightResources? resources;
+  ReaderHighlightPainter? _decorations;
   final List<(TextPainter, Offset)> _runs = [];
 
-  void updateGlyphs(List<ReaderGlyph> value, TextStyle? style) {
-    if (identical(glyphs, value) && glyphStyle == style) return;
+  void updateGlyphs(
+    List<ReaderGlyph> value,
+    TextStyle? style,
+    ReaderHighlightResources? newResources,
+  ) {
+    if (identical(glyphs, value) &&
+        glyphStyle == style &&
+        identical(resources, newResources)) {
+      return;
+    }
     glyphs = value;
     glyphStyle = style;
+    resources = newResources;
     markNeedsLayout();
   }
 
@@ -229,6 +253,13 @@ class _ReaderRenderParagraph extends RenderParagraph {
       run.$1.dispose();
     }
     _runs.clear();
+    _decorations = glyphs.isEmpty
+        ? null
+        : ReaderHighlightPainter(
+            glyphs,
+            resources,
+            glyphStyle?.color ?? const Color(0xFF000000),
+          );
     if (glyphs.isEmpty) return;
     var index = 0;
     while (index < glyphs.length) {
@@ -238,7 +269,10 @@ class _ReaderRenderParagraph extends RenderParagraph {
           : 0.0;
       index++;
       while (index < glyphs.length &&
-          mapEquals(glyphs[index].style, glyphs[from].style) &&
+          const DeepCollectionEquality().equals(
+            glyphs[index].style,
+            glyphs[from].style,
+          ) &&
           glyphs[index].text != ' ' &&
           glyphs[index - 1].text != ' ' &&
           (glyphs[index].baseline - glyphs[from].baseline).abs() < .001 &&
@@ -247,16 +281,17 @@ class _ReaderRenderParagraph extends RenderParagraph {
               .001) {
         index++;
       }
-      final style = glyphStyle ?? const TextStyle();
-      final scale =
-          textScaler.scale(style.fontSize ?? 16) / (style.fontSize ?? 16);
+      final style = readerGlyphTextStyle(
+        glyphStyle ?? const TextStyle(),
+        glyphs[from].style,
+      );
       final painter = TextPainter(
         text: TextSpan(
           text: glyphs.sublist(from, index).map((g) => g.text).join(),
-          style: style.copyWith(letterSpacing: gap / scale),
+          style: style.copyWith(letterSpacing: gap),
         ),
         textDirection: textDirection,
-        textScaler: textScaler,
+        textScaler: TextScaler.noScaling,
         locale: locale,
         textHeightBehavior: textHeightBehavior,
         maxLines: 1,
@@ -275,10 +310,12 @@ class _ReaderRenderParagraph extends RenderParagraph {
   @override
   void paint(PaintingContext context, Offset offset) {
     // 父类保留原生选区、语义和手柄；透明正文不参与第二次落位。
+    _decorations?.paintBackground(context.canvas, offset);
     super.paint(context, offset);
     for (final (painter, position) in _runs) {
       painter.paint(context.canvas, offset + position);
     }
+    _decorations?.paintLines(context.canvas, offset);
   }
 
   @override

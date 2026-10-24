@@ -1,3 +1,6 @@
+import '../../../providers/highlight_repository_provider.dart';
+import '../highlight/reader_highlight_resources.dart';
+import '../highlight/reader_highlights_provider.dart';
 import '../../../app/routing/app_navigation.dart';
 import '../application/reader_pagination_policy.dart';
 import '../../../providers/chapter_content_provider.dart';
@@ -422,6 +425,19 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
   // ===== 排版引擎分页状态 =====
 
   /// 当前章节的排版分页结果
+  ReaderHighlights _highlights = const ReaderHighlights();
+  Object? _highlightKey;
+  HighlightChapterKey _highlightChapter(
+    ReaderState state,
+    String content,
+    String title,
+  ) => (
+    text: content,
+    title: title,
+    bookName: state.currentBook?.name ?? '',
+    origin: state.currentBook?.origin ?? '',
+    configName: ref.read(readerStylesProvider).value?.selected.name ?? '',
+  );
   List<PageInfo> _paginatedPages = [];
 
   /// 分页对应的章节索引（用于检测章节切换后重新分页）
@@ -787,6 +803,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       doublePage: doublePage,
       scroll: state.pageTurnMode == PageTurnMode.scroll,
       reviews: reviewKey,
+      highlights: _highlightKey,
     );
     final needRepaginate =
         (content.isNotEmpty ||
@@ -869,7 +886,12 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
                   )]
                   .sourceStart
             : null);
-    final engine = ParagraphLayoutEngine(config: config, context: context);
+    final engine = ParagraphLayoutEngine(
+      config: config,
+      context: context,
+      highlights: _highlights,
+      resources: ref.read(readerHighlightResourcesProvider),
+    );
     _pagedParagraphSpacingPx = engine.shaper.paragraphSpacingPx;
     // [UI-fix v2.0.4 | 2026-08-08] 首页容量单独下发（扣标题块）— Qoder
     final cacheKey = ReaderPaginationPolicy.chapterCacheKey(
@@ -882,6 +904,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       titleKey: title.geometryKey,
       fontRevision: _fontRevision,
       reviews: reviewKey,
+      highlights: _highlightKey,
     );
     final cachedPages = _layoutCache.get(cacheKey);
     _layoutError = null;
@@ -1191,6 +1214,21 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       if (previous?.value != next.value) unawaited(_refreshFontFamily());
     });
     final state = ref.watch(readerNotifierProvider);
+    final configName =
+        ref.watch(readerStylesProvider).value?.selected.name ?? '';
+    final revision = ref.watch(highlightRuleRevisionProvider);
+    final highlights = state.currentBook == null
+        ? const AsyncValue<ReaderHighlights>.data(ReaderHighlights())
+        : ref.watch(
+            readerHighlightsProvider(
+              _highlightChapter(
+                state,
+                state.chapterContent,
+                state.currentChapter?.title ?? '',
+              ),
+            ),
+          );
+
     final notifier = ref.read(readerNotifierProvider.notifier);
     ref.listen(readerNotifierProvider, (previous, next) {
       if (previous != null &&
@@ -1209,6 +1247,18 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       }
     });
     _scheduleAloudFollow();
+    if (highlights.isLoading && !highlights.hasValue) {
+      if (_paginatedPages.isEmpty) return _chapterLoading(context);
+      return ReaderHighlightResourceScope(
+        resources: ref.watch(readerHighlightResourcesProvider),
+        child: _buildContent(context, state, repaginate: false),
+      );
+    }
+    if (highlights.hasError) {
+      return Center(child: Text('高亮规则加载失败：${highlights.error}'));
+    }
+    _highlights = highlights.value ?? const ReaderHighlights();
+    _highlightKey = (revision, configName);
 
     // [UI_SYNC_REFACTOR S4 修 | 2026-09-06] 章节切换加载中：保留上一章
     // 既有分页渲染（跳过重分页）——此前直接整树换成 LoadingIndicator，
@@ -1222,7 +1272,10 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     }
     if (state.isLoading && state.error == null) {
       // 冻结帧：不重分页、不响应排版参数变化（加载完成后统一重算）
-      return _buildContent(context, state, repaginate: false);
+      return ReaderHighlightResourceScope(
+        resources: ref.watch(readerHighlightResourcesProvider),
+        child: _buildContent(context, state, repaginate: false),
+      );
     }
 
     // [F1-hunt F4 | 2026-09-24] 全屏 ErrorView 仅在「正文为空」时生效：
@@ -1281,7 +1334,10 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       );
     }
 
-    return _buildContent(context, state, repaginate: true);
+    return ReaderHighlightResourceScope(
+      resources: ref.watch(readerHighlightResourcesProvider),
+      child: _buildContent(context, state, repaginate: true),
+    );
   }
 
   Widget _chapterLoading(BuildContext context) {
@@ -1553,7 +1609,31 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
           state.chapters[target].title.trim().isEmpty) {
         return;
       }
-      final engine = ParagraphLayoutEngine(config: config, context: context);
+      final highlightKey = _highlightChapter(
+        state,
+        content,
+        state.chapters[target].title,
+      );
+      final rules = await ref.read(
+        readerHighlightRulesProvider((
+          bookName: highlightKey.bookName,
+          origin: highlightKey.origin,
+        )).future,
+      );
+      if (!mounted || !_isCurrentPaginationTask(task)) return;
+      final highlights = await loadReaderHighlights(
+        ref.read(highlightRuleRepositoryProvider),
+        ref.read(readerHighlightResourcesProvider),
+        rules,
+        highlightKey,
+      );
+      if (!mounted || !_isCurrentPaginationTask(task)) return;
+      final engine = ParagraphLayoutEngine(
+        config: config,
+        context: context,
+        highlights: highlights,
+        resources: ref.read(readerHighlightResourcesProvider),
+      );
       final titleLayout = ReaderTitleLayout(
         text: state.chapters[target].title,
         chrome: widget.pageChrome,
@@ -1569,6 +1649,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
         titleKey: titleLayout.geometryKey,
         fontRevision: _fontRevision,
         reviews: '',
+        highlights: _highlightKey,
       );
       var pages = _layoutCache.get(cacheKey);
       if (pages == null) {

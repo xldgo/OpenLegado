@@ -1,6 +1,9 @@
 /// Flutter 文字测量与 Rust 纯计算排版的编排入口。
 library;
 
+import '../highlight/reader_highlights_provider.dart';
+import '../highlight/reader_highlight_resources.dart';
+
 import 'package:flutter/widgets.dart';
 
 import '../../../domain/contracts/reader_layout_transport.dart';
@@ -22,6 +25,7 @@ export 'paragraph_config.dart';
 
 class ParagraphLayoutEngine {
   final ParagraphConfig config;
+  final ReaderHighlights highlights;
   final ReaderLayoutDiagnostics? diagnostics;
   final ReaderLayoutTransport transport;
   late final TextLayoutEnvironment environment;
@@ -29,6 +33,8 @@ class ParagraphLayoutEngine {
 
   ParagraphLayoutEngine({
     required this.config,
+    this.highlights = const ReaderHighlights(),
+    ReaderHighlightResources? resources,
     required BuildContext context,
     ReaderLayoutTransport? transport,
     this.diagnostics,
@@ -43,7 +49,12 @@ class ParagraphLayoutEngine {
           textScaler: config.textScaler ?? TextScaler.noScaling,
           direction: TextDirection.ltr,
         );
-    shaper = FlutterTextShaper(config, environment, diagnostics);
+    shaper = FlutterTextShaper(
+      config,
+      environment,
+      diagnostics,
+      resources: resources,
+    );
   }
   int _titleMeasurementCount = 0;
   int get measurementCount => shaper.measurementCount + _titleMeasurementCount;
@@ -72,6 +83,8 @@ class ParagraphLayoutEngine {
           width,
           emptyBody: paragraphs.isEmpty,
           diagnostics: diagnostics,
+          highlights: highlights.title,
+          resources: shaper.resources,
         ) ??
         MeasuredReaderTitle.empty;
     _titleMeasurementCount = measuredTitle.measurementCount;
@@ -84,8 +97,13 @@ class ParagraphLayoutEngine {
     }
     return ChapterPaginationSession(
       paragraphs: paragraphs,
-      measure: (paragraph, index) =>
-          shaper.measure(paragraph, index, paragraphReviews[index], width),
+      measure: (paragraph, index) => shaper.measure(
+        paragraph,
+        index,
+        paragraphReviews[index],
+        width,
+        highlights: highlights.body,
+      ),
       bridge: ReaderLayoutSession(
         transport: transport,
         diagnostics: diagnostics,

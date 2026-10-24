@@ -71,6 +71,7 @@ abstract final class ReaderPaginationPolicy {
     Object? titleKey,
     required int fontRevision,
     required String reviews,
+    Object? highlights,
   }) => (
     bookUrl,
     chapter,
@@ -81,6 +82,7 @@ abstract final class ReaderPaginationPolicy {
     _paragraphGeometry(config),
     fontRevision,
     reviews,
+    highlights,
   );
 
   /// 同时需要两侧时按距离选择；等距优先下一章，保持原串行预排规则。
@@ -128,6 +130,7 @@ final class ReaderPaginationSignature {
     required bool doublePage,
     required bool scroll,
     required String reviews,
+    Object? highlights,
     String? chapterTitle,
     bool isVolume = false,
   }) : _key = (
@@ -148,6 +151,7 @@ final class ReaderPaginationSignature {
          doublePage,
          scroll,
          reviews,
+         highlights,
        );
   final Object _key;
   @override

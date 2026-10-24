@@ -1,3 +1,6 @@
+import '../highlight/reader_highlight_resources.dart';
+import '../../../domain/models/highlight_rule.dart';
+
 import 'package:flutter/widgets.dart';
 
 import 'chapter_layout.dart';
@@ -90,6 +93,8 @@ final class ReaderTitleLayout {
     double width, {
     required bool emptyBody,
     ReaderLayoutDiagnostics? diagnostics,
+    List<HighlightMatch> highlights = const [],
+    ReaderHighlightResources? resources,
   }) {
     if (chrome.titleMode == 2 && !isVolume && !emptyBody) {
       return MeasuredReaderTitle.empty;
@@ -113,12 +118,18 @@ final class ReaderTitleLayout {
       justify: false,
       hangingPunctuation: false,
     );
-    final baseShaper = FlutterTextShaper(titleConfig, environment, diagnostics);
+    final baseShaper = FlutterTextShaper(
+      titleConfig,
+      environment,
+      diagnostics,
+      resources: resources,
+    );
     final shapers = <FlutterTextShaper>{baseShaper};
     final h = baseShaper.height;
     final blocks = <Map<String, Object?>>[];
     final paragraphs = <SourceParagraph>[];
     final styles = <TextStyle>[];
+    var sourceCursor = 0;
     for (final part in parts) {
       final shaper = part.scale == 1
           ? baseShaper
@@ -129,14 +140,31 @@ final class ReaderTitleLayout {
               ),
               environment,
               diagnostics,
+              resources: resources,
             );
       shapers.add(shaper);
       final paragraph = SourceParagraph(part.text, 0, part.text.length);
-      final measured =
-          shaper.measure(paragraph, 0, null, width)['value']!
-              as Map<String, Object?>;
+      final sourceStart = text.indexOf(part.text, sourceCursor);
+      sourceCursor = sourceStart + part.text.length;
+      final localMatches = [
+        for (final m in highlights)
+          if (m.start < sourceCursor && m.end > sourceStart)
+            HighlightMatch(
+              start: m.start - sourceStart,
+              end: m.end - sourceStart,
+              style: m.style,
+            ),
+      ];
+      final measuredBlock = shaper.measure(
+        paragraph,
+        0,
+        null,
+        width,
+        highlights: localMatches,
+      );
+      final measured = measuredBlock['value'] as Map<String, Object?>?;
       final map = TextClusterMap(part.text);
-      final widths = measured['clusterWidthsPx']! as List<double>;
+      final widths = measured?['clusterWidthsPx'] as List<double>?;
       blocks.add({
         'type': 'inlineParagraph',
         'emphasized': true,
@@ -151,16 +179,18 @@ final class ReaderTitleLayout {
         'baseTextSizePx': environment.textScaler.scale(shaper.config.fontSize),
         'letterSpacingPx': shaper.spacing,
         'titleSpacingScale': shaper.height / h,
-        'items': [
-          for (var i = 0; i < map.clusters.length; i++)
-            {
-              'type': 'text',
-              'value': map.clusters[i],
-              'widthPx': widths[i],
-              'style': measured['style'],
-              'chapterPosition': map.sourceOffsets[i],
-            },
-        ],
+        'items': measured == null
+            ? measuredBlock['items']
+            : [
+                for (var i = 0; i < map.clusters.length; i++)
+                  {
+                    'type': 'text',
+                    'value': map.clusters[i],
+                    'widthPx': widths![i],
+                    'style': measured['style'],
+                    'chapterPosition': map.sourceOffsets[i],
+                  },
+              ],
       });
       paragraphs.add(paragraph);
       styles.add(shaper.style);

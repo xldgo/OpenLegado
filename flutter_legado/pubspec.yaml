@@ -95,6 +95,9 @@ dependencies:
   share_plus: ^13.3.1
   url_launcher: ^6.3.3
   battery_plus: ^7.1.2
+  # 高亮SVG线条解析与嵌套样式比较
+  path_drawing: ^1.0.1
+  collection: ^1.19.1
 
 dev_dependencies:
   # 测试与替身
