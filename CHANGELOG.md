@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 - 接通设备命名、仅保留本机最新包、前台到期自动备份及云端新备份提示；上传失败保留本地包和旧备份；贡献者：Codex + Rust / UI。
 
 ### Fixed
+- 阅读器编辑正文改用底部Sheet，统一标题操作栏、滚动与键盘避让；贡献者：Codex + UI。
 - 单项数字设置面板打开时自动聚焦，支持键盘完成后提交校验；源编辑行数的不限模式不弹键盘；贡献者：Codex + UI。
 - 精简公用底部面板的横条与标题留白，移除滚轮和RSS操作面板的重复横条；贡献者：Codex + UI。
 - 修复本地恢复跳过失败条目仍提示成功的问题，业务数据整批回滚并展示真实恢复数量；贡献者：Codex + Rust / UI。

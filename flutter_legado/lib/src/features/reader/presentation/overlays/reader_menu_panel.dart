@@ -38,7 +38,8 @@ import '../../../../providers/ui_settings/ui_settings_notifier.dart';
 import '../../widgets/change_source_flow.dart';
 import '../../widgets/reader_chapter_link.dart';
 import 'reader_download_dialog.dart';
-import 'reader_content_edit_dialog.dart';
+import 'reader_content_edit_sheet.dart';
+import '../../../../widgets/bottom_sheet_widget.dart';
 
 part 'reader_menu_actions.part.dart';
 

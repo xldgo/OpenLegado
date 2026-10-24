@@ -338,7 +338,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
     }
   }
 
-  Future<void> _showEditContentDialog(
+  Future<void> _showEditContentSheet(
     BuildContext context,
     WidgetRef ref,
   ) async {
@@ -347,9 +347,9 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
     if (book == null) return;
     final chapterIndex = state.currentChapterIndex;
     final title = state.currentChapter?.title ?? '';
-    final content = await showDialog<String>(
+    final content = await AppBottomSheet.showContent<String>(
       context: context,
-      builder: (_) => ReaderContentEditDialog(
+      builder: (_) => ReaderContentEditSheet(
         chapterTitle: title,
         content: state.chapterContent,
       ),
@@ -816,7 +816,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
       case 'replace':
         widget.onOpenReplaceRules();
       case 'editContent':
-        unawaited(_showEditContentDialog(context, ref));
+        unawaited(_showEditContentSheet(context, ref));
       case 'getProgress':
         unawaited(_getCloudProgress(context));
       case 'coverProgress':

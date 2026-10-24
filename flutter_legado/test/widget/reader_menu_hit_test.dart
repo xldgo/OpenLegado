@@ -52,7 +52,7 @@ import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_
 import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_menu_controls.dart';
 import 'package:flutter_legado/src/features/reader/widgets/reader_page_view.dart';
 import 'package:flutter_legado/src/features/reader/widgets/reader_menu_theme.dart';
-import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_content_edit_dialog.dart';
+import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_content_edit_sheet.dart';
 import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_brightness_control.dart';
 
 class _Reader extends ReaderNotifier {
@@ -1440,9 +1440,10 @@ void main() {
       await settleNativeReaderLayout(tester);
       await tester.tap(find.text('编辑内容'));
       await settleNativeReaderLayout(tester);
-      expect(find.byType(ReaderContentEditDialog), findsOneWidget);
+      expect(find.byType(ReaderContentEditSheet), findsOneWidget);
       expect(
-        Theme.of(tester.element(find.byType(AlertDialog))).colorScheme,
+        Theme.of(tester.element(find.byType(ReaderContentEditSheet)))
+            .colorScheme,
         menuTheme.colorScheme,
       );
       expect(
@@ -1458,7 +1459,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
       expect(tester.takeException(), isNull);
       await settleNativeReaderLayout(tester);
-      expect(find.byType(ReaderContentEditDialog), findsNothing);
+      expect(find.byType(ReaderContentEditSheet), findsNothing);
       expect(reader.value.chapterContent, '原章节正文');
       expect(tester.takeException(), isNull);
     }
