@@ -403,6 +403,16 @@ pub fn from_upstream(files: &BTreeMap<String, Vec<u8>>) -> LegadoResult<(BackupD
         );
         consumed.insert("bookSource.json");
     }
+    if let Some(raw) = files.get("highlightRule.json") {
+        let text = std::str::from_utf8(raw).map_err(|_| error("highlightRule.json不是UTF-8"))?;
+        let rules = legado_core::highlight_rules::parse_document(text)?;
+        crate::HighlightRuleRepository::new(conn).import(&rules)?;
+        data.collections.insert(
+            "highlightRules".into(),
+            collect(conn, "highlightRules", "highlightRules")?,
+        );
+        consumed.insert("highlightRule.json");
+    }
     for (file, key) in [
         ("bookGroup.json", "bookGroups"),
         ("bookmark.json", "bookmarks"),
@@ -419,7 +429,6 @@ pub fn from_upstream(files: &BTreeMap<String, Vec<u8>>) -> LegadoResult<(BackupD
         ("readRecordDetail.json", "readRecordDetails"),
         ("readRecordSession.json", "readRecordSessions"),
         ("highlight.json", "highlights"),
-        ("highlightRule.json", "highlightRules"),
         ("autoTask.json", "autoTasks"),
     ] {
         let Some(raw) = files.get(file) else {

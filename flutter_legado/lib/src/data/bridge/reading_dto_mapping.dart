@@ -78,6 +78,7 @@ dto.BookHighlightDto bookHighlightToDto(BookHighlight value) =>
 
 HighlightRule highlightRuleFromDto(dto.HighlightRuleDto value) => HighlightRule(
   id: value.id,
+  uuid: value.uuid,
   name: value.name,
   pattern: value.pattern,
   isRegex: value.isRegex,
@@ -92,6 +93,7 @@ HighlightRule highlightRuleFromDto(dto.HighlightRuleDto value) => HighlightRule(
 dto.HighlightRuleDto highlightRuleToDto(HighlightRule value) =>
     dto.HighlightRuleDto(
       id: value.id > 0 ? value.id : 0,
+      uuid: value.uuid,
       name: value.name,
       pattern: value.pattern,
       isRegex: value.isRegex,

@@ -101,6 +101,7 @@ Map<String, dynamic> backgroundImageFromDto(
 dto.LayoutTextStyleDto textStyleToDto(Map<String, dynamic> m) {
   _keys(m, {
     'colorArgb',
+    'inheritColor',
     'fontSizePx',
     'fontPath',
     'fontWeight',
@@ -120,6 +121,7 @@ dto.LayoutTextStyleDto textStyleToDto(Map<String, dynamic> m) {
   });
   return dto.LayoutTextStyleDto(
     colorArgb: (m['colorArgb'] as num).toInt(),
+    inheritColor: (m['inheritColor'] ?? false) as bool,
     fontSizePx: (m['fontSizePx'] as num).toDouble(),
     fontPath: (m['fontPath'] ?? '') as String,
     fontWeight: ((m['fontWeight'] ?? 400) as num).toInt(),
@@ -148,6 +150,7 @@ dto.LayoutTextStyleDto textStyleToDto(Map<String, dynamic> m) {
 
 Map<String, dynamic> textStyleFromDto(dto.LayoutTextStyleDto value) => {
   'colorArgb': value.colorArgb,
+  'inheritColor': value.inheritColor,
   'fontSizePx': value.fontSizePx,
   'fontPath': value.fontPath,
   'fontWeight': value.fontWeight,

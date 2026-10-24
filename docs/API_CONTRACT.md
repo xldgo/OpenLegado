@@ -2938,7 +2938,19 @@ SyncNotifier.restoreFromWebDav选择/下载远程包并调用同一本地恢复�
 | `rssListReadRecords({int? limit})` | limit(可选，默认100) | `Future<List<RssReadRecordRow>>` | 获取已读记录列表（按 readTime 降序） |
 | `rssListReadRecordsByOrigin(String origin, {int? limit})` | origin, limit(可选，默认100) | `Future<List<RssReadRecordRow>>` | 按 RSS 源 origin 获取已读记录（对齐原版 `getRecordsByOrigin`，F3-17） |
 
-### 2.36 正文高亮（highlight FFI）（11 个方法）
+### 2.36 正文高亮（highlight FFI）（16 个方法）
+
+**HIGHLIGHT-RULES-20261024（实施前冻结，用户已确认范围）**：
+
+- 数字`id`继续作为本地主键，新增`uuid`稳定标识；数据库v112→v113为已有规则补UUID并建唯一索引，保留数字ID、规则和标注数据。预设使用固定UUID，同一预设重复导入合并，普通新规则分配UUID。
+- `style`继续为完整样式JSON，覆盖MD3的示例文本、标题/正文/全部范围、字色/背景色、7种线条、宽度/偏移/SVG路径、背景图及适配/缩放/九宫格、字体/字重/斜体/字号偏移、命中前后间距与行上下间距、背景左右长度偏移及配置绑定。Rust统一解析、校验和规范化；Flutter只编辑、测量和绘制。
+- 增加只读预设/导入预览、原子批量导入和导出能力，预览不落库；导入按UUID更新并保留本地主键，新规则不采信外部数字ID。支持本项目JSON及MD3对象/数组/含rules备份载荷，MD3字符串ID映射稳定UUID；不默认覆盖用户修改的预设。
+- 增加只读章节规则匹配，Rust执行正则、作用范围及优先级解析，返回原文UTF-16半开区间与完整样式；标题和正文分别标记，不改原文，不污染选区和朗读文本。预设正则对照MD3样例；使用现有正则安全入口。
+- 排版TextStyle/DTO新增`inheritColor: bool`（默认false）；正文基础样式与未指定字色的高亮使用true，绘制继承当前正文色，避免纯配色变化重新分页。线条扩展载荷亦支持inheritColor。
+- Flutter按最终样式测量，Rust现有通用行内模型负责断行/分页/间距，Flutter按同一布局产物绘制。规则变更使布局缓存失效并按原文锚点恢复，不另建Dart正则执行分支。
+- 领域仓储、正式/Mock适配及FRB生成物成套更新；精确方法签名随本批出口补入下表，生成物由工具产出。应用版本保持。
+
+编写者：Codex + Rust / UI｜2026-10-24
 
 > **Dart边界（2026-10-17类型化更新）**：下表为当前FRB传输签名，十一项不属于根BookApi。
 > HighlightRepository保留标注七项方法名，highlightAdd(BookHighlight highlight)在仓储映射DTO，返回实际time；
@@ -2952,7 +2964,7 @@ SyncNotifier.restoreFromWebDav选择/下载远程包并调用同一本地恢复�
 > **Flutter 选区调用口径（2026-10-11，UI-READER-SELECTION-20261011）**：新增选区记录的 `chapterPos` / `chapterPosEnd` 为收到的章节正文中的 UTF-16 起止偏移（左闭右开），与 Dart 选区一致；`bookText` 从同一原文区间取得，排版生成的缩进不计入原文。阅读器现有页索引与字符偏移分别管理。Rust 沿用现有整数存储，不新增字段、方法或数据库迁移，也不重写历史高亮记录。
 
 > 对齐上游 `BookHighlight` / `HighlightRule` 实体与 DAO（DB v96-v99）。
-> JSON 字段名对齐 Room 列名（camelCase）：BookHighlight 含 `time` / `bookUrl` / `chapterUrl` / `bookName` / `bookAuthor` / `chapterIndex` / `chapterPos` / `chapterPosEnd` / `layoutTitleLength` / `chapterName` / `bookText` / `style` / `note`；HighlightRule 含 `id` / `name` / `pattern` / `isRegex` / `scope` / `isEnabled` / `style` / `sortOrder` / `timeoutMillisecond` / `applyToTitle`。
+> JSON 字段名对齐 Room 列名（camelCase）：BookHighlight 含 `time` / `bookUrl` / `chapterUrl` / `bookName` / `bookAuthor` / `chapterIndex` / `chapterPos` / `chapterPosEnd` / `layoutTitleLength` / `chapterName` / `bookText` / `style` / `note`；HighlightRule 含 `id` / `uuid` / `name` / `pattern` / `isRegex` / `scope` / `isEnabled` / `style` / `sortOrder` / `timeoutMillisecond` / `applyToTitle`。
 
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
@@ -2967,6 +2979,13 @@ SyncNotifier.restoreFromWebDav选择/下载远程包并调用同一本地恢复�
 | `highlightRuleSave({required HighlightRuleDto rule})` | 规则快照（id=0 时自增新增） | `Future<int>` | 保存高亮规则，返回规则 ID |
 | `highlightRuleDelete({required int id})` | id | `Future<bool>` | 按 ID 删除高亮规则，返回是否实际删除 |
 | `highlightRuleFindEnabled({required String bookName, required String origin})` | bookName, origin | `Future<List<HighlightRuleDto>>` | 按书籍查找启用的高亮规则，scope 匹配书名或 origin |
+
+| `highlightRulePresets()` | 无 | `Future<List<HighlightRuleDto>>` | 只读MD3预设，稳定UUID |
+| `highlightRulePreview({required String content})` | 原始JSON | `Future<List<HighlightRuleDto>>` | 统一解析且不落库，外部数字ID清零 |
+| `highlightRuleImport({required List<HighlightRuleDto> rules})` | 已预览并选中的规则 | `Future<int>` | 单事务按UUID合并，返回条数 |
+| `highlightRuleExport()` | 无 | `Future<String>` | 全部规则JSON，保留UUID及完整样式 |
+| `highlightRuleMatch({required List<HighlightRuleDto> rules, required String text, required bool isTitle, String? configName})` | 已按书籍筛选的规则及原文 | `Future<List<HighlightMatchDto>>` | 只读纯匹配，UTF-16半开区间和style JSON；升序排序，后规则覆盖；空匹配忽略，正则失败报错 |
+
 
 ### 2.37 JS 单文件书源配置（JsSourceConfig 对齐）（3 个方法）
 

@@ -32,6 +32,7 @@ void main() {
   };
   const rule = {
     'id': 9,
+    'uuid': '00000000-0000-4000-8000-000000000009',
     'name': '术语',
     'pattern': '修炼',
     'isRegex': false,
@@ -60,6 +61,7 @@ void main() {
   );
   const ruleDto = HighlightRuleDto(
     id: 9,
+    uuid: '00000000-0000-4000-8000-000000000009',
     name: '术语',
     pattern: '修炼',
     isRegex: false,

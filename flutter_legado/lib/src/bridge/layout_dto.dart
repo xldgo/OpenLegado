@@ -678,6 +678,7 @@ class LayoutReplyDto {
 
 class LayoutTextStyleDto {
   final int colorArgb;
+  final bool inheritColor;
   final double fontSizePx;
   final String fontPath;
   final int fontWeight;
@@ -697,6 +698,7 @@ class LayoutTextStyleDto {
 
   const LayoutTextStyleDto({
     required this.colorArgb,
+    required this.inheritColor,
     required this.fontSizePx,
     required this.fontPath,
     required this.fontWeight,
@@ -718,6 +720,7 @@ class LayoutTextStyleDto {
   @override
   int get hashCode =>
       colorArgb.hashCode ^
+      inheritColor.hashCode ^
       fontSizePx.hashCode ^
       fontPath.hashCode ^
       fontWeight.hashCode ^
@@ -741,6 +744,7 @@ class LayoutTextStyleDto {
       other is LayoutTextStyleDto &&
           runtimeType == other.runtimeType &&
           colorArgb == other.colorArgb &&
+          inheritColor == other.inheritColor &&
           fontSizePx == other.fontSizePx &&
           fontPath == other.fontPath &&
           fontWeight == other.fontWeight &&

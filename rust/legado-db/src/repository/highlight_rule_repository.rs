@@ -11,7 +11,7 @@ use legado_core::{LegadoError, LegadoResult};
 
 /// 高亮规则查询列（与 row_to_rule 的索引一一对应）
 const SELECT_COLUMNS: &str = "SELECT id, name, pattern, isRegex, scope, isEnabled,
-    style, sortOrder, timeoutMillisecond, applyToTitle FROM highlightRules";
+    style, sortOrder, timeoutMillisecond, applyToTitle, uuid FROM highlightRules";
 
 /// 高亮规则数据访问层
 pub struct HighlightRuleRepository<'a> {
@@ -27,13 +27,21 @@ impl<'a> HighlightRuleRepository<'a> {
     ///
     /// id 为 0 时使用自增主键，返回实际的规则 ID。
     pub fn insert(&self, rule: &HighlightRule) -> LegadoResult<i64> {
+        let mut candidate = rule.clone();
+        if candidate.id > 0 {
+            if let Some(previous) = self.find_by_id(candidate.id)? {
+                candidate.uuid = previous.uuid;
+            }
+        }
+        let normalized = legado_core::highlight_rules::normalize_rule(candidate)?;
+        let rule = &normalized;
         if rule.id > 0 {
             self.conn
                 .execute(
                     "INSERT OR REPLACE INTO highlightRules
                      (id, name, pattern, isRegex, scope, isEnabled, style,
-                      sortOrder, timeoutMillisecond, applyToTitle)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                      sortOrder, timeoutMillisecond, applyToTitle, uuid)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
                     params![
                         rule.id,
                         rule.name,
@@ -45,6 +53,7 @@ impl<'a> HighlightRuleRepository<'a> {
                         rule.sortOrder,
                         rule.timeoutMillisecond,
                         rule.applyToTitle,
+                        rule.uuid,
                     ],
                 )
                 .map_err(|e| LegadoError::Database(format!("插入高亮规则失败: {e}")))?;
@@ -54,8 +63,8 @@ impl<'a> HighlightRuleRepository<'a> {
                 .execute(
                     "INSERT INTO highlightRules
                      (name, pattern, isRegex, scope, isEnabled, style,
-                      sortOrder, timeoutMillisecond, applyToTitle)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                      sortOrder, timeoutMillisecond, applyToTitle, uuid)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
                     params![
                         rule.name,
                         rule.pattern,
@@ -66,6 +75,7 @@ impl<'a> HighlightRuleRepository<'a> {
                         rule.sortOrder,
                         rule.timeoutMillisecond,
                         rule.applyToTitle,
+                        rule.uuid,
                     ],
                 )
                 .map_err(|e| LegadoError::Database(format!("插入高亮规则失败: {e}")))?;
@@ -73,8 +83,48 @@ impl<'a> HighlightRuleRepository<'a> {
         }
     }
 
+    pub fn find_by_uuid(&self, uuid: &str) -> LegadoResult<Option<HighlightRule>> {
+        use rusqlite::OptionalExtension;
+        self.conn
+            .query_row(
+                &format!("{SELECT_COLUMNS} WHERE uuid=?1 COLLATE NOCASE"),
+                [uuid],
+                row_to_rule,
+            )
+            .optional()
+            .map_err(|e| LegadoError::Database(format!("查询高亮规则标识失败：{e}")))
+    }
+
+    /// 外部数字主键不可信；仅按UUID更新，所有条目在一个事务内提交。
+    pub fn import(&self, rules: &[HighlightRule]) -> LegadoResult<usize> {
+        let normalized = rules
+            .iter()
+            .cloned()
+            .map(legado_core::highlight_rules::normalize_rule)
+            .collect::<LegadoResult<Vec<_>>>()?;
+        let mut uuids = std::collections::HashSet::new();
+        if normalized.iter().any(|r| !uuids.insert(&r.uuid)) {
+            return Err(LegadoError::Parser("导入规则UUID重复".into()));
+        }
+        let transaction = self
+            .conn
+            .unchecked_transaction()
+            .map_err(|e| LegadoError::Database(format!("开始高亮导入失败：{e}")))?;
+        let repo = HighlightRuleRepository::new(&transaction);
+        for mut rule in normalized {
+            rule.id = repo.find_by_uuid(&rule.uuid)?.map(|r| r.id).unwrap_or(0);
+            repo.insert(&rule)?;
+        }
+        transaction
+            .commit()
+            .map_err(|e| LegadoError::Database(format!("提交高亮导入失败：{e}")))?;
+        Ok(rules.len())
+    }
+
     /// 更新高亮规则（对齐 DAO `@Update`）
     pub fn update(&self, rule: &HighlightRule) -> LegadoResult<()> {
+        let normalized = legado_core::highlight_rules::normalize_rule(rule.clone())?;
+        let rule = &normalized;
         self.conn
             .execute(
                 "UPDATE highlightRules SET name=?1, pattern=?2, isRegex=?3, scope=?4,
@@ -121,28 +171,9 @@ impl<'a> HighlightRuleRepository<'a> {
         let tx = self.conn.unchecked_transaction().map_err(tx_err)?;
         tx.execute("DELETE FROM highlightRules", [])
             .map_err(|e| LegadoError::Database(format!("清空高亮规则失败: {e}")))?;
+        let repo = HighlightRuleRepository::new(&tx);
         for rule in rules {
-            // id <= 0 时传 NULL，SQLite 自动分配自增 ID（对齐 Room autoGenerate）
-            let id: Option<i64> = if rule.id > 0 { Some(rule.id) } else { None };
-            tx.execute(
-                "INSERT OR REPLACE INTO highlightRules
-                 (id, name, pattern, isRegex, scope, isEnabled, style,
-                  sortOrder, timeoutMillisecond, applyToTitle)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-                params![
-                    id,
-                    rule.name,
-                    rule.pattern,
-                    rule.isRegex,
-                    rule.scope,
-                    rule.isEnabled,
-                    rule.style,
-                    rule.sortOrder,
-                    rule.timeoutMillisecond,
-                    rule.applyToTitle,
-                ],
-            )
-            .map_err(|e| LegadoError::Database(format!("批量插入高亮规则失败: {e}")))?;
+            repo.insert(rule)?;
         }
         tx.commit().map_err(tx_err)?;
         Ok(())
@@ -258,6 +289,7 @@ fn row_to_rule(row: &rusqlite::Row<'_>) -> rusqlite::Result<HighlightRule> {
         sortOrder: row.get(7)?,
         timeoutMillisecond: row.get(8)?,
         applyToTitle: row.get(9)?,
+        uuid: row.get(10)?,
     })
 }
 
@@ -272,6 +304,35 @@ mod tests {
             sortOrder: order,
             ..HighlightRule::default()
         }
+    }
+
+    #[test]
+    fn highlight_rule_import_merges_uuid_not_external_id_and_rolls_back() {
+        let db = crate::init_in_memory_database().unwrap();
+        let repo = HighlightRuleRepository::new(db.connection());
+        let untouched = make_rule("本地", "本地", 0);
+        let id = repo.insert(&untouched).unwrap();
+        let mut incoming = make_rule("外部", "外部", 1);
+        incoming.id = id;
+        repo.import(&[incoming.clone()]).unwrap();
+        assert_eq!(repo.find_by_id(id).unwrap().unwrap().name, "本地");
+        let imported = repo.find_by_uuid(&incoming.uuid).unwrap().unwrap();
+        incoming.name = "再次导入".into();
+        repo.import(&[incoming.clone()]).unwrap();
+        assert_eq!(
+            repo.find_by_uuid(&incoming.uuid).unwrap().unwrap().id,
+            imported.id
+        );
+        assert_eq!(repo.count().unwrap(), 2);
+        // 数据库失败发生在第一条写入之后，整批回滚。
+        db.connection().execute_batch("CREATE TRIGGER reject_bad_rule BEFORE INSERT ON highlightRules WHEN NEW.name='拒绝' BEGIN SELECT RAISE(ABORT,'fixture'); END;").unwrap();
+        let bad = make_rule("拒绝", "拒绝", 2);
+        incoming.name = "不应提交".into();
+        assert!(repo.import(&[incoming, bad]).is_err());
+        assert_eq!(
+            repo.find_by_uuid(&imported.uuid).unwrap().unwrap().name,
+            "再次导入"
+        );
     }
 
     #[test]

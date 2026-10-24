@@ -8,6 +8,7 @@ import 'dart:convert';
 final class HighlightRule {
   const HighlightRule({
     this.id = 0,
+    this.uuid = '',
     this.name = '',
     this.pattern = '',
     this.isRegex = false,
@@ -20,6 +21,7 @@ final class HighlightRule {
   });
 
   final int id;
+  final String uuid;
   final String name;
   final String pattern;
   final bool isRegex;
@@ -34,6 +36,7 @@ final class HighlightRule {
   factory HighlightRule.fromJson(Map<String, dynamic> json) {
     return HighlightRule(
       id: json['id'] as int? ?? 0,
+      uuid: json['uuid'] as String? ?? '',
       name: (json['name'] as String?) ?? '',
       pattern: (json['pattern'] as String?) ?? '',
       isRegex: (json['isRegex'] as bool?) ?? false,
@@ -49,6 +52,7 @@ final class HighlightRule {
   /// 序列化为 Rust 侧契约 JSON（保存用）
   Map<String, dynamic> toJson() => {
     if (id > 0) 'id': id,
+    'uuid': uuid,
     'name': name,
     'pattern': pattern,
     'isRegex': isRegex,
@@ -80,6 +84,7 @@ final class HighlightRule {
 
   HighlightRule copyWith({
     int? id,
+    String? uuid,
     String? name,
     String? pattern,
     bool? isRegex,
@@ -92,6 +97,7 @@ final class HighlightRule {
   }) {
     return HighlightRule(
       id: id ?? this.id,
+      uuid: uuid ?? this.uuid,
       name: name ?? this.name,
       pattern: pattern ?? this.pattern,
       isRegex: isRegex ?? this.isRegex,
@@ -103,4 +109,16 @@ final class HighlightRule {
       timeoutMillisecond: timeoutMillisecond ?? this.timeoutMillisecond,
     );
   }
+}
+
+/// Rust返回的原文UTF-16半开范围，按列表顺序决定重叠优先级。
+final class HighlightMatch {
+  const HighlightMatch({
+    required this.start,
+    required this.end,
+    required this.style,
+  });
+  final int start;
+  final int end;
+  final Map<String, dynamic> style;
 }

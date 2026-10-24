@@ -96,6 +96,9 @@ pub struct HighlightRule {
     /// 规则 ID（自增主键，0 表示未保存）
     #[serde(default)]
     pub id: i64,
+    /// 跨设备导入合并的稳定标识；数字id只在本数据库内有效。
+    #[serde(default = "HighlightRule::new_uuid")]
+    pub uuid: String,
     /// 规则名称
     #[serde(default)]
     pub name: String,
@@ -133,10 +136,17 @@ fn default_timeout() -> i64 {
     DEFAULT_TIMEOUT_MILLISECONDS
 }
 
+impl HighlightRule {
+    pub fn new_uuid() -> String {
+        uuid::Uuid::new_v4().to_string()
+    }
+}
+
 impl Default for HighlightRule {
     fn default() -> Self {
         Self {
             id: 0,
+            uuid: Self::new_uuid(),
             name: String::new(),
             pattern: String::new(),
             isRegex: false,
@@ -192,6 +202,7 @@ mod tests {
     fn test_highlight_rule_serde_roundtrip() {
         let rule = HighlightRule {
             id: 5,
+            uuid: HighlightRule::new_uuid(),
             name: "关键词规则".to_string(),
             pattern: "重要".to_string(),
             isRegex: false,

@@ -218,10 +218,28 @@ impl From<BookHighlightDto> for legado_core::models::BookHighlight {
     }
 }
 
+/// 自动高亮命中的原文UTF-16半开区间。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HighlightMatchDto {
+    pub start: i32,
+    pub end: i32,
+    pub style: String,
+}
+impl From<legado_core::highlight_rules::HighlightMatch> for HighlightMatchDto {
+    fn from(value: legado_core::highlight_rules::HighlightMatch) -> Self {
+        Self {
+            start: value.start,
+            end: value.end,
+            style: value.style,
+        }
+    }
+}
+
 /// 自动高亮规则；可空作用范围、排序、超时和标题标记全部保留。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HighlightRuleDto {
     pub id: i64,
+    pub uuid: String,
     pub name: String,
     pub pattern: String,
     pub is_regex: bool,
@@ -237,6 +255,7 @@ impl From<legado_core::models::HighlightRule> for HighlightRuleDto {
     fn from(value: legado_core::models::HighlightRule) -> Self {
         Self {
             id: value.id,
+            uuid: value.uuid,
             name: value.name,
             pattern: value.pattern,
             is_regex: value.isRegex,
@@ -254,6 +273,7 @@ impl From<HighlightRuleDto> for legado_core::models::HighlightRule {
     fn from(value: HighlightRuleDto) -> Self {
         Self {
             id: value.id,
+            uuid: value.uuid,
             name: value.name,
             pattern: value.pattern,
             isRegex: value.is_regex,
@@ -377,9 +397,10 @@ mod tests {
             applyToTitle: true,
             sortOrder: -4,
             timeoutMillisecond: 9007199254740993,
-            style: "{\"backgroundColor\":1}".into(),
+            style: "{\"bgColor\":1}".into(),
             ..Default::default()
         };
+        rule = legado_core::highlight_rules::normalize_rule(rule).unwrap();
         rule.id = ffi::highlight_rule_save(rule.clone().into()).unwrap();
         let found: legado_core::models::HighlightRule =
             ffi::highlight_rule_find_enabled(item.bookName.clone(), "源".into())

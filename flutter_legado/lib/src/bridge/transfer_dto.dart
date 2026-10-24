@@ -1017,9 +1017,35 @@ class ExploreRuleDto {
           wordCount == other.wordCount;
 }
 
+/// 自动高亮命中的原文UTF-16半开区间。
+class HighlightMatchDto {
+  final int start;
+  final int end;
+  final String style;
+
+  const HighlightMatchDto({
+    required this.start,
+    required this.end,
+    required this.style,
+  });
+
+  @override
+  int get hashCode => start.hashCode ^ end.hashCode ^ style.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is HighlightMatchDto &&
+          runtimeType == other.runtimeType &&
+          start == other.start &&
+          end == other.end &&
+          style == other.style;
+}
+
 /// 自动高亮规则；可空作用范围、排序、超时和标题标记全部保留。
 class HighlightRuleDto {
   final PlatformInt64 id;
+  final String uuid;
   final String name;
   final String pattern;
   final bool isRegex;
@@ -1032,6 +1058,7 @@ class HighlightRuleDto {
 
   const HighlightRuleDto({
     required this.id,
+    required this.uuid,
     required this.name,
     required this.pattern,
     required this.isRegex,
@@ -1046,6 +1073,7 @@ class HighlightRuleDto {
   @override
   int get hashCode =>
       id.hashCode ^
+      uuid.hashCode ^
       name.hashCode ^
       pattern.hashCode ^
       isRegex.hashCode ^
@@ -1062,6 +1090,7 @@ class HighlightRuleDto {
       other is HighlightRuleDto &&
           runtimeType == other.runtimeType &&
           id == other.id &&
+          uuid == other.uuid &&
           name == other.name &&
           pattern == other.pattern &&
           isRegex == other.isRegex &&

@@ -7,6 +7,7 @@
 
 pub mod cloud_tts_v112;
 pub mod daily_seconds_v107;
+pub mod highlight_uuid_v113;
 pub mod http_tts_columns_v110;
 pub mod migrations;
 pub mod origin_book_url_v109;
@@ -75,6 +76,7 @@ impl MigrationRegistry {
         self.register(Box::new(http_tts_columns_v110::Migration109To110));
         self.register(Box::new(read_aloud_voices_v111::Migration110To111));
         self.register(Box::new(cloud_tts_v112::Migration111To112));
+        self.register(Box::new(highlight_uuid_v113::Migration112To113));
     }
 
     /// 注册单个迁移

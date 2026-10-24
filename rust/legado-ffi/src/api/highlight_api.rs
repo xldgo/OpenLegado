@@ -118,6 +118,15 @@ pub fn highlight_rule_find_enabled(
     })
 }
 
+/// 导入只消费经过统一解析/编辑的实体；数据库内再规范化并原子合并。
+pub fn highlight_rule_import(rules: &[HighlightRule]) -> LegadoResult<usize> {
+    with_database(|db| HighlightRuleRepository::new(db.connection()).import(rules))
+}
+
+pub fn highlight_rule_export() -> LegadoResult<String> {
+    legado_core::highlight_rules::export_document(&highlight_rule_list()?)
+}
+
 /// 当前 Unix 毫秒时间戳
 fn current_time_millis() -> i64 {
     std::time::SystemTime::now()
@@ -251,10 +260,12 @@ mod tests {
             .unwrap();
         assert_eq!(
             rule,
-            HighlightRule {
+            legado_core::highlight_rules::normalize_rule(HighlightRule {
                 id,
+                uuid: rule.uuid.clone(),
                 ..Default::default()
-            }
+            })
+            .unwrap()
         );
         assert!(highlight_rule_delete(id).unwrap());
     }

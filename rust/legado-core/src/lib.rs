@@ -48,6 +48,7 @@ pub mod debug_session;
 pub mod download_manager;
 pub mod error;
 pub mod explore;
+pub mod highlight_rules;
 pub mod html_formatter;
 pub mod import_old;
 pub mod login_ui_v2;

@@ -268,6 +268,7 @@ impl TryFrom<LayoutBackgroundImageDto> for legado_layout::model::BackgroundImage
 #[derive(Debug, Clone)]
 pub struct LayoutTextStyleDto {
     pub color_argb: i32,
+    pub inherit_color: bool,
     pub font_size_px: f32,
 
     pub font_path: String,
@@ -305,6 +306,7 @@ impl From<legado_layout::model::TextStyle> for LayoutTextStyleDto {
     fn from(value: legado_layout::model::TextStyle) -> Self {
         Self {
             color_argb: value.color_argb,
+            inherit_color: value.inherit_color,
             font_size_px: value.font_size_px,
             font_path: value.font_path,
             font_weight: value.font_weight,
@@ -330,6 +332,7 @@ impl TryFrom<LayoutTextStyleDto> for legado_layout::model::TextStyle {
     fn try_from(value: LayoutTextStyleDto) -> Result<Self, BridgeError> {
         Ok(Self {
             color_argb: value.color_argb,
+            inherit_color: value.inherit_color,
             font_size_px: value.font_size_px,
             font_path: value.font_path,
             font_weight: value.font_weight,

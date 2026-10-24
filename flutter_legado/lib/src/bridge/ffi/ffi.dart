@@ -2497,6 +2497,33 @@ Future<List<HighlightRuleDto>> highlightRuleFindEnabled({
   origin: origin,
 );
 
+/// 只读预设列表，不覆盖用户已有配置。
+Future<List<HighlightRuleDto>> highlightRulePresets() =>
+    RustLib.instance.api.crateFfiFfiHighlightRulePresets();
+
+/// 只读解析本项目与MD3的规则文档。
+Future<List<HighlightRuleDto>> highlightRulePreview({
+  required String content,
+}) => RustLib.instance.api.crateFfiFfiHighlightRulePreview(content: content);
+
+Future<int> highlightRuleImport({required List<HighlightRuleDto> rules}) =>
+    RustLib.instance.api.crateFfiFfiHighlightRuleImport(rules: rules);
+
+Future<String> highlightRuleExport() =>
+    RustLib.instance.api.crateFfiFfiHighlightRuleExport();
+
+Future<List<HighlightMatchDto>> highlightRuleMatch({
+  required List<HighlightRuleDto> rules,
+  required String text,
+  required bool isTitle,
+  String? configName,
+}) => RustLib.instance.api.crateFfiFfiHighlightRuleMatch(
+  rules: rules,
+  text: text,
+  isTitle: isTitle,
+  configName: configName,
+);
+
 /// 将播放模式写入 readConfig JSON（返回更新后的 JSON）
 Future<String> audioWithPlayMode({String? readConfig, required int playMode}) =>
     RustLib.instance.api.crateFfiFfiAudioWithPlayMode(

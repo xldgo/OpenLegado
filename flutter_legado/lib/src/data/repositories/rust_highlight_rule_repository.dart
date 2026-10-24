@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../bridge/rust_errors.dart';
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/highlight_rule_repository.dart';
@@ -7,6 +9,54 @@ import '../bridge/reading_dto_mapping.dart';
 /// 规则快照归数据层映射，排序和匹配仍由Rust负责。— Codex + Bridge
 final class RustHighlightRuleRepository implements HighlightRuleRepository {
   const RustHighlightRuleRepository();
+
+  @override
+  Future<List<HighlightRule>> presets() async => (await rustFuture(
+    () => bridge.highlightRulePresets(),
+    operation: 'highlightRulePresets',
+  )).map(highlightRuleFromDto).toList();
+  @override
+  Future<List<HighlightRule>> preview(String content) async =>
+      (await rustFuture(
+        () => bridge.highlightRulePreview(content: content),
+        operation: 'highlightRulePreview',
+      )).map(highlightRuleFromDto).toList();
+  @override
+  Future<int> importRules(List<HighlightRule> rules) => rustFuture(
+    () => bridge.highlightRuleImport(
+      rules: rules.map(highlightRuleToDto).toList(),
+    ),
+    operation: 'highlightRuleImport',
+  );
+  @override
+  Future<String> exportRules() => rustFuture(
+    () => bridge.highlightRuleExport(),
+    operation: 'highlightRuleExport',
+  );
+  @override
+  Future<List<HighlightMatch>> matchText(
+    List<HighlightRule> rules,
+    String text, {
+    bool isTitle = false,
+    String? configName,
+  }) async =>
+      (await rustFuture(
+            () => bridge.highlightRuleMatch(
+              rules: rules.map(highlightRuleToDto).toList(),
+              text: text,
+              isTitle: isTitle,
+              configName: configName,
+            ),
+            operation: 'highlightRuleMatch',
+          ))
+          .map(
+            (m) => HighlightMatch(
+              start: m.start,
+              end: m.end,
+              style: jsonDecode(m.style) as Map<String, dynamic>,
+            ),
+          )
+          .toList();
 
   @override
   Future<List<HighlightRule>> highlightRuleList() async => (await rustFuture(

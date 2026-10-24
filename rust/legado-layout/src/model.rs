@@ -122,10 +122,16 @@ impl BackgroundImage {
     }
 }
 
+fn is_false(value: &bool) -> bool {
+    !value
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TextStyle {
     pub color_argb: i32,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub inherit_color: bool,
     pub font_size_px: f32,
     #[serde(default)]
     pub font_path: String,

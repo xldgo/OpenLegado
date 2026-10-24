@@ -35,7 +35,7 @@ use legado_core::{LegadoError, LegadoResult};
 ///   HttpTTS 实体的源级语速与合成并发上限，保留 pauseDuration/isEnabled，Migration109To110）
 ///
 /// v111：新增独立音色目录，不回填旧源目录。
-pub const SCHEMA_VERSION: u32 = 112;
+pub const SCHEMA_VERSION: u32 = 113;
 
 /// 初始化全部 Schema（创建所有表）
 pub fn init_schema(conn: &Connection) -> LegadoResult<()> {
@@ -647,6 +647,7 @@ CREATE INDEX IF NOT EXISTS index_highlights_bookUrl ON highlights (bookUrl);
 pub const CREATE_HIGHLIGHT_RULES: &str = "
 CREATE TABLE IF NOT EXISTS highlightRules (
     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    uuid TEXT NOT NULL DEFAULT '',
     name TEXT NOT NULL,
     pattern TEXT NOT NULL,
     isRegex INTEGER NOT NULL,
@@ -666,6 +667,7 @@ CREATE INDEX IF NOT EXISTS index_book_sources_bookSourceUrl ON book_sources (boo
 CREATE INDEX IF NOT EXISTS index_chapters_bookUrl ON chapters (bookUrl);
 CREATE UNIQUE INDEX IF NOT EXISTS index_chapters_bookUrl_index ON chapters (bookUrl, \"index\");
 CREATE INDEX IF NOT EXISTS index_replace_rules_id ON replace_rules (id);
+CREATE UNIQUE INDEX IF NOT EXISTS index_highlight_rules_uuid ON highlightRules (uuid) WHERE uuid <> '';
 ";
 
 /// 每日单书明细为加法式建表；已有数据库通过 Repository 的幂等建表接入。

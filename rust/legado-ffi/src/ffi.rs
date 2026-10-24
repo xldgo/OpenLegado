@@ -269,8 +269,8 @@ pub mod ffi {
     use crate::task_dto::*;
     use crate::transfer_dto::{
         AnnotatedCandidateDto, BookDto, BookGroupDto, BookHighlightDto, BookSourceDto, BookmarkDto,
-        ChangeSourceBatchDto, ChapterListDto, CheckProgressDto, CheckResultDto, HighlightRuleDto,
-        ReadConfigDto, ReadRecordDailyDto, ReadRecordDetailDto, ReadRecordDto,
+        ChangeSourceBatchDto, ChapterListDto, CheckProgressDto, CheckResultDto, HighlightMatchDto,
+        HighlightRuleDto, ReadConfigDto, ReadRecordDailyDto, ReadRecordDetailDto, ReadRecordDto,
         ReadRecordSessionDto, ReadRecordTimelineDto, SearchBookDto, SearchSourceBatchDto,
         SourceCheckConfigDto, SourceSwitchResponseDto, SwitchSearchOptionsDto, TextResponseDto,
     };
@@ -3385,6 +3385,49 @@ pub mod ffi {
     ) -> Result<Vec<HighlightRuleDto>, BridgeError> {
         let rules = crate::api::highlight_api::highlight_rule_find_enabled(&book_name, &origin)?;
         Ok(rules.into_iter().map(Into::into).collect())
+    }
+
+    /// 只读预设列表，不覆盖用户已有配置。
+    pub fn highlight_rule_presets() -> Result<Vec<HighlightRuleDto>, BridgeError> {
+        Ok(legado_core::highlight_rules::presets()?
+            .into_iter()
+            .map(Into::into)
+            .collect())
+    }
+
+    /// 只读解析本项目与MD3的规则文档。
+    pub fn highlight_rule_preview(content: String) -> Result<Vec<HighlightRuleDto>, BridgeError> {
+        Ok(legado_core::highlight_rules::parse_document(&content)?
+            .into_iter()
+            .map(Into::into)
+            .collect())
+    }
+
+    pub fn highlight_rule_import(rules: Vec<HighlightRuleDto>) -> Result<i32, BridgeError> {
+        let rules: Vec<_> = rules.into_iter().map(Into::into).collect();
+        Ok(crate::api::highlight_api::highlight_rule_import(&rules)? as i32)
+    }
+
+    pub fn highlight_rule_export() -> Result<String, BridgeError> {
+        Ok(crate::api::highlight_api::highlight_rule_export()?)
+    }
+
+    pub fn highlight_rule_match(
+        rules: Vec<HighlightRuleDto>,
+        text: String,
+        is_title: bool,
+        config_name: Option<String>,
+    ) -> Result<Vec<HighlightMatchDto>, BridgeError> {
+        let rules: Vec<_> = rules.into_iter().map(Into::into).collect();
+        Ok(legado_core::highlight_rules::match_text(
+            &rules,
+            &text,
+            is_title,
+            config_name.as_deref(),
+        )?
+        .into_iter()
+        .map(Into::into)
+        .collect())
     }
 
     // ─── 听书播放（播放模式/书籍解析）───────────────────
