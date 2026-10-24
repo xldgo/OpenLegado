@@ -88,7 +88,6 @@ class _SourceEditScreenState extends ConsumerState<SourceEditScreen>
   final Map<String, String> _fieldLabels = {};
 
   // 开关状态（非文本字段，对标原版可折叠「设置」面板）
-  bool _settingsExpanded = false;
   bool _enabled = true;
   bool _enabledExplore = true;
   bool _reviewEnabled = false;
@@ -613,6 +612,7 @@ class _SourceEditScreenState extends ConsumerState<SourceEditScreen>
         if (!didPop) _tryExit();
       },
       child: AppScaffold(
+        bodyTopSpacing: 0,
         topBar: LegadoAppBar(
           leading: BackButton(onPressed: _tryExit),
           // 标题字号 20sp 与原版 ToolbarTitle 一致；防极端设备字号缩放截断

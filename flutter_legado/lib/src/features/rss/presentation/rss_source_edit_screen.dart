@@ -650,6 +650,7 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
       child: DefaultTabController(
         length: 4,
         child: AppScaffold(
+          bodyTopSpacing: 0,
           // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
           topBar: LegadoAppBar(
             leading: IconButton(
@@ -726,24 +727,16 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
               ),
             ],
           ),
-          body: Column(
+          body: TabBarView(
             children: [
-              // 可折叠选项面板（对标原版选项区：4 开关 + 类型 + 样式）
-              _buildOptionPanel(),
-              Expanded(
-                child: TabBarView(
-                  children: [
-                    _buildFieldList(
-                      'basic',
-                      _baseFields(context.l10n),
-                      withTestResult: true,
-                    ),
-                    _buildFieldList('pre', _preFields(context.l10n)),
-                    _buildFieldList('list', _listFields(context.l10n)),
-                    _buildWebViewTab(),
-                  ],
-                ),
+              _buildFieldList(
+                'basic',
+                _baseFields(context.l10n),
+                withTestResult: true,
               ),
+              _buildFieldList('pre', _preFields(context.l10n)),
+              _buildFieldList('list', _listFields(context.l10n)),
+              _buildWebViewTab(),
             ],
           ),
         ),
@@ -754,75 +747,69 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
   /// 选项面板（对标原版 cb_is_enable/cb_single_url/cb_is_enable_cookie/
   /// cb_is_enable_preload + sp_type + ly_type）
   Widget _buildOptionPanel() {
-    return ExpansionTile(
-      initiallyExpanded: true,
-      tilePadding: const EdgeInsets.symmetric(horizontal: 16),
-      shape: const Border(),
-      collapsedShape: const Border(),
-      title: Text(
-        context.l10n.editorOptions,
-        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-      ),
+    return SourceEditorOptions(
+      title: context.l10n.editorOptions,
+      summary: [
+        _typeLabels(context.l10n)[_type],
+        _styleLabels(context.l10n)[_articleStyle],
+        if (_enabled) context.l10n.editorEnable,
+        if (_singleUrl) context.l10n.editorSingleUrl,
+        if (_cookieJar) 'Cookie',
+        if (_preload) context.l10n.editorPreload,
+      ].join(' | '),
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Wrap(
-            children: [
-              _checkChip(
-                context.l10n.editorEnable,
-                _enabled,
-                (v) => _enabled = v,
-              ),
-              _checkChip(
-                context.l10n.editorSingleUrl,
-                _singleUrl,
-                (v) => _singleUrl = v,
-              ),
-              _checkChip('Cookie', _cookieJar, (v) => _cookieJar = v),
-              _checkChip(
-                context.l10n.editorPreload,
-                _preload,
-                (v) => _preload = v,
-              ),
-            ],
-          ),
+        Wrap(
+          children: [
+            _checkChip(
+              context.l10n.editorEnable,
+              _enabled,
+              (v) => _enabled = v,
+            ),
+            _checkChip(
+              context.l10n.editorSingleUrl,
+              _singleUrl,
+              (v) => _singleUrl = v,
+            ),
+            _checkChip('Cookie', _cookieJar, (v) => _cookieJar = v),
+            _checkChip(
+              context.l10n.editorPreload,
+              _preload,
+              (v) => _preload = v,
+            ),
+          ],
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          child: Wrap(
-            spacing: 16,
-            runSpacing: 12,
-            children: [
-              DropdownMenu<int>(
-                initialSelection: _type,
-                selectOnly: true,
-                label: Text(context.l10n.editorType),
-                onSelected: (v) => setState(() => _type = v ?? 0),
-                dropdownMenuEntries: [
-                  for (var i = 0; i < _typeCount; i++)
-                    DropdownMenuEntry(
-                      value: i,
-                      label: _typeLabels(context.l10n)[i],
-                    ),
-                ],
-              ),
-              DropdownMenu<int>(
-                initialSelection: _articleStyle,
-                selectOnly: true,
-                label: Text(context.l10n.editorStyle),
-                onSelected: (v) => setState(() => _articleStyle = v ?? 0),
-                dropdownMenuEntries: [
-                  for (var i = 0; i < _styleCount; i++)
-                    DropdownMenuEntry(
-                      value: i,
-                      label: _styleLabels(context.l10n)[i],
-                    ),
-                ],
-              ),
-            ],
-          ),
+        Wrap(
+          spacing: 16,
+          runSpacing: 12,
+          children: [
+            DropdownMenu<int>(
+              initialSelection: _type,
+              selectOnly: true,
+              label: Text(context.l10n.editorType),
+              onSelected: (v) => setState(() => _type = v ?? 0),
+              dropdownMenuEntries: [
+                for (var i = 0; i < _typeCount; i++)
+                  DropdownMenuEntry(
+                    value: i,
+                    label: _typeLabels(context.l10n)[i],
+                  ),
+              ],
+            ),
+            DropdownMenu<int>(
+              initialSelection: _articleStyle,
+              selectOnly: true,
+              label: Text(context.l10n.editorStyle),
+              onSelected: (v) => setState(() => _articleStyle = v ?? 0),
+              dropdownMenuEntries: [
+                for (var i = 0; i < _styleCount; i++)
+                  DropdownMenuEntry(
+                    value: i,
+                    label: _styleLabels(context.l10n)[i],
+                  ),
+              ],
+            ),
+          ],
         ),
-        const Divider(height: 1),
       ],
     );
   }
@@ -848,8 +835,9 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
   }) {
     return SourceEditorTab(
       storageKey: 'rss_source_edit_$name',
-      padding: const EdgeInsets.all(16),
       children: [
+        if (name == 'basic') _buildOptionPanel(),
+        const SizedBox(height: 12),
         for (final spec in fields) _field(spec),
         if (withTestResult && (_testResult != null || _testError != null)) ...[
           const SizedBox(height: 8),
@@ -873,7 +861,6 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
             ),
           ),
         ],
-        const SizedBox(height: 24),
       ],
     );
   }
@@ -892,8 +879,8 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
   Widget _buildWebViewTab() {
     return SourceEditorTab(
       storageKey: 'rss_source_edit_web',
-      padding: const EdgeInsets.all(16),
       children: [
+        const SizedBox(height: 12),
         CheckboxListTile(
           dense: true,
           controlAffinity: ListTileControlAffinity.leading,
@@ -928,7 +915,6 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
         ),
         const SizedBox(height: 8),
         for (final spec in _webFields(context.l10n)) _field(spec),
-        const SizedBox(height: 24),
       ],
     );
   }

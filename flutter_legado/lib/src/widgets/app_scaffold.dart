@@ -47,6 +47,7 @@ class AppScaffold extends StatelessWidget {
     this.backgroundColor,
     this.extendBody = false,
     this.collapsibleTopBar = true,
+    this.bodyTopSpacing = AppHeaderSpacing.content,
   });
 
   /// 普通文字顶栏接入协调滚动；专用顶栏直通Scaffold.appBar，null表示页面自行布局头部。
@@ -74,6 +75,9 @@ class AppScaffold extends StatelessWidget {
 
   /// 普通标题页共用大顶栏；编辑器、播放器等专用布局可明确保留紧凑形态。
   final bool collapsibleTopBar;
+
+  /// 连续编辑表单可紧接页签；其他页面保留统一正文间隔。— Codex + UI
+  final double bodyTopSpacing;
 
   @override
   Widget build(BuildContext context) {
@@ -132,9 +136,8 @@ class AppScaffold extends StatelessWidget {
                   },
                 ),
                 // 正文前置留白在顶栏材质之外，向上滚动后可完全离开视口。
-                const SliverToBoxAdapter(
-                  child: SizedBox(height: AppHeaderSpacing.content),
-                ),
+                if (bodyTopSpacing > 0)
+                  SliverToBoxAdapter(child: SizedBox(height: bodyTopSpacing)),
               ],
               // 吸收固定顶栏的重叠后统一预留等高空间，既有ListView无需再包一层滚动。
               // 搜索栏与页签也计入；正文前置留白独立滚走，不参与固定避让。

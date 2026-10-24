@@ -37,7 +37,7 @@ class SourceEditorField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       child: TextFormField(
         key: ValueKey<String>('sf_${spec.key}'),
         controller: controller,
@@ -69,6 +69,50 @@ class SourceEditorField extends StatelessWidget {
   }
 }
 
+/// 两类源编辑页共用的扁平选项区；字段与保存由页面拥有。— Codex + UI
+class SourceEditorOptions extends StatelessWidget {
+  const SourceEditorOptions({
+    super.key,
+    required this.title,
+    required this.summary,
+    required this.children,
+  });
+
+  final String title;
+  final String summary;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final border = Border(
+      bottom: BorderSide(color: Theme.of(context).dividerColor, width: 0.5),
+    );
+    return ListTileTheme.merge(
+      shape: const RoundedRectangleBorder(),
+      child: ExpansionTile(
+        key: PageStorageKey<String>('source-editor-options-$title'),
+        title: Text(title),
+        subtitle: Text(summary, maxLines: 1, overflow: TextOverflow.ellipsis),
+        shape: border,
+        collapsedShape: border,
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 输入控件的滚动偏移不能与折叠区的 bool 状态共用存储位置。
+          KeyedSubtree(
+            key: const PageStorageKey<String>('source-editor-option-fields'),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: children,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// 已打开页签保留输入、滚动和表单状态，避免切换后失去必填校验。
 class SourceEditorTab extends StatefulWidget {
   const SourceEditorTab({
@@ -94,10 +138,13 @@ class _SourceEditorTabState extends State<SourceEditorTab>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return ListView(
-      key: PageStorageKey<String>(widget.storageKey),
-      padding: widget.padding,
-      children: widget.children,
+    return ListTileTheme.merge(
+      shape: const RoundedRectangleBorder(),
+      child: ListView(
+        key: PageStorageKey<String>(widget.storageKey),
+        padding: widget.padding,
+        children: widget.children,
+      ),
     );
   }
 }
