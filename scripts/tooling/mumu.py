@@ -15,9 +15,10 @@ from .common import ToolError, run_command
 from .ffi_metadata import verify_android
 
 
-def _mumu_install_locations():
+def _mumu_install_locations(env: dict):
     """通过Windows卸载信息查找安装目录，不固定盘符或MuMu版本。"""
     if sys.platform != "win32":
+        yield from _wsl_install_locations(env)
         return
     import winreg
 
@@ -38,12 +39,52 @@ def _mumu_install_locations():
                 continue
 
 
+def _wsl_powershell(env: dict) -> Path | None:
+    """appendWindowsPath=false时，从挂载的系统目录定位互操作入口。"""
+    if not env.get("WSL_INTEROP"):
+        return None
+    found = shutil.which("powershell.exe", path=env.get("PATH", ""))
+    if found:
+        return Path(found)
+    return next((path for path in Path("/mnt").glob(
+        "[a-z]/Windows/System32/WindowsPowerShell/v1.0/powershell.exe") if path.is_file()), None)
+
+
+def _wsl_install_locations(env: dict):
+    powershell = _wsl_powershell(env)
+    if powershell is None:
+        return
+    # 仅查询Windows安装信息；UTF-8输出保留中文安装路径，不修改Windows/WSL配置。
+    query = r"""[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+@(Get-ItemProperty 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
+ 'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*',
+ 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue |
+ Where-Object { $_.DisplayName -match 'MuMu' } |
+ ForEach-Object { $_.InstallLocation } | Where-Object { $_ } | Select-Object -Unique) |
+ ConvertTo-Json -Compress"""
+    root = Path.cwd()
+    output = _connection_command([powershell, "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", query], root, env)
+    if not output.strip():
+        return
+    try:
+        locations = json.loads(output.lstrip("\ufeff"))
+    except ValueError as exc:
+        raise ToolError("Windows的MuMu安装信息不是有效JSON。") from exc
+    if isinstance(locations, str):
+        locations = [locations]
+    if not isinstance(locations, list) or any(not isinstance(item, str) for item in locations):
+        raise ToolError("Windows的MuMu安装信息格式不正确。")
+    for location in locations:
+        if location.strip():
+            yield _connection_command(["wslpath", "-u", location], root, env).strip()
+
+
 def find_mumu_manager(env: dict) -> Path | None:
     """优先使用PATH，其次使用本机已登记的安装位置。"""
     found = shutil.which("MuMuManager.exe", path=env.get("PATH", ""))
     if found:
         return Path(found)
-    for location in _mumu_install_locations():
+    for location in _mumu_install_locations(env):
         if isinstance(location, str) and location.strip():
             candidate = Path(location) / "nx_main" / "MuMuManager.exe"
             if candidate.is_file():

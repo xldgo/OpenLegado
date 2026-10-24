@@ -69,6 +69,7 @@ python scripts/dev.py build android --emulator mumu --install
 
 自动查询已启动的MuMu并连接ADB，已连接时直接复用；多个运行实例追加 `--device <设备编号>`。
 通过PATH或Windows安装信息定位MuMuManager，读取实例实际端点，不写死端口，也不自动启动模拟器。
+WSL支持读取宿主Windows安装信息并转换路径，关闭Windows PATH继承时也可自动发现；需要启用Windows互操作。
 连接最多等待10秒，失败显示端点和原因；不会重启共享ADB服务。找不到MuMuManager时仍可使用已连接实例。
 Rust库通过现有指纹、ABI、模式与摘要校验就自动复用，否则重新编译；失败不使用旧库兜底。
 沿用默认MainActivity启动，检查进程和近期未处理异常；不清除应用数据。

@@ -232,3 +232,34 @@ class MumuTests(unittest.TestCase):
                 self.root, {**os.environ, "PYTHONIOENCODING": "utf-8"}, log)
         self.assertEqual(code, 7)
         self.assertEqual(path.read_text(encoding="utf-8"), "构建输出\n构建错误\n")
+
+
+class WslMumuDiscoveryTests(unittest.TestCase):
+    def test_wsl_without_windows_path_reads_install_location_and_converts_unicode_path(self):
+        with tempfile.TemporaryDirectory(prefix="MuMu WSL 中文 ") as temp:
+            root = Path(temp)
+            manager = root / "安装 空格" / "nx_main" / "MuMuManager.exe"
+            manager.parent.mkdir(parents=True)
+            manager.touch()
+            powershell = root / "WindowsPowerShell" / "powershell.exe"
+            powershell.parent.mkdir()
+            powershell.touch()
+            windows_location = r"D:\应用 安装\MuMu"
+            for result in (windows_location, [windows_location]):
+                with self.subTest(result=result), patch.object(mumu.sys, "platform", "linux"), \
+                        patch.object(mumu.shutil, "which", return_value=None), \
+                        patch.object(mumu.Path, "glob", return_value=iter([powershell])), \
+                        patch.object(mumu, "_connection_command", side_effect=[
+                            "\ufeff" + json.dumps(result, ensure_ascii=False), str(manager.parent.parent)
+                        ]) as command:
+                    found = mumu.find_mumu_manager({"WSL_INTEROP": "/run/WSL/socket", "PATH": "/usr/bin"})
+                    self.assertEqual(found, manager)
+                    self.assertEqual(command.call_args_list[0].args[0][0], powershell)
+                    self.assertEqual(command.call_args_list[1].args[0], ["wslpath", "-u", windows_location])
+
+    def test_native_linux_does_not_query_windows_installations(self):
+        with patch.object(mumu.sys, "platform", "linux"), \
+                patch.object(mumu.shutil, "which", return_value=None), \
+                patch.object(mumu, "_connection_command") as command:
+            self.assertIsNone(mumu.find_mumu_manager({"PATH": "/usr/bin"}))
+        command.assert_not_called()
