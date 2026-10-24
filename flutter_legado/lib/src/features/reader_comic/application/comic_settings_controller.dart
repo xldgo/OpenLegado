@@ -73,6 +73,10 @@ class ComicSettingsController extends ChangeNotifier {
   Future<void> setPageScaleType(int value) => _update(
     (s) => s.copyWith(pageScaleType: MangaPageScaleType.parse('$value')),
   );
+  Future<void> setDoublePageMode(int value) => _update(
+    (s) => s.copyWith(doublePageMode: MangaDoublePageMode.parse('$value')),
+  );
+
   Future<void> setWidePageMode(int value) => _update(
     (s) => s.copyWith(widePageMode: MangaWidePageMode.parse('$value')),
   );

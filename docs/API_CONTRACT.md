@@ -824,6 +824,23 @@ WebView URL选项或平台DOM实现。仅Rust行为测试验证，不构建DLL/�
 
 编写者：Codex + Bridge｜2026-10-19
 
+## 漫画双页配对（MANGA-DOUBLE-PAGE-20261025，实施前冻结）
+
+- 漫画仓储增加`doublePageMode`（0关闭/1仅横屏/2始终）、`doublePageCoverSingle`（默认true）、
+  `doublePageInvert`、`doublePageShift`（默认false）；对应`mangaDoublePage*`四键，纳入备份。
+- 仅横向分页启用配对；仅横屏以正文实际约束width>height判断。每个显示页包含一个或两个原图槽，
+  不跨章节/导航页配对；已知宽图独占一页，宽页拆分优先于配对，左右半页各占一页。
+- 封面单页与错位配对均按上游使章节首图独立，不叠加跳过第二图；普通竖图顺序两两配对，末张独立。
+  显示顺序为阅读方向XOR左右交换；该交换也影响宽图拆分顺序，但不改变翻页方向。
+- 配对内部等宽并排，共用既有缩放层；不生成合成图或新缓存。图片尺寸迟到等待滑动结束，重排先保留
+  完整显示页身份，再定位包含原图的显示页；横竖屏、设置变化与主动跳页沿用原图索引。
+- 双页以阅读顺序的首图作为页脚/持久进度；单图保存与分享仍输出所操作原图，长按各半区取对应原图。
+  跳转目标为配对第二图时保留该原图锚点，后续翻页以整组推进；重开只恢复原图，不保存配对/半页状态。
+- 不改FRB签名、数据库、下载链路、依赖或版本；Rust仅补备份白名单。本批不实现跨章窗口、合并图导出，
+  不推送、不安装。对照本地MD3 MangaPageSpread / isDoublePageActive及InteractionTest。
+
+编写者：Codex + UI / Bridge｜2026-10-25
+
 ## 漫画宽页显示（MANGA-WIDE-PAGE-20261025，实施前冻结）
 
 - MangaSettings增加`widePageMode`，由漫画仓储读写Rust配置键`mangaWidePageMode`，默认0；

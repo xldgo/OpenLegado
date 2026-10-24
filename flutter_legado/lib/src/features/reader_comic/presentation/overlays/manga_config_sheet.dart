@@ -70,6 +70,14 @@ class MangaConfigSheet extends StatefulWidget {
 
   /// [P4-3 E2] 分页适配类型 0..5（当前值；null = 默认 0）
   final int? pageScaleType;
+  final int doublePageMode;
+  final ValueChanged<int>? onDoublePageModeChanged;
+  final bool doublePageCoverSingle;
+  final ValueChanged<bool>? onDoublePageCoverSingleChanged;
+  final bool doublePageInvert;
+  final ValueChanged<bool>? onDoublePageInvertChanged;
+  final bool doublePageShift;
+  final ValueChanged<bool>? onDoublePageShiftChanged;
   final int widePageMode;
   final ValueChanged<int>? onWidePageModeChanged;
 
@@ -187,6 +195,14 @@ class MangaConfigSheet extends StatefulWidget {
     this.onAutoReadChanged,
     this.onAutoReadSpeedChanged,
     this.pageScaleType,
+    this.doublePageMode = MangaDoublePageMode.off,
+    this.onDoublePageModeChanged,
+    this.doublePageCoverSingle = true,
+    this.onDoublePageCoverSingleChanged,
+    this.doublePageInvert = false,
+    this.onDoublePageInvertChanged,
+    this.doublePageShift = false,
+    this.onDoublePageShiftChanged,
     this.widePageMode = MangaWidePageMode.normal,
     this.onWidePageModeChanged,
     this.onPageScaleTypeChanged,
@@ -251,6 +267,14 @@ class MangaConfigSheet extends StatefulWidget {
     ValueChanged<int>? onAutoReadSpeedChanged,
     // [P4-3 E2] 分页适配类型（可选；不传则不渲染下拉，既有调用方不受影响）
     int? pageScaleType,
+    int doublePageMode = MangaDoublePageMode.off,
+    ValueChanged<int>? onDoublePageModeChanged,
+    bool doublePageCoverSingle = true,
+    ValueChanged<bool>? onDoublePageCoverSingleChanged,
+    bool doublePageInvert = false,
+    ValueChanged<bool>? onDoublePageInvertChanged,
+    bool doublePageShift = false,
+    ValueChanged<bool>? onDoublePageShiftChanged,
     int widePageMode = MangaWidePageMode.normal,
     ValueChanged<int>? onWidePageModeChanged,
     ValueChanged<int>? onPageScaleTypeChanged,
@@ -315,6 +339,14 @@ class MangaConfigSheet extends StatefulWidget {
         onAutoReadChanged: onAutoReadChanged,
         onAutoReadSpeedChanged: onAutoReadSpeedChanged,
         pageScaleType: pageScaleType,
+        doublePageMode: doublePageMode,
+        onDoublePageModeChanged: onDoublePageModeChanged,
+        doublePageCoverSingle: doublePageCoverSingle,
+        onDoublePageCoverSingleChanged: onDoublePageCoverSingleChanged,
+        doublePageInvert: doublePageInvert,
+        onDoublePageInvertChanged: onDoublePageInvertChanged,
+        doublePageShift: doublePageShift,
+        onDoublePageShiftChanged: onDoublePageShiftChanged,
         widePageMode: widePageMode,
         onWidePageModeChanged: onWidePageModeChanged,
         onPageScaleTypeChanged: onPageScaleTypeChanged,
@@ -375,6 +407,10 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
 
   /// [P4-3 E2] 分页适配类型 0..5
   late int _pageScaleType;
+  late int _doublePageMode;
+  late bool _doublePageCoverSingle;
+  late bool _doublePageInvert;
+  late bool _doublePageShift;
   late int _widePageMode;
 
   /// [P4-3 M3 修4] 条漫侧边留白百分比 0..45
@@ -470,6 +506,10 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
   @override
   void initState() {
     super.initState();
+    _doublePageMode = widget.doublePageMode;
+    _doublePageCoverSingle = widget.doublePageCoverSingle;
+    _doublePageInvert = widget.doublePageInvert;
+    _doublePageShift = widget.doublePageShift;
     _widePageMode = widget.widePageMode;
     _preloadImages = widget.preloadImages;
     _autoOfflineCache = widget.autoOfflineCache;
@@ -642,6 +682,47 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
                           widget.onPageScaleTypeChanged!(v);
                         },
                       ),
+                    ],
+                    if (MangaScrollModes.isPaged(_scrollMode) &&
+                        MangaScrollModes.axisOf(_scrollMode) ==
+                            Axis.horizontal &&
+                        widget.onDoublePageModeChanged != null) ...[
+                      _dropdownTile(
+                        title: '双页显示',
+                        value: _doublePageMode,
+                        options: MangaDoublePageMode.options,
+                        labelOf: MangaDoublePageMode.labelOf,
+                        onChanged: (v) {
+                          setState(() => _doublePageMode = v);
+                          widget.onDoublePageModeChanged!(v);
+                        },
+                      ),
+                      if (_doublePageMode != MangaDoublePageMode.off) ...[
+                        _switchTile(
+                          title: '封面单页',
+                          value: _doublePageCoverSingle,
+                          onChanged: (v) {
+                            setState(() => _doublePageCoverSingle = v);
+                            widget.onDoublePageCoverSingleChanged?.call(v);
+                          },
+                        ),
+                        _switchTile(
+                          title: '交换左右页',
+                          value: _doublePageInvert,
+                          onChanged: (v) {
+                            setState(() => _doublePageInvert = v);
+                            widget.onDoublePageInvertChanged?.call(v);
+                          },
+                        ),
+                        _switchTile(
+                          title: '错位配对',
+                          value: _doublePageShift,
+                          onChanged: (v) {
+                            setState(() => _doublePageShift = v);
+                            widget.onDoublePageShiftChanged?.call(v);
+                          },
+                        ),
+                      ],
                     ],
                     if (MangaScrollModes.isPaged(_scrollMode) &&
                         widget.onWidePageModeChanged != null)

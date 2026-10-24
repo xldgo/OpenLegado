@@ -24,6 +24,10 @@ class AppMangaSettingsRepository
         'mangaPreDownloadNum',
         'mangaAutoOfflineCache',
         'mangaPageScaleType',
+        'mangaDoublePageMode',
+        'mangaDoublePageCoverSingle',
+        'mangaDoublePageInvert',
+        'mangaDoublePageShift',
         'mangaWidePageMode',
         'mangaSidePadding',
         'disableClickScroll',
@@ -50,6 +54,12 @@ class AppMangaSettingsRepository
     preloadImages:
         (int.tryParse(values['mangaPreDownloadNum'] ?? '') ?? 10) > 0,
     pageScaleType: MangaPageScaleType.parse(values['mangaPageScaleType']),
+    doublePageMode: MangaDoublePageMode.parse(values['mangaDoublePageMode']),
+    doublePageCoverSingle: values['mangaDoublePageCoverSingle'] == null
+        ? true
+        : values['mangaDoublePageCoverSingle'] == 'true',
+    doublePageInvert: values['mangaDoublePageInvert'] == 'true',
+    doublePageShift: values['mangaDoublePageShift'] == 'true',
     widePageMode: MangaWidePageMode.parse(values['mangaWidePageMode']),
     sidePadding: (int.tryParse(values['mangaSidePadding'] ?? '') ?? 0).clamp(
       0,
@@ -84,6 +94,10 @@ class AppMangaSettingsRepository
     'mangaPreDownloadNum': value.preloadImages ? '10' : '0',
     'mangaAutoOfflineCache': value.autoOfflineCache.toString(),
     'mangaPageScaleType': value.pageScaleType.toString(),
+    'mangaDoublePageMode': value.doublePageMode.toString(),
+    'mangaDoublePageCoverSingle': value.doublePageCoverSingle.toString(),
+    'mangaDoublePageInvert': value.doublePageInvert.toString(),
+    'mangaDoublePageShift': value.doublePageShift.toString(),
     'mangaWidePageMode': value.widePageMode.toString(),
     'mangaSidePadding': value.sidePadding.toString(),
     'disableClickScroll': value.disableClickScroll ? 'true' : 'false',

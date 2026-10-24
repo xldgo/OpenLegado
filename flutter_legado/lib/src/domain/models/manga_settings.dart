@@ -10,6 +10,9 @@ enum MangaToggle {
   reverseVolumeKeyPage,
   longClickSaveImage,
   disableCrossFade,
+  doublePageCoverSingle,
+  doublePageInvert,
+  doublePageShift,
 }
 
 extension MangaSettingsToggle on MangaSettings {
@@ -25,6 +28,11 @@ extension MangaSettingsToggle on MangaSettings {
     MangaToggle.reverseVolumeKeyPage => copyWith(reverseVolumeKeyPage: enabled),
     MangaToggle.longClickSaveImage => copyWith(longClickSaveImage: enabled),
     MangaToggle.disableCrossFade => copyWith(disableCrossFade: enabled),
+    MangaToggle.doublePageCoverSingle => copyWith(
+      doublePageCoverSingle: enabled,
+    ),
+    MangaToggle.doublePageInvert => copyWith(doublePageInvert: enabled),
+    MangaToggle.doublePageShift => copyWith(doublePageShift: enabled),
   };
 }
 
@@ -40,6 +48,10 @@ final class MangaSettings {
     this.preloadImages = true,
     this.autoOfflineCache = false,
     this.pageScaleType = 0,
+    this.doublePageMode = 0,
+    this.doublePageCoverSingle = true,
+    this.doublePageInvert = false,
+    this.doublePageShift = false,
     this.widePageMode = 0,
     this.sidePadding = 0,
     this.disableClickScroll = false,
@@ -63,6 +75,10 @@ final class MangaSettings {
   final bool preloadImages;
   final bool autoOfflineCache;
   final int pageScaleType;
+  final int doublePageMode;
+  final bool doublePageCoverSingle;
+  final bool doublePageInvert;
+  final bool doublePageShift;
   final int widePageMode;
   final int sidePadding;
   final bool disableClickScroll;
@@ -86,6 +102,10 @@ final class MangaSettings {
     bool? preloadImages,
     bool? autoOfflineCache,
     int? pageScaleType,
+    int? doublePageMode,
+    bool? doublePageCoverSingle,
+    bool? doublePageInvert,
+    bool? doublePageShift,
     int? widePageMode,
     int? sidePadding,
     bool? disableClickScroll,
@@ -109,6 +129,10 @@ final class MangaSettings {
     preloadImages: preloadImages ?? this.preloadImages,
     autoOfflineCache: autoOfflineCache ?? this.autoOfflineCache,
     pageScaleType: pageScaleType ?? this.pageScaleType,
+    doublePageMode: doublePageMode ?? this.doublePageMode,
+    doublePageCoverSingle: doublePageCoverSingle ?? this.doublePageCoverSingle,
+    doublePageInvert: doublePageInvert ?? this.doublePageInvert,
+    doublePageShift: doublePageShift ?? this.doublePageShift,
     widePageMode: widePageMode ?? this.widePageMode,
     sidePadding: sidePadding ?? this.sidePadding,
     disableClickScroll: disableClickScroll ?? this.disableClickScroll,

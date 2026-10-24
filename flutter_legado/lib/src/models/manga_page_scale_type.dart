@@ -136,11 +136,22 @@ abstract final class MangaWidePageMode {
   };
 }
 
-/// [P4-3 E2] 双页模式常量登记（对齐参考版 MangaPageConfig.kt L26-30）
-///
-/// 仅登记取值，本波不实现行为（double page 变体在 P4-3 后续波次）。
+/// 横向分页的双页规则，取值与参考版一致。— Codex + UI
 abstract final class MangaDoublePageMode {
   static const int off = 0;
   static const int landscape = 1;
   static const int always = 2;
+  static const options = [off, landscape, always];
+  static int parse(String? value) {
+    final parsed = int.tryParse(value ?? '');
+    return options.contains(parsed) ? parsed! : off;
+  }
+
+  static bool isActive(int mode, double width, double height) =>
+      mode == always || mode == landscape && width > height;
+  static String labelOf(int value) => switch (value) {
+    landscape => '仅横屏',
+    always => '始终开启',
+    _ => '关闭',
+  };
 }

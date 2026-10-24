@@ -67,6 +67,16 @@ fn seed(conn: &Connection) {
     CacheRepository::new(conn)
         .put("config:mangaWidePageMode", "3", 0)
         .unwrap();
+    for (key, value) in [
+        ("mangaDoublePageMode", "2"),
+        ("mangaDoublePageCoverSingle", "false"),
+        ("mangaDoublePageInvert", "true"),
+        ("mangaDoublePageShift", "true"),
+    ] {
+        CacheRepository::new(conn)
+            .put(&format!("config:{key}"), value, 0)
+            .unwrap();
+    }
     CacheRepository::new(conn)
         .put("config:secret-api-token", "不应导出", 0)
         .unwrap();
@@ -97,6 +107,10 @@ fn mixed_snapshot_preserves_ids_relations_and_reading_totals_on_repeat_restore()
             ("mangaPreDownloadNum".into(), "0".into()),
             ("mangaAutoOfflineCache".into(), "true".into()),
             ("mangaWidePageMode".into(), "3".into()),
+            ("mangaDoublePageMode".into(), "2".into()),
+            ("mangaDoublePageCoverSingle".into(), "false".into()),
+            ("mangaDoublePageInvert".into(), "true".into()),
+            ("mangaDoublePageShift".into(), "true".into()),
         ])
     );
     let target_repo = BackupRepository::new(target.connection());

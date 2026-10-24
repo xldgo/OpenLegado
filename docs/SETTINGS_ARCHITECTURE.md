@@ -1212,3 +1212,12 @@ MangaSettings.widePageMode由现有漫画设置仓储读写`mangaWidePageMode`�
 该设置只决定显示投影，不改写图片、章节内容或书籍进度坐标；不新增书级覆盖或数据库列。
 
 编写者：Codex + UI / Bridge｜2026-10-25
+
+### 漫画双页配对（2026-10-25）
+
+双页设置复用漫画仓储与现有变更流：`mangaDoublePageMode`默认0（关闭），
+1仅横屏、2始终；`mangaDoublePageCoverSingle`默认true，`mangaDoublePageInvert`与
+`mangaDoublePageShift`默认false。四项均进入备份白名单，不新增书级覆盖或数据库列。
+UI只生成显示分组，不改变原图下载、缓存及进度坐标；纵向分页和条漫忽略双页设置。
+
+编写者：Codex + UI / Bridge｜2026-10-25

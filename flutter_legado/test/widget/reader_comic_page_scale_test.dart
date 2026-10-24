@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/features/reader_comic/presentation/overlays/manga_config_sheet.dart';
 import 'package:flutter_legado/src/features/reader_comic/presentation/views/comic_image_item.dart';
 import 'package:flutter_legado/src/data/services/comic_image_decode_cache.dart';
 import 'package:flutter_legado/src/features/reader_comic/presentation/views/comic_wide_page.dart';
@@ -81,10 +82,11 @@ class _ScaleMockApi extends MockBookApi {
     required this.configWrites,
     Map<String, String>? configs,
     this.imageCacheRead,
+    this.imageCount = 3,
   }) : _configs = configs ?? {};
 
   /// 每章图片数（与 E1/E3 mock 一致取 3，保证单页式有页可翻）
-  static const int imageCount = 3;
+  final int imageCount;
 
   final List<List<String>> configWrites;
   final Future<List<int>?> Function(String)? imageCacheRead;
@@ -170,7 +172,8 @@ class _ScaleMockApi extends MockBookApi {
 
 /// 打开漫画设置面板（控制栏 → 底栏「翻页设置」键 [P4-3 M1]）
 Future<void> _openSheet(WidgetTester tester) async {
-  await tester.tapAt(const Offset(400, 300));
+  final size = tester.view.physicalSize / tester.view.devicePixelRatio;
+  await tester.tapAt(Offset(size.width / 2, size.height / 2));
   await tester.pumpAndSettle();
   await tester.tap(find.byTooltip('翻页设置'));
   await tester.pumpAndSettle();
@@ -182,6 +185,170 @@ void main() {
     ComicImageDecodeCache.clearForTest();
   });
   tearDown(ComicImageDecodeCache.clearForTest);
+  testWidgets('双页跳页跨多组定位第二图，后续翻页不沿用旧跳页目标', (tester) async {
+    final api = _ScaleMockApi(
+      configWrites: [],
+      imageCount: 7,
+      configs: {
+        'mangaScrollMode': '1',
+        'mangaDoublePageMode': '2',
+        'mangaPreDownloadNum': '0',
+      },
+    );
+    final container = ProviderContainer(
+      overrides: mergeTestOverrides([...api.overrides]),
+    );
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: ReaderComicScreen(bookUrl: 'mock://double-seek'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(Slider), const Offset(1000, 0));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('页数7/7'), findsOneWidget);
+    expect(api.progress.last, (0, 6));
+    await tester.drag(find.byType(PageView), const Offset(650, 0));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('页数4/7'), findsOneWidget);
+    expect(api.progress.last, (0, 3));
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+  });
+  for (final mode in [1, 2]) {
+    testWidgets('双页模式$mode：横屏配对、左右交换和返回竖屏保留原图', (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(600, 900);
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      final api = _ScaleMockApi(
+        configWrites: [],
+        configs: {
+          'mangaScrollMode': '$mode',
+          'mangaDoublePageMode': '1',
+          'mangaPreDownloadNum': '0',
+        },
+      );
+      final container = ProviderContainer(
+        overrides: mergeTestOverrides([...api.overrides]),
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: ReaderComicScreen(bookUrl: 'mock://double'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      PageView pager() => tester.widget<PageView>(find.byType(PageView));
+      expect(pager().childrenDelegate.estimatedChildCount, 4);
+      tester.view.physicalSize = const Size(1000, 600);
+      await tester.pumpAndSettle();
+      expect(
+        pager().childrenDelegate.estimatedChildCount,
+        3,
+        reason: '横屏首图独立，后两图配对，章尾导航保持独立',
+      );
+      await tester.drag(
+        find.byType(PageView),
+        Offset(mode == 1 ? -850 : 850, 0),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('页数2/3'), findsOneWidget);
+      expect(api.progress, contains((0, 1)));
+      Finder image(int index) => find.byWidgetPredicate(
+        (widget) =>
+            widget is ComicImageItem && widget.url.endsWith('/$index.jpg'),
+      );
+      final left = tester.getRect(image(1));
+      final right = tester.getRect(image(2));
+      expect(
+        mode == 1 ? left.left < right.left : left.left > right.left,
+        isTrue,
+      );
+      expect(left.width, right.width);
+      await _openSheet(tester);
+      final invert = find.widgetWithText(SwitchListTile, '交换左右页');
+      await tester.ensureVisible(invert);
+      await tester.pumpAndSettle();
+      await tester.tap(invert);
+      await tester.pumpAndSettle();
+      expect(
+        api.configWrites,
+        contains(equals(['mangaDoublePageInvert', 'true'])),
+      );
+      Navigator.of(tester.element(find.byType(MangaConfigSheet))).pop();
+      await tester.pumpAndSettle();
+      expect(
+        mode == 1
+            ? tester.getRect(image(1)).left > tester.getRect(image(2)).left
+            : tester.getRect(image(1)).left < tester.getRect(image(2)).left,
+        isTrue,
+      );
+      expect(find.textContaining('页数2/3'), findsOneWidget);
+      if (mode == 1) {
+        final pageBeforeSeek = pager().controller!.page;
+        await tester.drag(find.byType(Slider), const Offset(1000, 0));
+        await tester.pumpAndSettle();
+        expect(
+          pager().controller!.page,
+          pageBeforeSeek,
+          reason: '配对内跳到第二张原图无需翻到另一显示页',
+        );
+        expect(find.textContaining('页数3/3'), findsOneWidget);
+        expect(api.progress.last, (0, 2));
+      }
+      tester.view.physicalSize = const Size(600, 900);
+      await tester.pumpAndSettle();
+      expect(pager().childrenDelegate.estimatedChildCount, 4);
+      expect(
+        find.textContaining(mode == 1 ? '页数3/3' : '页数2/3'),
+        findsOneWidget,
+        reason: '配对解散后仍保留该原图，不能按旧显示页索引恢复',
+      );
+      // 竖屏下可改为始终配对，关闭后回到原图，而不是沿用配对页码。
+      if (mode == 1) {
+        await tester.tapAt(const Offset(300, 450));
+        await tester.pumpAndSettle();
+        await _openSheet(tester);
+        final dropdown = find.text('仅横屏');
+        await tester.ensureVisible(dropdown);
+        await tester.pumpAndSettle();
+        await tester.tap(dropdown);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('始终开启').last);
+        await tester.pumpAndSettle();
+        expect(pager().childrenDelegate.estimatedChildCount, 3);
+        expect(
+          api.configWrites,
+          contains(equals(['mangaDoublePageMode', '2'])),
+        );
+        await tester.tap(find.text('始终开启'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('关闭').last);
+        await tester.pumpAndSettle();
+        expect(pager().childrenDelegate.estimatedChildCount, 4);
+        expect(
+          find.textContaining(mode == 1 ? '页数3/3' : '页数2/3'),
+          findsOneWidget,
+        );
+        Navigator.of(tester.element(find.byType(MangaConfigSheet))).pop();
+        await tester.pumpAndSettle();
+      }
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+    });
+  }
   for (final mode in [1, 2]) {
     testWidgets('宽页拆分模式$mode：半页翻动/窗口重排保持原图进度，关闭拆分后仍在原图', (tester) async {
       final wide = base64Decode(
@@ -206,6 +373,7 @@ void main() {
         configs: {
           'mangaScrollMode': '$mode',
           'mangaWidePageMode': '3',
+          'mangaDoublePageMode': mode == 1 ? '2' : '0',
           'mangaPreDownloadNum': '0',
         },
       );
@@ -225,8 +393,8 @@ void main() {
       PageView pager() => tester.widget<PageView>(find.byType(PageView));
       expect(
         pager().childrenDelegate.estimatedChildCount,
-        5,
-        reason: '三张原图中一张拆分，再加章尾导航',
+        mode == 1 ? 4 : 5,
+        reason: '宽图拆分优先，剩余竖图按双页设置配对，最后为章尾导航',
       );
       expect(find.textContaining('页数1/3'), findsOneWidget);
       final firstSlice = mode == 1 ? ComicPageSlice.left : ComicPageSlice.right;
@@ -280,7 +448,7 @@ void main() {
         }
         expect(nextDecoded(), isTrue);
         await tester.pumpAndSettle();
-        expect(pager().childrenDelegate.estimatedChildCount, 5);
+        expect(pager().childrenDelegate.estimatedChildCount, 4);
         await tester.pump(const Duration(milliseconds: 200));
         await gesture.up();
         await tester.pumpAndSettle();

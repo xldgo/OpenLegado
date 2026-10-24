@@ -119,6 +119,25 @@ void main() {
     expect(repository.current.disableCrossFade, true);
   });
 
+  test('双页设置复用仓储保存并能重装配恢复', () async {
+    await controller.load();
+    expect(controller.current.doublePageCoverSingle, isTrue);
+    await controller.setDoublePageMode(2);
+    await controller.setToggle(MangaToggle.doublePageCoverSingle, false);
+    await controller.setToggle(MangaToggle.doublePageInvert, true);
+    await controller.setToggle(MangaToggle.doublePageShift, true);
+    final reloaded = await repository.load();
+    expect(
+      (
+        reloaded.doublePageMode,
+        reloaded.doublePageCoverSingle,
+        reloaded.doublePageInvert,
+        reloaded.doublePageShift,
+      ),
+      (2, false, true, true),
+    );
+  });
+
   test('滤镜和页脚复制面板参数，后续修改原对象不污染已保存值', () async {
     await controller.load();
     final filter = MangaColorFilterConfig(r: 10, l: 80);

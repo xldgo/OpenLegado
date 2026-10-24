@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show listEquals;
 
 import '../application/comic_page_layout.dart';
 import 'views/comic_wide_page.dart';
+import 'views/comic_page_spread_view.dart';
 import '../../cache/presentation/chapter_download_dialog.dart';
 import '../../../providers/chapter_cache_provider.dart';
 import '../../../app/routing/app_navigation.dart';
@@ -144,7 +145,9 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   /// 当前可见原图索引，供页脚、进度和预载共用。
   int _visiblePageIndex = 0;
   ComicPageSlice _visibleSlice = ComicPageSlice.full;
-  List<ComicPageSlot> _pagedSlots = const [];
+  int? _requestedPageIndex;
+  List<ComicPageSpread> _pagedSpreads = const [];
+  Size _pagedViewport = Size.zero;
   final Set<int> _wideImages = {};
   bool _pendingPageReflow = false;
 
@@ -306,7 +309,11 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     setState(() {});
     if (modeChanged) {
       _applyScrollMode();
-    } else if (previous.widePageMode != next.widePageMode &&
+    } else if ((previous.widePageMode != next.widePageMode ||
+            previous.doublePageMode != next.doublePageMode ||
+            previous.doublePageCoverSingle != next.doublePageCoverSingle ||
+            previous.doublePageInvert != next.doublePageInvert ||
+            previous.doublePageShift != next.doublePageShift) &&
         MangaScrollModes.isPaged(_scrollMode)) {
       _syncPagedController(initialLogical: _visiblePageIndex);
     }
@@ -513,19 +520,28 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     if (_imageUrls.isEmpty) return;
     final axis = MangaScrollModes.axisOf(_scrollMode);
     final reversed = MangaScrollModes.isReversed(_scrollMode);
-    final slots = buildComicPageSlots(
+    final spreads = buildComicPageSpreads(
       imageCount: _imageUrls.length,
       wideImages: _wideImages,
       splitWidePages:
           axis == Axis.horizontal &&
           _config.widePageMode == MangaWidePageMode.split,
-      rightToLeft: reversed,
+      rightToLeft: reversed != _config.doublePageInvert,
+      doublePage:
+          axis == Axis.horizontal &&
+          MangaDoublePageMode.isActive(
+            _config.doublePageMode,
+            _pagedViewport.width,
+            _pagedViewport.height,
+          ),
+      coverSingle: _config.doublePageCoverSingle,
+      shiftPairing: _config.doublePageShift,
     );
     final old = _pagedController;
     final sameSession = old != null && _pagedGen == _loadSeq;
     final sameSpec =
         sameSession && _pagedAxis == axis && _pagedReversed == reversed;
-    if (sameSpec && listEquals(_pagedSlots, slots)) {
+    if (sameSpec && listEquals(_pagedSpreads, spreads)) {
       _pendingPageReflow = false;
       return;
     }
@@ -537,21 +553,32 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
         sameSession &&
         old.hasClients &&
         (old.page ?? old.initialPage.toDouble()).round() ==
-            (_pagedReversed ? 0 : _pagedSlots.length);
+            (_pagedReversed ? 0 : _pagedSpreads.length);
     final slice = sameSession ? _visibleSlice : ComicPageSlice.full;
     final target = navigation
-        ? slots.length - 1
-        : comicPageSlotTarget(slots, initialLogical, slice);
+        ? spreads.length - 1
+        : comicPageSpreadTarget(
+            spreads,
+            initialLogical,
+            slice,
+            previous: sameSession
+                ? _pagedSpreads[comicPageSpreadTarget(
+                    _pagedSpreads,
+                    initialLogical,
+                    slice,
+                  )]
+                : null,
+          );
     final display = navigation
-        ? (reversed ? 0 : slots.length)
+        ? (reversed ? 0 : spreads.length)
         : MangaPagedView.displayIndexOf(
             logicalPage: target,
-            pageCount: slots.length,
+            pageCount: spreads.length,
             reversed: reversed,
           );
-    _pagedSlots = slots;
+    _pagedSpreads = spreads;
     _pageZoomed = false;
-    _visibleSlice = slots[target].slice;
+    _visibleSlice = spreads[target].first.slice;
     _pendingPageReflow = false;
     _pagedController = PageController(initialPage: display)
       ..addListener(_onPagedScroll);
@@ -579,7 +606,12 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     });
     if (MangaScrollModes.isPaged(_scrollMode) &&
         MangaScrollModes.axisOf(_scrollMode) == Axis.horizontal &&
-        _config.widePageMode == MangaWidePageMode.split) {
+        (_config.widePageMode == MangaWidePageMode.split ||
+            MangaDoublePageMode.isActive(
+              _config.doublePageMode,
+              _pagedViewport.width,
+              _pagedViewport.height,
+            ))) {
       _syncPagedController(initialLogical: _visiblePageIndex);
     }
   }
@@ -597,13 +629,19 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
 
   /// [P4-3 E1] 单页式页切换：更新可见页（精确页索引）+ 持久化进度 + 预载
   void _onPagedPageChanged(int displayIndex) {
-    if (_pagedSlots.isEmpty) return;
-    final slot =
-        _pagedSlots[MangaPagedView.logicalPageOf(
+    if (_pagedSpreads.isEmpty) return;
+    final spread =
+        _pagedSpreads[MangaPagedView.logicalPageOf(
           displayIndex: displayIndex,
-          pageCount: _pagedSlots.length,
+          pageCount: _pagedSpreads.length,
           reversed: MangaScrollModes.isReversed(_scrollMode),
         )];
+    // 主动跳页可定位配对中的第二图；自然翻页使用新组首图。
+    final slot = spread.slots.firstWhere(
+      (slot) => slot.imageIndex == (_requestedPageIndex ?? _visiblePageIndex),
+      orElse: () => spread.first,
+    );
+    if (slot.imageIndex == _requestedPageIndex) _requestedPageIndex = null;
     final movedImage = slot.imageIndex != _visiblePageIndex;
     setState(() {
       _visiblePageIndex = slot.imageIndex;
@@ -650,6 +688,17 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       // [P4-3 E2] 分页适配类型（单页式映射 BoxFit；条漫恒 fitWidth）
       pageScaleType: _pageScaleType,
       widePageMode: _config.widePageMode,
+      doublePageMode: _config.doublePageMode,
+      doublePageCoverSingle: _config.doublePageCoverSingle,
+      doublePageInvert: _config.doublePageInvert,
+      doublePageShift: _config.doublePageShift,
+      onDoublePageModeChanged: (v) => unawaited(_settings.setDoublePageMode(v)),
+      onDoublePageCoverSingleChanged: (v) =>
+          unawaited(_settings.setToggle(MangaToggle.doublePageCoverSingle, v)),
+      onDoublePageInvertChanged: (v) =>
+          unawaited(_settings.setToggle(MangaToggle.doublePageInvert, v)),
+      onDoublePageShiftChanged: (v) =>
+          unawaited(_settings.setToggle(MangaToggle.doublePageShift, v)),
       onWidePageModeChanged: (value) =>
           unawaited(_settings.setWidePageMode(value)),
       onColorFilterChanged: (c) => unawaited(_settings.setColorFilter(c)),
@@ -766,16 +815,20 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       final controller = _pagedController;
       if (controller == null || !controller.hasClients) return;
       final display = MangaPagedView.displayIndexOf(
-        logicalPage: comicPageSlotTarget(
-          _pagedSlots,
+        logicalPage: comicPageSpreadTarget(
+          _pagedSpreads,
           target,
           ComicPageSlice.full,
         ),
-        pageCount: _pagedSlots.length,
+        pageCount: _pagedSpreads.length,
         reversed: MangaScrollModes.isReversed(_scrollMode),
       );
       final current = (controller.page ?? 0).round();
-      if (current == display) return; // 已在目标页（动画未落定）
+      _requestedPageIndex = target;
+      if (current == display) {
+        _onPagedPageChanged(display);
+        return;
+      } // 已在目标页（动画未落定）
       // [P4-3 M4 批2] 禁用翻页动画：jumpToPage 替代 animateToPage
       if (_disableMangaPageAnim) {
         controller.jumpToPage(display);
@@ -811,6 +864,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       _pageZoomed = false;
       _visiblePageIndex = next.initialPage;
       _visibleSlice = ComicPageSlice.full;
+      _requestedPageIndex = null;
     }
     if (next.book != previous.book) _onSettingsChanged();
     setState(() {
@@ -978,11 +1032,11 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   void _stepPage(int direction) {
     if (MangaScrollModes.isPaged(_scrollMode)) {
       final controller = _pagedController;
-      final n = _pagedSlots.length;
+      final n = _pagedSpreads.length;
       if (controller == null || !controller.hasClients || n == 0) return;
       final reversed = MangaScrollModes.isReversed(_scrollMode);
-      final logical = comicPageSlotTarget(
-        _pagedSlots,
+      final logical = comicPageSpreadTarget(
+        _pagedSpreads,
         _visiblePageIndex,
         _visibleSlice,
       );
@@ -1246,7 +1300,22 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   }
 
   /// [P4-3 E1] 构建单页式分页器（L2R/R2L 横向、T2B 纵向；R2L 首页在右）
-  Widget _buildPagedContent() {
+  Widget _buildPagedContent() => LayoutBuilder(
+    builder: (context, constraints) {
+      final viewport = constraints.biggest;
+      if (_pagedViewport != viewport) {
+        _pagedViewport = viewport;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && MangaScrollModes.isPaged(_scrollMode)) {
+            _syncPagedController(initialLogical: _visiblePageIndex);
+          }
+        });
+      }
+      return _buildPagedViewport();
+    },
+  );
+
+  Widget _buildPagedViewport() {
     if (_pagedController == null) {
       // 防御：控制器未及创建（模式晚于图片生效且未同步）→
       // 本帧回退条漫路径，postFrame 创建控制器后切换
@@ -1259,6 +1328,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     }
     return NotificationListener<ScrollEndNotification>(
       onNotification: (_) {
+        // 主动动画落定或被手势接管后，不把旧跳页目标带入下一次翻页。
+        _requestedPageIndex = null;
         if (_pendingPageReflow) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted && _pendingPageReflow) {
@@ -1273,18 +1344,23 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
         controller: _pagedController!,
         disableScale: _disableMangaScale,
         onZoomChanged: (value) => _pageZoomed = value,
-        pageCount: _pagedSlots.length,
+        pageCount: _pagedSpreads.length,
         axis: MangaScrollModes.axisOf(_scrollMode),
         reversed: MangaScrollModes.isReversed(_scrollMode),
         onDisplayIndexChanged: _onPagedPageChanged,
         pageBuilder: (context, logicalPage) {
-          final slot = _pagedSlots[logicalPage];
-          return ComicWidePage(
-            slice: slot.slice,
-            rotate:
-                _wideImages.contains(slot.imageIndex) &&
-                _config.widePageMode == MangaWidePageMode.rotateToFit,
-            child: _buildImageItem(slot.imageIndex),
+          return ComicPageSpreadView(
+            spread: _pagedSpreads[logicalPage],
+            reversed:
+                MangaScrollModes.isReversed(_scrollMode) !=
+                _config.doublePageInvert,
+            pageBuilder: (slot) => ComicWidePage(
+              slice: slot.slice,
+              rotate:
+                  _wideImages.contains(slot.imageIndex) &&
+                  _config.widePageMode == MangaWidePageMode.rotateToFit,
+              child: _buildImageItem(slot.imageIndex),
+            ),
           );
         },
         navBuilder: (context) => _buildChapterNavigation(),
