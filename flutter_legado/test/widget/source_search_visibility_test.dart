@@ -123,13 +123,17 @@ void main() {
       when(() => api.bookSourceRepository.getBookSources()).thenAnswer(
         (_) async => [
           const BookSource(bookSourceUrl: 'a', bookSourceName: '甲源'),
-          const BookSource(bookSourceUrl: 'b', bookSourceName: '乙源'),
+          const BookSource(
+            bookSourceUrl: 'b',
+            bookSourceName: '乙源',
+            enabled: false,
+          ),
         ],
       );
       when(() => api.rssSourceRepository.getRssSources()).thenAnswer(
         (_) async => [
           const RssSource(sourceUrl: 'a', sourceName: '甲源'),
-          const RssSource(sourceUrl: 'b', sourceName: '乙源'),
+          const RssSource(sourceUrl: 'b', sourceName: '乙源', enabled: false),
         ],
       );
       await tester.pumpWidget(
@@ -161,6 +165,18 @@ void main() {
       await tester.tap(find.byTooltip('清除搜索关键词'));
       await tester.pumpAndSettle();
       expect(find.text('乙源'), findsOneWidget);
+      // 两个领域使用不同筛选值，共用菜单仍须调用各自的筛选与清除逻辑。
+      await tester.tap(find.byTooltip('分组'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(CheckboxMenuButton, '已禁用'));
+      await tester.pumpAndSettle();
+      expect(find.text('甲源'), findsNothing);
+      expect(find.text('乙源'), findsOneWidget);
+      await tester.tap(find.byTooltip('分组'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(CheckboxMenuButton, '已禁用'));
+      await tester.pumpAndSettle();
+      expect(find.text('甲源'), findsOneWidget);
       if (!rss) {
         final scope = ProviderScope.containerOf(
           tester.element(find.byType(SourceScreen)),

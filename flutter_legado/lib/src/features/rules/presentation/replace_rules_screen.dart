@@ -2,6 +2,7 @@ import '../../../app/routing/app_navigation.dart';
 import '../../../widgets/dynamic_search_app_bar.dart';
 import '../../../l10n/app_localization.dart';
 import '../../../widgets/app_menu.dart';
+import '../../../widgets/management_list_card.dart';
 import '../../../widgets/app_snack_bar.dart';
 import '../../../widgets/confirm_dialog.dart';
 
@@ -252,15 +253,12 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
                 key: ValueKey(rule.id),
                 rule: rule,
                 index: index,
-                total: rules.length,
                 batchMode: true,
                 selected: _selected.contains(rule.id),
                 onSelect: () => _toggleSelect(rule.id),
                 onToggle: (enabled) => provider.setEnabled(rule.id, enabled),
                 onEdit: () => _toggleSelect(rule.id),
                 onDelete: () => _confirmDelete(context, provider, rule),
-                onMoveUp: () => provider.moveUp(index),
-                onMoveDown: () => provider.moveDown(index),
               );
             },
           ),
@@ -270,21 +268,7 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
     return ReorderableListView.builder(
       // 只从显式手柄拖动，整卡长按仍用于批量选择。— Codex + UI
       buildDefaultDragHandles: false,
-      proxyDecorator: (child, _, animation) => AnimatedBuilder(
-        animation: animation,
-        child: child,
-        builder: (context, child) {
-          final lift = Curves.easeInOut.transform(animation.value);
-          // 抬高卡片自身，不在包含外边距的整行外再绘制矩形Material。
-          return Transform.scale(
-            scale: 1 + 0.02 * lift,
-            child: CardTheme(
-              data: CardTheme.of(context).copyWith(elevation: 4 * lift),
-              child: child!,
-            ),
-          );
-        },
-      ),
+      proxyDecorator: ManagementListCard.dragProxy,
       // 为56dp FAB、16dp页边距与16dp内容留白预留尾部空间，末项可滚到按钮上方。
       padding: const EdgeInsets.only(bottom: 88),
       itemCount: rules.length,
@@ -306,13 +290,11 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
           key: ValueKey(rule.id),
           rule: rule,
           index: index,
-          total: rules.length,
           onToggle: (enabled) => provider.setEnabled(rule.id, enabled),
           // [A3 形态对齐 | full-stack-engineer + UI] 列表行编辑跳整页编辑器
           onEdit: () => ReplaceRuleEditScreen.open(context, rule: rule),
           onDelete: () => _confirmDelete(context, provider, rule),
-          onMoveUp: () => provider.moveUp(index),
-          onMoveDown: () => provider.moveDown(index),
+          onSelect: () => _toggleSelect(rule.id),
           onEnterBatch: () => _enterBatch(rule.id),
         );
       },
@@ -705,119 +687,78 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
 class _ReplaceRuleTile extends StatelessWidget {
   final ReplaceRule rule;
   final int index;
-  final int total;
   final ValueChanged<bool> onToggle;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-  final VoidCallback onMoveUp;
-  final VoidCallback onMoveDown;
-  // [UI-fix v2.0.2 | 2026-08-06] 批量模式支持 — Qoder
-  final bool batchMode;
-  final bool selected;
-  final VoidCallback? onSelect;
+  final VoidCallback onEdit, onDelete, onSelect;
   final VoidCallback? onEnterBatch;
+  final bool batchMode, selected;
 
   const _ReplaceRuleTile({
     super.key,
     required this.rule,
     required this.index,
-    required this.total,
     required this.onToggle,
     required this.onEdit,
     required this.onDelete,
-    required this.onMoveUp,
-    required this.onMoveDown,
+    required this.onSelect,
+    this.onEnterBatch,
     this.batchMode = false,
     this.selected = false,
-    this.onSelect,
-    this.onEnterBatch,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      color: theme.colorScheme.surfaceContainer,
-      // [LAYOUT_PLAN P2] 分组卡圆角 16dp；边距 horizontal16（全局标尺）
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: InkWell(
-        onTap: batchMode ? onSelect : onEdit,
-        onLongPress: batchMode ? onSelect : onEnterBatch,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-          child: Row(
-            children: [
-              // [UI-fix v2.0.2 | 2026-08-06] 批量模式显示选中框，否则排序手柄 — Qoder
-              if (batchMode)
-                Checkbox(value: selected, onChanged: (_) => onSelect?.call())
-              else
-                // 排序手柄
-                ReorderableDragStartListener(
-                  index: index,
-                  child: Icon(
-                    Symbols.drag_handle_rounded,
-                    color: theme.colorScheme.outline,
-                  ),
-                ),
-              const SizedBox(width: 8),
-              // 规则信息
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      rule.name.isEmpty ? '(未命名)' : rule.name,
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${rule.isRegex ? context.l10n.searchUseRegex : context.l10n.editorText}: ${rule.pattern} → ${rule.replacement}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        // [FIX 2026-09-04] 正文次要文字走 onSurfaceVariant（outline 仅用于边框/装饰图标）
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (rule.scope != null && rule.scope!.isNotEmpty)
-                      Text(
-                        '范围: ${rule.scope}',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.secondary,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              // 启用开关（对标 swt_enabled）
-              // [LAYOUT_PLAN P2] 开关行无 Chevron；标题/副标题走 M3 Type Scale
-              Switch(value: rule.isEnabled, onChanged: onToggle),
-              if (!batchMode) ...[
-                // 更多菜单（对标 iv_menu_more）
-                AppMenuButton<String>(
-                  icon: Icon(
-                    Symbols.more_vert_rounded,
-                    size: 20,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  tooltip: context.l10n.more,
-                  onSelected: (v) {
-                    if (v == 'delete') onDelete();
-                  },
-                  itemBuilder: (_) => [
-                    AppMenuItem(
-                      value: 'delete',
-                      child: Text(context.l10n.delete),
-                    ),
-                  ],
-                ),
-              ],
-            ],
+    return ManagementListCard(
+      dragIndex: batchMode ? null : index,
+      batchMode: batchMode,
+      selected: selected,
+      isEnabled: rule.isEnabled,
+      onEnabledChanged: onToggle,
+      onEdit: onEdit,
+      onSelect: onSelect,
+      onLongPress: batchMode ? onSelect : onEnterBatch,
+      information: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            rule.name.isEmpty ? '(未命名)' : rule.name,
+            style: theme.textTheme.titleMedium,
           ),
-        ),
+          const SizedBox(height: 2),
+          Text(
+            '${rule.isRegex ? context.l10n.searchUseRegex : context.l10n.editorText}: ${rule.pattern} → ${rule.replacement}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          if (rule.scope != null && rule.scope!.isNotEmpty)
+            Text(
+              '范围: ${rule.scope}',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.secondary,
+              ),
+            ),
+        ],
       ),
+      menu: batchMode
+          ? null
+          : AppMenuButton<String>(
+              icon: Icon(
+                Symbols.more_vert_rounded,
+                size: 20,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              tooltip: context.l10n.more,
+              onSelected: (value) {
+                if (value == 'delete') onDelete();
+              },
+              itemBuilder: (_) => [
+                AppMenuItem(value: 'delete', child: Text(context.l10n.delete)),
+              ],
+            ),
     );
   }
 }

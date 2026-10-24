@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_legado/src/widgets/source_selection_bar.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -35,6 +36,64 @@ void main() {
     await tester.tap(find.byType(Switch));
     await tester.pumpAndSettle();
     expect((await sources.getRssSources()).single.enabled, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('订阅源手柄保存排序，长按多选保留选择并可退出', (tester) async {
+    final sources = MockRssSourceRepository();
+    for (var i = 0; i < 3; i++) {
+      await sources.addRssSource(
+        RssSource(sourceUrl: 'feed-$i', sourceName: '订阅$i', customOrder: i),
+      );
+    }
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [rssSourceRepositoryProvider.overrideWithValue(sources)],
+        child: const MaterialApp(home: RssSourceManageScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final handle = find.byType(ReorderableDragStartListener).first;
+    final lastCard = find.ancestor(
+      of: find.text('订阅2'),
+      matching: find.byType(Card),
+    );
+    final start = tester.getCenter(handle);
+    final destination =
+        tester.getBottomLeft(lastCard).dy + tester.getSize(lastCard).height / 2;
+    final gesture = await tester.startGesture(start);
+    await gesture.moveBy(Offset(0, tester.getSize(handle).height));
+    await tester.pump();
+    await gesture.moveTo(Offset(start.dx, destination));
+    await tester.pump(const Duration(milliseconds: 300));
+    await gesture.moveBy(const Offset(0, 1));
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+    final saved = await sources.getRssSources();
+    saved.sort((a, b) => a.customOrder.compareTo(b.customOrder));
+    expect(saved.map((s) => s.sourceUrl), ['feed-1', 'feed-2', 'feed-0']);
+
+    await tester.longPress(find.text('订阅1'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<SourceSelectionBar>(find.byType(SourceSelectionBar))
+          .selectedCount,
+      1,
+    );
+    await tester.tap(find.text('订阅2'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<SourceSelectionBar>(find.byType(SourceSelectionBar))
+          .selectedCount,
+      2,
+    );
+    await tester.tap(find.byTooltip('退出选择'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SourceSelectionBar), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

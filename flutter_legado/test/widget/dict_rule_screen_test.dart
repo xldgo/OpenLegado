@@ -87,10 +87,41 @@ void main() {
       );
       // 每行一个 Switch（3 行 3 个）
       expect(find.byType(Switch), findsNWidgets(3));
-      // 拖拽把手（ReorderableDragStartListener 内图标）
-      expect(find.byIcon(Symbols.drag_indicator_rounded), findsNWidgets(3));
       // FAB 新增
       expect(find.text('新增规则'), findsOneWidget);
+    });
+
+    testWidgets('拖动手柄将最终规则顺序提交给字典仓储', (tester) async {
+      when(() => mockApi.dictRuleRepository.dictRuleList())
+          .thenAnswer((_) async => sampleRows());
+      when(() => mockApi.dictRuleRepository.dictRuleReorder(any()))
+          .thenAnswer((_) async => 3);
+      await tester.pumpWidget(wrap(const DictRuleScreen()));
+      await tester.pumpAndSettle();
+
+      final handle = find.byType(ReorderableDragStartListener).first;
+      final lastCard = find.ancestor(
+        of: find.text('有道词典'),
+        matching: find.byType(Card),
+      );
+      final start = tester.getCenter(handle);
+      final destination =
+          tester.getBottomLeft(lastCard).dy +
+          tester.getSize(lastCard).height / 2;
+      final gesture = await tester.startGesture(start);
+      await gesture.moveBy(Offset(0, tester.getSize(handle).height));
+      await tester.pump();
+      await gesture.moveTo(Offset(start.dx, destination));
+      await tester.pump(const Duration(milliseconds: 300));
+      await gesture.moveBy(const Offset(0, 1));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      verify(() => mockApi.dictRuleRepository.dictRuleReorder([2, 3, 1]))
+          .called(1);
+      expect(find.byType(Checkbox), findsNothing);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('切换开关调用 dictRuleSetEnabled 并乐观更新', (tester) async {

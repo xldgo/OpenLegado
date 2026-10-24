@@ -2,6 +2,7 @@ import '../../../app/routing/app_navigation.dart';
 import '../../../utils/error_message.dart';
 import '../../../l10n/app_localization.dart';
 import '../../../widgets/app_menu.dart';
+import '../../../widgets/management_list_card.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -28,8 +29,7 @@ import '../../../widgets/loading_indicator.dart';
 /// dictRuleSetEnabled / dictRuleReorder / dictRuleImport。
 ///
 /// 与原版对齐点：
-/// - 行 = 规则名 + 启用 Switch（swtEnabled）+ 行级编辑/删除（ivEdit/ivDelete）；
-///   本批按任务口径收敛为：名称 + Switch + 副行 urlRule 截断，行点按打开
+/// - 共用管理卡片显示名称、启用 Switch 与截断的 urlRule，行点按打开
 ///   三字段编辑弹层（对标 DictRuleEditDialog 的 name/urlRule/showRule）；
 /// - 长按进入多选（对标 DragSelectTouchHelper.activeSlideSelect 长按即多选）：
 ///   批量启用/禁用/删除（对标 SelectActionBar menu_enable_selection /
@@ -572,12 +572,17 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
         ),
       );
     }
+    if (_selectMode) {
+      return ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: _rows.length,
+        itemBuilder: (context, index) => _buildRow(theme, index),
+      );
+    }
     return ReorderableListView.builder(
-      // [LAYOUT_PLAN P2] 列表横向由卡片 margin 统一 16dp，纵向留白 8dp
-      // Flutter 3.44 起 onReorderItem 必须恒提供（二选一断言），
-      // 多选/忙碌态由 _onReorder 内部守卫短路
       padding: const EdgeInsets.symmetric(vertical: 8),
       buildDefaultDragHandles: false,
+      proxyDecorator: ManagementListCard.dragProxy,
       itemCount: _rows.length,
       onReorderItem: _onReorder,
       itemBuilder: (context, index) => _buildRow(theme, index),
@@ -589,54 +594,38 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
     final cs = theme.colorScheme;
     final textTheme = theme.textTheme;
     final selected = _selectedIds.contains(row.id);
-    return Card(
-      key: ValueKey(index),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+    return ManagementListCard(
+      key: ValueKey(row.id),
+      dragIndex: _selectMode || _busy ? null : index,
+      batchMode: _selectMode,
+      selected: selected,
       color: selected ? cs.primaryContainer : cs.surfaceContainer,
-      child: ListTile(
-        shape: const RoundedRectangleBorder(),
-        contentPadding: const EdgeInsets.symmetric(
-          vertical: 12,
-          horizontal: 16,
-        ),
-        leading: _selectMode
-            ? Checkbox(
-                value: selected,
-                onChanged: (_) => _toggleSelect(row.id),
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              )
-            : ReorderableDragStartListener(
-                index: index,
-                child: Icon(Symbols.drag_indicator_rounded, color: cs.outline),
-              ),
-        title: Text(
-          row.name,
-          style: textTheme.titleMedium?.copyWith(
-            // 禁用规则降透明度（对标原版行内 switch 关态视觉弱化）
-            color: row.enabled
-                ? null
-                : cs.onSurfaceVariant.withValues(alpha: 0.6),
+      isEnabled: row.enabled,
+      onEnabledChanged: _busy ? null : (value) => _toggleEnabled(row, value),
+      onEdit: () => _showRuleEditor(row: row),
+      onSelect: () => _toggleSelect(row.id),
+      onLongPress: () =>
+          _selectMode ? _toggleSelect(row.id) : _enterSelectMode(row.id),
+      information: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            row.name,
+            style: textTheme.titleMedium?.copyWith(
+              color: row.enabled
+                  ? null
+                  : cs.onSurfaceVariant.withValues(alpha: 0.6),
+            ),
           ),
-        ),
-        subtitle: Text(
-          row.urlRule.isEmpty ? '（未配置查询地址）' : row.urlRule,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-        ),
-        trailing: Switch(
-          value: row.enabled,
-          onChanged: _busy ? null : (v) => _toggleEnabled(row, v),
-        ),
-        onTap: () {
-          if (_selectMode) {
-            _toggleSelect(row.id);
-          } else {
-            _showRuleEditor(row: row);
-          }
-        },
-        onLongPress: () => _enterSelectMode(row.id),
+          const SizedBox(height: 2),
+          Text(
+            row.urlRule.isEmpty ? '（未配置查询地址）' : row.urlRule,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          ),
+        ],
       ),
     );
   }

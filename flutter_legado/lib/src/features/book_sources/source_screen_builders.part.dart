@@ -35,53 +35,27 @@ extension _SourceBuilders on _SourceScreenState {
           itemBuilder: (_) => _buildSortMenuItems(context),
         ),
         // 安卓原版：分组按钮常驻顶栏（menu_group 子菜单）
-        AppMenuButton<String>(
-          icon: const Icon(Symbols.groups_rounded),
-          tooltip: context.l10n.group,
-          // 菜单在顶栏下方展开，不覆盖顶栏
+        SourceGroupMenuButton(
           onSelected: (value) => _handleGroupAction(context, value),
-          itemBuilder: (context) => [
-            AppMenuItem(
-              value: 'group_manage',
-              child: Text(context.l10n.groupManagement),
-            ),
-            const AppMenuDivider(),
-            AppMenuItem(
-              value: SourceSpecialGroup.enabled,
-              checked: state.selectedGroup == SourceSpecialGroup.enabled,
-              child: Text(context.l10n.enabled),
-            ),
-            AppMenuItem(
-              value: SourceSpecialGroup.disabled,
-              checked: state.selectedGroup == SourceSpecialGroup.disabled,
-              child: Text(context.l10n.disabled),
-            ),
-            AppMenuItem(
+          selectedValue: state.selectedGroup,
+          filters: [
+            (value: SourceSpecialGroup.enabled, label: context.l10n.enabled),
+            (value: SourceSpecialGroup.disabled, label: context.l10n.disabled),
+            (
               value: SourceSpecialGroup.login,
-              checked: state.selectedGroup == SourceSpecialGroup.login,
-              child: Text(context.l10n.loginRequired),
+              label: context.l10n.loginRequired,
             ),
-            AppMenuItem(
-              value: '未分组',
-              checked: state.selectedGroup == '未分组',
-              child: Text(context.l10n.ungrouped),
-            ),
-            AppMenuItem(
+            (value: '未分组', label: context.l10n.ungrouped),
+            (
               value: SourceSpecialGroup.exploreOn,
-              checked: state.selectedGroup == SourceSpecialGroup.exploreOn,
-              child: Text(context.l10n.sourceDiscoveryEnabled),
+              label: context.l10n.sourceDiscoveryEnabled,
             ),
-            AppMenuItem(
+            (
               value: SourceSpecialGroup.exploreOff,
-              checked: state.selectedGroup == SourceSpecialGroup.exploreOff,
-              child: Text(context.l10n.sourceDiscoveryDisabled),
+              label: context.l10n.sourceDiscoveryDisabled,
             ),
             for (final group in state.groups.where((g) => g != '未分组'))
-              AppMenuItem(
-                value: group,
-                checked: state.selectedGroup == group,
-                child: Text(group),
-              ),
+              (value: group, label: group),
           ],
         ),
         AppMenuButton<String>(
@@ -425,20 +399,7 @@ extension _SourceBuilders on _SourceScreenState {
           child: ReorderableListView.builder(
             scrollController: scrollController,
             buildDefaultDragHandles: false,
-            proxyDecorator: (child, _, animation) => AnimatedBuilder(
-              animation: animation,
-              child: child,
-              builder: (context, child) {
-                final lift = Curves.easeInOut.transform(animation.value);
-                return Transform.scale(
-                  scale: 1 + 0.02 * lift,
-                  child: CardTheme(
-                    data: CardTheme.of(context).copyWith(elevation: 4 * lift),
-                    child: child!,
-                  ),
-                );
-              },
-            ),
+            proxyDecorator: ManagementListCard.dragProxy,
             itemCount: sources.length,
             onReorderItem: (oldIndex, newIndex) async {
               final saved = await ref
@@ -540,125 +501,71 @@ extension _SourceBuilders on _SourceScreenState {
     final checkMessage = ref
         .watch(checkSourceNotifierProvider)
         .messages[source.bookSourceUrl];
-    final name = Container(
-      color: Colors.transparent,
-      constraints: const BoxConstraints(minHeight: 48),
-      alignment: Alignment.centerLeft,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSourceName(context, source),
-          if (checkMessage != null)
-            Text(
-              checkMessage.text,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: checkMessage.ok
-                    ? colorScheme.primary
-                    : colorScheme.error,
-              ),
-            ),
-        ],
-      ),
-    );
     return AbsorbPointer(
       absorbing: state.loading,
-      child: Card(
-        color: colorScheme.surfaceContainer,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onLongPress: () => ref
-              .read(sourceNotifierProvider.notifier)
-              .toggleSelection(source.bookSourceUrl),
-          onTap: () {
-            if (state.batchMode) {
-              ref
-                  .read(sourceNotifierProvider.notifier)
-                  .toggleSelection(source.bookSourceUrl);
-              return;
-            }
+      child: ManagementListCard(
+        dragIndex: dragIndex,
+        batchMode: state.batchMode,
+        selected: state.isSelected(source.bookSourceUrl),
+        isEnabled: source.enabled,
+        onEnabledChanged: (_) => ref
+            .read(sourceNotifierProvider.notifier)
+            .toggleSource(source.bookSourceUrl),
+        onEdit: () =>
             Navigator.of(context)
-                .push(sourceEditRoute(sourceUrl: source.bookSourceUrl));
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-            child: Row(
-              children: [
-                if (state.batchMode)
-                  Checkbox(
-                    value: state.isSelected(source.bookSourceUrl),
-                    onChanged: (_) => ref
-                        .read(sourceNotifierProvider.notifier)
-                        .toggleSelection(source.bookSourceUrl),
-                  )
-                else
-                  ReorderableDragStartListener(
-                    index: dragIndex ?? 0,
-                    enabled: dragIndex != null && !state.loading,
-                    child: Tooltip(
-                      message: context.l10n.sourceSortManual,
-                      child: SizedBox.square(
-                        dimension: 48,
-                        child: Icon(
-                          Symbols.drag_handle_rounded,
-                          color: dragIndex == null
-                              ? Theme.of(context).disabledColor
-                              : colorScheme.outline,
-                        ),
-                      ),
+                .push(sourceEditRoute(sourceUrl: source.bookSourceUrl)),
+        onSelect: () => ref
+            .read(sourceNotifierProvider.notifier)
+            .toggleSelection(source.bookSourceUrl),
+        onLongPress: () => ref
+            .read(sourceNotifierProvider.notifier)
+            .toggleSelection(source.bookSourceUrl),
+        information: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSourceName(context, source),
+            if (checkMessage != null)
+              Text(
+                checkMessage.text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: checkMessage.ok
+                      ? colorScheme.primary
+                      : colorScheme.error,
+                ),
+              ),
+          ],
+        ),
+        menu: Stack(
+          children: [
+            IconButton(
+              icon: const Icon(Symbols.more_vert_rounded, size: 20),
+              tooltip: context.l10n.sourceMoreMenu,
+              onPressed: () => _showSourceMenu(context, source),
+            ),
+            if (hasExplore)
+              Positioned(
+                top: 6,
+                right: 6,
+                child: Semantics(
+                  label: source.enabledExplore
+                      ? context.l10n.sourceTagExploreEnabled
+                      : '标志:发现未启用',
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: source.enabledExplore
+                          ? colorScheme.primary
+                          : colorScheme.error,
+                      shape: BoxShape.circle,
                     ),
                   ),
-                const SizedBox(width: 8),
-                Expanded(child: name),
-                Switch(
-                  value: source.enabled,
-                  onChanged: (_) => ref
-                      .read(sourceNotifierProvider.notifier)
-                      .toggleSource(source.bookSourceUrl),
                 ),
-                // 更多图标（对标 iv_menu_more）+ 发现角标（iv_explore：
-                // 绿=有发现且启用，红=有发现未启用，无=无发现）
-                Stack(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Symbols.more_vert_rounded, size: 20),
-                      // 对齐原版内容描述「更多菜单」
-                      tooltip: context.l10n.sourceMoreMenu,
-                      onPressed: () => _showSourceMenu(context, source),
-                    ),
-                    if (hasExplore)
-                      Positioned(
-                        top: 6,
-                        right: 6,
-                        child: Semantics(
-                          // 对齐原版「标志:发现已启用」内容描述
-                          label: source.enabledExplore
-                              ? context.l10n.sourceTagExploreEnabled
-                              : '标志:发现未启用',
-                          child: Container(
-                            width: 8,
-                            height: 8,
-                            // 发现启用=系统绿；有发现但未启用=系统红
-                            // [UI_MD3_ALIGNMENT_PLAN.md Batch B B3] 状态语义走 tonal
-                            decoration: BoxDecoration(
-                              color: source.enabledExplore
-                                  ? colorScheme.primary
-                                  : colorScheme.error,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+              ),
+          ],
         ),
       ),
     );

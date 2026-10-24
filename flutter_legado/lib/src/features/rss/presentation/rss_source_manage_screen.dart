@@ -14,6 +14,8 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../widgets/app_scaffold.dart';
 import '../../../widgets/md3_fast_scroller.dart';
 import '../../../widgets/source_selection_bar.dart';
+import '../../../widgets/source_group_menu.dart';
+import '../../../widgets/management_list_card.dart';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -44,8 +46,7 @@ final RegExp _splitGroupRegex = RegExp(r'[,;，；]');
 ///
 /// - 顶栏：搜索框（特殊过滤词：启用/禁用/需登录/未分组/group:分组名）
 ///   + 分组菜单（分组管理/特殊分组/动态分组）+ 更多菜单（新增/导入/帮助）
-/// - 列表项：勾选框 + 源名(分组) + 启用开关 + 编辑 + 更多（置顶/置底/删除）
-/// - 长按名称区域排序（customOrder），常显勾选框进入原地多选
+/// - 列表项共用管理卡片：点击编辑，手柄排序，长按多选；保留开关与更多菜单
 /// - 批量操作：全选/反选/删除 + 更多（启停/分组/置顶置底/导出/分享/区间）
 class RssSourceManageScreen extends ConsumerStatefulWidget {
   const RssSourceManageScreen({super.key});
@@ -239,48 +240,15 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
 
       actions: [
         // 分组菜单（对标原版 rss_source.xml menu_group 子菜单）
-        AppMenuButton<String>(
-          icon: const Icon(Symbols.groups_rounded),
-          tooltip: context.l10n.group,
+        SourceGroupMenuButton(
           onSelected: _handleGroupAction,
-          itemBuilder: (context) => [
-            AppMenuItem(
-              enabled: false,
-              child: Text(
-                context.l10n.group,
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ),
-            AppMenuItem(
-              value: 'group_manage',
-              child: Text(context.l10n.groupManagement),
-            ),
-            AppMenuItem(
-              value: '启用',
-              checked: _normalizedKeyword == '启用',
-              child: Text(context.l10n.enabled),
-            ),
-            AppMenuItem(
-              value: '禁用',
-              checked: _normalizedKeyword == '禁用',
-              child: Text(context.l10n.disabled),
-            ),
-            AppMenuItem(
-              value: '需登录',
-              checked: _normalizedKeyword == '需登录',
-              child: Text(context.l10n.loginRequired),
-            ),
-            AppMenuItem(
-              value: '未分组',
-              checked: _normalizedKeyword == '未分组',
-              child: Text(context.l10n.ungrouped),
-            ),
-            for (final group in _groups)
-              AppMenuItem(
-                value: 'group:$group',
-                checked: _normalizedKeyword == 'group:$group',
-                child: Text(group),
-              ),
+          selectedValue: _normalizedKeyword,
+          filters: [
+            (value: '启用', label: context.l10n.enabled),
+            (value: '禁用', label: context.l10n.disabled),
+            (value: '需登录', label: context.l10n.loginRequired),
+            (value: '未分组', label: context.l10n.ungrouped),
+            for (final group in _groups) (value: 'group:$group', label: group),
           ],
         ),
         // 更多菜单（对标原版 rss_source.xml 溢出菜单）
@@ -418,109 +386,83 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
         subtitle: _sources.isEmpty ? context.l10n.addRssSourceHint : null,
       );
     }
+    Widget buildItem(BuildContext context, int index) => KeyedSubtree(
+      key: ValueKey(list[index].sourceUrl),
+      child: _buildSourceItem(
+        context,
+        list[index],
+        dragIndex: _batchMode ? null : index,
+      ),
+    );
     return AppScrollBody(
       controller: _fsController,
       builder: (context, scrollController) => Md3FastScroller(
         controller: scrollController,
-        child: ReorderableListView.builder(
-          scrollController: scrollController,
-          buildDefaultDragHandles: false,
-          itemCount: list.length,
-          itemBuilder: (context, index) => KeyedSubtree(
-            key: ValueKey(list[index].sourceUrl),
-            child: _buildSourceItem(context, list[index], dragIndex: index),
-          ),
-          onReorderItem: _reorderVisible,
-        ),
+        child: _batchMode
+            ? ListView.builder(
+                controller: scrollController,
+                itemCount: list.length,
+                itemBuilder: buildItem,
+              )
+            : ReorderableListView.builder(
+                scrollController: scrollController,
+                buildDefaultDragHandles: false,
+                proxyDecorator: ManagementListCard.dragProxy,
+                itemCount: list.length,
+                itemBuilder: buildItem,
+                onReorderItem: _reorderVisible,
+              ),
       ),
     );
   }
 
-  /// 列表项（对标原版 item_rss_source：勾选框 + 源名(分组) +
-  /// Switch + 编辑 + 更多）
   Widget _buildSourceItem(
     BuildContext context,
     RssSource source, {
-    required int dragIndex,
+    int? dragIndex,
   }) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
     final group = source.sourceGroup ?? '';
-    final name = Container(
-      color: Colors.transparent,
-      constraints: const BoxConstraints(minHeight: 48),
-      alignment: Alignment.centerLeft,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            source.sourceName.isEmpty ? source.sourceUrl : source.sourceName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textDirection: TextDirection.ltr,
-            textAlign: TextAlign.start,
-            style: Theme.of(context).textTheme.titleMedium
-                ?.copyWith(color: colorScheme.onSurface),
-          ),
-          if (group.isNotEmpty)
-            Text(
-              group,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall
-                  ?.copyWith(color: colorScheme.onSurfaceVariant),
-            ),
-        ],
-      ),
-    );
     return AbsorbPointer(
       absorbing: _loading,
-      child: InkWell(
-        onTap: () {
-          if (_batchMode) {
-            _toggleSelection(source.sourceUrl);
-          } else {
-            _openEdit(source);
-          }
-        },
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(4, 8, 16, 8),
-          child: Row(
-            children: [
-              // 勾选框（对标原版 cb_source：点击进入批量选择）
-              Checkbox(
-                value: _selected.contains(source.sourceUrl),
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
-                onChanged: (_) => _toggleSelection(source.sourceUrl),
+      child: ManagementListCard(
+        dragIndex: dragIndex,
+        batchMode: _batchMode,
+        selected: _selected.contains(source.sourceUrl),
+        isEnabled: source.enabled,
+        onEnabledChanged: (_) => _toggleSource(source),
+        onEdit: () => _openEdit(source),
+        onSelect: () => _toggleSelection(source.sourceUrl),
+        onLongPress: () => _toggleSelection(source.sourceUrl),
+        information: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              source.sourceName.isEmpty ? source.sourceUrl : source.sourceName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textDirection: TextDirection.ltr,
+              textAlign: TextAlign.start,
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: theme.colorScheme.onSurface,
               ),
-              Expanded(
-                child: ReorderableDelayedDragStartListener(
-                  index: dragIndex,
-                  enabled: !_loading,
-                  child: name,
+            ),
+            if (group.isNotEmpty)
+              Text(
+                group,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-              // 启用开关（对标原版 swt_enabled）
-              Switch(
-                value: source.enabled,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                onChanged: (_) => _toggleSource(source),
-              ),
-              IconButton(
-                icon: const Icon(Symbols.edit_rounded, size: 20),
-                tooltip: context.l10n.edit,
-                visualDensity: VisualDensity.compact,
-                onPressed: () => _openEdit(source),
-              ),
-              IconButton(
-                icon: const Icon(Symbols.more_vert_rounded, size: 20),
-                tooltip: context.l10n.more,
-                visualDensity: VisualDensity.compact,
-                onPressed: () => _showSourceMenu(source),
-              ),
-            ],
-          ),
+          ],
+        ),
+        menu: IconButton(
+          icon: const Icon(Symbols.more_vert_rounded, size: 20),
+          tooltip: context.l10n.more,
+          onPressed: () => _showSourceMenu(source),
         ),
       ),
     );
