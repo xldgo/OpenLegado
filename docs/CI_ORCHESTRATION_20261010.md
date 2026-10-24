@@ -33,12 +33,36 @@ Python 构建工具。本批保留正式编译、测试、签名、图标、产�
 | Rust CI | 同上 | 手动完整检查；双档Clippy、一次QuickJS工作区测试与审计，`check`汇总 |
 | iOS Build | `dev/master` push | 保留设备包手动入口；Linux 先判定，相关改动才申请 macOS Runner |
 | iOS CI | 无自动入口 | 保持仅手动模拟器验证 |
-| Android Release | `v*` tag | 保持手动只构建；Tag 发布条件、产物 ID 和 publish 权限不变 |
+| Application Release | 正式`vX.Y.Z` tag | 手动选择平台、alpha/stable及是否发布；默认只构建，发布仅publish Job具有写权限 |
 
 Tooling/Flutter/Rust 的自动 workflow 不再通过顶层 paths 跳过；无关改动也提供
 轻量检查结果，避免将来设置必需检查时长期 Pending。当前仓库 dev/master 未受保护，
 本批不修改保护或 Ruleset。选择失败、必要任务失败/取消/意外跳过，汇总均失败；
 只有明确判定不需要的 job 才允许 skipped。
+
+## 项目发布与更新（2026-10-25）
+
+Release工作流的prepare一次计算版本、构建号和渠道。版本来自pubspec的X.Y.Z，构建号为
+`10000 + github.run_number`，首次高于已有440及Flutter旧ABI偏移；固定起点后不重置工作流
+编号或按平台/渠道另计数。各平台通过构建参数及OPENLEGADO_CHANNEL注入
+同一身份，不改写pubspec；源码SHA由Release关联和正文记录。正式Tag须与版本一致；已有远程标签必须指向本次提交。
+
+- 正式发布：推送`vX.Y.Z`；或手动选择stable并开启publish。正式版不覆盖已有Release。
+- 测试发布：手动选择alpha并开启publish，创建独立`vX.Y.Z-alpha.N`标签；不再覆盖固定alpha。
+- 验收包：手动publish关闭，只上传选定平台工件，不创建Release。
+- 产物：`OpenLegado-X.Y.Z+N-android-<ABI>.apk`、`OpenLegado-X.Y.Z+N-windows-x64.zip`。
+  iOS为`OpenLegado-X.Y.Z+N-ios-arm64-unsigned.ipa`。Android签名和FFI校验通过后再复制命名，Windows沿用统一DLL构建及来源校验。
+- publish只下载本次成功Job输出的Artifact ID，所有选定平台成功才创建草稿并上传全部附件；
+  完成后公开。Alpha不标Latest；正式版标Latest。同一渠道串行且不在发布中途取消。
+- 更新服务直接读取项目Releases API，按GitHub分页链接查找候选；不发布update.json。
+  标签渠道、预发布标志、附件版本/构建号须一致，再按平台/ABI、版本数值和构建号选取。
+  无正式版或无当前平台包明确提示，不伪报“已最新”；手动检查不会受旧忽略标记影响。
+
+Android发布CI传入`--android-project-arg=force-version-code-ignoring-abi=true`，使用Flutter自带能力取消分ABI额外编号，
+使PackageInfo读到的buildNumber与发布编号一致；仅用于新CI发布，不改变本地开发构建的编号规则，也不通过客户端减去猜测的ABI偏移。
+iOS通过同一ios-build工作流的workflow_call构建，Release手动build_ios可选，默认关闭；发布调用明确skip_signing=true，产物注明unsigned，需自行签名侧载。IPA和其他平台附件一并进入GitHub Release；应用内仍只引导项目发布页，不实现IPA自动安装。独立iOS Build保留原有签名分支，可通过skip_signing手动跳过；符号、图标及包完整性校验不因未签名而跳过。
+
+编写者：Codex + UI / Tool｜2026-10-25
 
 ## Android 发行签名
 
@@ -66,7 +90,7 @@ apksigner输出前缀随Build Tools版本变化（36：Signer #N；37：V2/V3.0 
 
 编写者：Codex + Tool｜2026-10-20
 
-Tag 发布、手动只构建、Artifact ID 与权限范围保持不变。本地检查不代表远程发行包已构建；
+发行触发及发布参数以本文“项目发布与更新”为准；签名门禁和publish权限隔离保持。本地检查不代表远程发行包已构建；
 当前验证状态见 Active 计划。签名接入依据：[Flutter 签名配置](https://docs.flutter.dev/deployment/android#configure-signing-in-gradle)、
 [Android apksigner](https://developer.android.com/tools/apksigner)。
 

@@ -78,6 +78,9 @@ def main(argv=None):
         android_options(builder, build=True, required=builder is not android)
     for builder in (windows_ffi, windows):
         windows_options(builder, build=True)
+    windows.add_argument("--build-name", help="覆盖本次Flutter应用版本，不改pubspec")
+    windows.add_argument("--build-number", help="覆盖本次Flutter构建号")
+    windows.add_argument("--dart-define", action="append", default=[], help="传递Flutter编译常量，可重复")
     android.add_argument("--skip-rust", action="store_true", help="只跳过 Rust 编译，仍严格校验已有库")
     android.add_argument("--clean", action="store_true", help="先执行 flutter clean")
     android.add_argument("--split-per-abi", action="store_true", help="按 ABI 输出独立 APK")
@@ -175,7 +178,9 @@ def main(argv=None):
                     print(f"Android FFI 构建与校验通过：{', '.join(args.abis)}；Cargo 输出：{output}")
             elif args.component == "windows":
                 from tooling.windows_app import build_windows_app
-                output = build_windows_app(ROOT, args.profile, args.cargo_target_dir, not args.no_quickjs, args.clean)
+                output = build_windows_app(ROOT, args.profile, args.cargo_target_dir, not args.no_quickjs, args.clean,
+                                           build_name=args.build_name, build_number=args.build_number,
+                                           dart_defines=args.dart_define)
                 print(f"Windows 应用构建与 DLL 复制校验通过：{output}")
             else:
                 if args.emulator:

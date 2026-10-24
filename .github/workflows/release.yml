@@ -2,10 +2,18 @@ name: Application Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    tags: ['v*']
   workflow_dispatch:
     inputs:
+      publish:
+        description: 'Publish selected packages to GitHub Release'
+        type: boolean
+        default: false
+      channel:
+        description: 'Release channel'
+        type: choice
+        options: [alpha, stable]
+        default: alpha
       build_windows:
         description: 'Build Windows desktop release package'
         type: boolean
@@ -14,43 +22,69 @@ on:
         description: 'Build Android APK release package'
         type: boolean
         default: true
+      build_ios:
+        description: 'Build unsigned iOS device IPA'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: app-release-${{ github.event_name }}-${{ github.ref }}
-  # 手动构建可取消旧任务，标签发布保持完整上传。
-  cancel-in-progress: ${{ github.event_name == 'workflow_dispatch' }}
+  # 同一渠道串行，发布过程不被后续请求取消。
+  group: app-release-${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'stable' || inputs.channel || 'alpha' }}
+  cancel-in-progress: false
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      build_number: ${{ steps.release.outputs.build_number }}
+      channel: ${{ steps.release.outputs.channel }}
+      tag: ${{ steps.release.outputs.tag }}
+      publish: ${{ steps.release.outputs.publish }}
+      built_at: ${{ steps.release.outputs.built_at }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Prepare shared release identity
+        id: release
+        env:
+          RELEASE_CHANNEL: ${{ inputs.channel || 'alpha' }}
+          PUBLISH_RELEASE: ${{ inputs.publish }}
+          BUILD_ANDROID: ${{ inputs.build_android }}
+          BUILD_WINDOWS: ${{ inputs.build_windows }}
+          BUILD_IOS: ${{ inputs.build_ios }}
+        run: python3 .github/scripts/release_metadata.py prepare
+
   build-android:
+    needs: prepare
     if: ${{ github.event_name == 'push' || inputs.build_android != false }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     outputs:
       artifact_id: ${{ steps.upload-apk.outputs.artifact-id }}
     env:
+      RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+      RELEASE_BUILD: ${{ needs.prepare.outputs.build_number }}
+      RELEASE_CHANNEL: ${{ needs.prepare.outputs.channel }}
       ANDROID_SIGNING_CERT_SHA256: ${{ vars.ANDROID_SIGNING_CERT_SHA256 }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-
       - name: Setup Flutter and Rust
         uses: ./.github/actions/setup-flutter-rust
         with:
           rust-targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
-
       - name: Setup Java with Gradle cache
         uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '25'
           cache: 'gradle'
-
       - name: Restore release signing key
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -58,132 +92,151 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: python3 .github/scripts/android_signing.py
-
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
         with:
           packages: 'platform-tools'
-
       - name: Install Android NDK
         run: |
           sdkmanager "ndk;28.2.13676358"
           echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/28.2.13676358" >> "$GITHUB_ENV"
           echo "ANDROID_NDK_ROOT=${ANDROID_SDK_ROOT}/ndk/28.2.13676358" >> "$GITHUB_ENV"
-
       - name: Build and verify Android release FFI
         run: python3 scripts/dev.py build ffi android --profile release --abis arm64-v8a,armeabi-v7a,x86_64
-
       - name: Run flutter pub get
         working-directory: flutter_legado
         run: flutter pub get --enforce-lockfile
-
       - name: Build release APKs
         working-directory: flutter_legado
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: flutter build apk --release --split-per-abi --target-platform android-arm,android-arm64,android-x64
-
+        run: >-
+          flutter build apk --release --split-per-abi
+          --target-platform android-arm,android-arm64,android-x64
+          --build-name "$RELEASE_VERSION" --build-number "$RELEASE_BUILD"
+          --android-project-arg=force-version-code-ignoring-abi=true
+          --dart-define=OPENLEGADO_CHANNEL="$RELEASE_CHANNEL"
       - name: Verify release APK signatures and Rust libraries
         run: >-
           python3 scripts/dev.py collect apk android --profile release
           --abis arm64-v8a,armeabi-v7a,x86_64 --output-dir release-apk --cargo-target-dir rust/target
           --signing-cert-sha256 "$ANDROID_SIGNING_CERT_SHA256"
-
+      - name: Stage versioned Android packages
+        run: python3 .github/scripts/release_metadata.py stage --platform android
       - name: Upload release APK artifacts
         id: upload-apk
         uses: actions/upload-artifact@v7
         with:
           name: android-apk-${{ github.run_id }}-${{ github.run_attempt }}
-          path: release-apk/*-release.apk
+          path: release-dist/*.apk
           if-no-files-found: error
           retention-days: 2
-
       - name: Clean temporary signing key
         if: always()
         run: python3 .github/scripts/android_signing.py --clean
 
   build-windows:
+    needs: prepare
     if: ${{ github.event_name == 'push' || inputs.build_windows != false }}
     runs-on: windows-latest
     timeout-minutes: 45
     outputs:
       artifact_id: ${{ steps.upload-windows.outputs.artifact-id }}
-
+    env:
+      RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+      RELEASE_BUILD: ${{ needs.prepare.outputs.build_number }}
+      RELEASE_CHANNEL: ${{ needs.prepare.outputs.channel }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-
       - name: Setup Flutter and Rust
         uses: ./.github/actions/setup-flutter-rust
-
       - name: Run flutter pub get
         working-directory: flutter_legado
         run: flutter pub get --enforce-lockfile
-
       - name: Build Windows release package
-        run: python scripts/dev.py build windows --profile release
-
-      - name: Archive Windows release bundle
         shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path release-windows | Out-Null
-          $bundleDir = "flutter_legado/build/windows/x64/runner/Release"
-          Compress-Archive -Path "$bundleDir/*" -DestinationPath "release-windows/legado-windows-x64.zip" -Force
-          Write-Host "Windows release archive generated successfully."
-
+        run: >-
+          python scripts/dev.py build windows --profile release
+          --build-name "$env:RELEASE_VERSION" --build-number "$env:RELEASE_BUILD"
+          --dart-define "OPENLEGADO_CHANNEL=$env:RELEASE_CHANNEL"
+      - name: Archive versioned Windows release bundle
+        run: python .github/scripts/release_metadata.py stage --platform windows
       - name: Upload Windows release artifacts
         id: upload-windows
         uses: actions/upload-artifact@v7
         with:
           name: windows-bin-${{ github.run_id }}-${{ github.run_attempt }}
-          path: release-windows/legado-windows-x64.zip
+          path: release-dist/*.zip
           if-no-files-found: error
           retention-days: 2
 
+  build-ios:
+    needs: prepare
+    if: ${{ inputs.build_ios == true }}
+    uses: ./.github/workflows/ios-build.yml
+    with:
+      release_version: ${{ needs.prepare.outputs.version }}
+      release_build: ${{ needs.prepare.outputs.build_number }}
+      release_channel: ${{ needs.prepare.outputs.channel }}
+      skip_signing: true
+
   publish:
-    if: ${{ always() && !cancelled() && !contains(needs.*.result, 'failure') && (needs.build-android.result == 'success' || needs.build-windows.result == 'success') }}
-    needs: [build-android, build-windows]
+    if: ${{ always() && !cancelled() && needs.prepare.result == 'success' && needs.prepare.outputs.publish == 'true' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && (needs.build-android.result == 'success' || needs.build-windows.result == 'success' || needs.build-ios.result == 'success') }}
+    needs: [prepare, build-android, build-windows, build-ios]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: write
+    env:
+      RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+      RELEASE_BUILD: ${{ needs.prepare.outputs.build_number }}
+      RELEASE_CHANNEL: ${{ needs.prepare.outputs.channel }}
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+      RELEASE_BUILT_AT: ${{ needs.prepare.outputs.built_at }}
+      BUILD_IOS: ${{ needs.build-ios.result == 'success' }}
+      GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Download all release artifacts
+      - uses: actions/checkout@v7
+      - name: Download selected Android packages
+        if: needs.build-android.result == 'success'
         uses: actions/download-artifact@v8
         with:
-          path: release-assets
+          artifact-ids: ${{ needs.build-android.outputs.artifact_id }}
+          path: release-dist
           merge-multiple: true
-
-      - name: Prepare release assets directory
-        run: |
-          mkdir -p release-dist
-          if ls release-assets/*-release.apk 1> /dev/null 2>&1; then
-            cp release-assets/*-release.apk release-dist/
-          fi
-          if ls release-assets/*.zip 1> /dev/null 2>&1; then
-            cp release-assets/*.zip release-dist/
-          fi
-          echo "Files to publish:"
-          ls -lh release-dist/
-
-      - name: Publish to GitHub Release
-        uses: softprops/action-gh-release@v3
+      - name: Download selected Windows package
+        if: needs.build-windows.result == 'success'
+        uses: actions/download-artifact@v8
         with:
-          name: ${{ startsWith(github.ref, 'refs/tags/v') && format('Release {0}', github.ref_name) || 'Alpha Build (Rolling)' }}
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'alpha' }}
-          prerelease: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-          draft: false
-          body: |
-            ${{ startsWith(github.ref, 'refs/tags/v') && format('Release version {0}', github.ref_name) || '### OpenLegado Rolling Alpha Build' }}
-            
-            - **Commit**: ${{ github.sha }}
-            - **Build Date**: ${{ github.event.head_commit.timestamp || github.run_id }}
-            - **Workflow**: [${{ github.workflow }} #${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-          files: release-dist/*
-          fail_on_unmatched_files: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          artifact-ids: ${{ needs.build-windows.outputs.artifact_id }}
+          path: release-dist
+          merge-multiple: true
+      - name: Generate project release notes
+        run: python3 .github/scripts/release_metadata.py notes
+      - name: Download selected iOS package
+        if: needs.build-ios.result == 'success'
+        uses: actions/download-artifact@v8
+        with:
+          artifact-ids: ${{ needs.build-ios.outputs.artifact_id }}
+          path: release-dist
+          merge-multiple: true
+      - name: Upload complete draft release
+        run: |
+          set -euo pipefail
+          flags=()
+          if [ "$RELEASE_CHANNEL" = alpha ]; then flags+=(--prerelease); fi
+          # create拒绝覆盖已有Release；上传失败时草稿不会对更新检查公开。
+          gh release create "$RELEASE_TAG" release-dist/* \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --draft \
+            --title "OpenLegado $RELEASE_TAG" --notes-file release-notes.md "${flags[@]}"
+      - name: Publish completed release
+        run: |
+          set -euo pipefail
+          latest=false
+          if [ "$RELEASE_CHANNEL" = stable ]; then latest=true; fi
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest="$latest"

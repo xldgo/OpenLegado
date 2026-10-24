@@ -1,318 +1,230 @@
 import 'dart:convert';
 
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/pref_keys.dart';
 
-/// 检查更新结果（对齐 AppUpdate.UpdateInfo）
+/// CI与客户端共用附件格式，渠道由Release标签及prerelease标志确定。
+enum AppUpdateTarget {
+  androidArm64('android-arm64-v8a.apk'),
+  androidArmv7('android-armeabi-v7a.apk'),
+  androidX64('android-x86_64.apk'),
+  windowsX64('windows-x64.zip');
+
+  const AppUpdateTarget(this.assetSuffix);
+  final String assetSuffix;
+}
+
 class AppUpdateInfo {
   const AppUpdateInfo({
     required this.tagName,
+    required this.version,
+    required this.buildNumber,
+    required this.isPrerelease,
     required this.updateLog,
     required this.downloadUrl,
+    required this.releaseUrl,
     required this.fileName,
-    this.backupDownloadUrl,
   });
 
   final String tagName;
+  final String version;
+  final int buildNumber;
+  final bool isPrerelease;
   final String updateLog;
   final String downloadUrl;
+  final String releaseUrl;
   final String fileName;
-  final String? backupDownloadUrl;
 }
 
-class _ReleaseCandidate {
-  const _ReleaseCandidate({
-    required this.appVariant,
-    required this.createdAtMs,
-    required this.note,
-    required this.name,
-    required this.downloadUrl,
-    required this.versionName,
-  });
-
-  final AppVariant appVariant;
-  final int createdAtMs;
-  final String note;
-  final String name;
-  final String downloadUrl;
-  final String versionName;
-}
-
-enum AppVariant { official, betaRelease, betaReleaseA, unknown }
-
-/// GitHub Release 检查更新（对齐 AppUpdateGitHub + AppUpdateSelector）
-///
-/// 纯 Flutter HTTP，无新 FFI。
+/// 项目自身的分发更新；不涉及阅读业务或FFI。
 class AppUpdateService {
-  AppUpdateService({http.Client? client}) : _client = client ?? http.Client();
+  AppUpdateService({http.Client? client})
+    : _ownsClient = client == null,
+      _client = client ?? http.Client();
 
+  static const projectUrl = 'https://github.com/xldgo/OpenLegado';
   static const releasesUrl =
-      'https://api.github.com/repos/LegadoTeam/legado/releases?per_page=30';
-
-  /// 进程内缓存：与 pubspec / 构建产物 versionName 同源（PackageInfo）
-  static String? _cachedVersionName;
-
+      'https://api.github.com/repos/xldgo/OpenLegado/releases?per_page=100';
+  static const buildChannel = String.fromEnvironment(
+    'OPENLEGADO_CHANNEL',
+    defaultValue: 'development',
+  );
+  static PackageInfo? _cachedPackage;
   final http.Client _client;
+  final bool _ownsClient;
 
-  /// 读取运行时 version（`pubspec.yaml` 的 `x.y.z` 段），避免硬编码滞后。
+  static Future<PackageInfo> resolveCurrentPackage() async =>
+      _cachedPackage ??= await PackageInfo.fromPlatform();
+
   static Future<String> resolveCurrentVersionName() async {
-    final cached = _cachedVersionName;
-    if (cached != null && cached.isNotEmpty) return cached;
-    final info = await PackageInfo.fromPlatform();
-    final version = info.version.trim();
-    if (version.isEmpty) {
-      throw StateError('无法读取应用版本号');
-    }
-    _cachedVersionName = version;
+    final version = (await resolveCurrentPackage()).version.trim();
+    if (version.isEmpty) throw StateError('无法读取应用版本号');
     return version;
   }
 
-  /// 检查更新；已最新时返回 null；网络/解析失败抛异常。
-  ///
-  /// [sameMajorOnly] 默认 true：重构版 2.x 只与 2.x Release 比较，
-  /// 避免把双轨仓库里的 Android 3.x APK 误报为更新。
+  Future<bool> acceptsPrereleases() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(PrefKeys.acceptPrereleaseUpdates) ??
+        (buildChannel != 'stable');
+  }
+
+  Future<void> setAcceptsPrereleases(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!await prefs.setBool(PrefKeys.acceptPrereleaseUpdates, enabled)) {
+      throw StateError('测试版更新设置保存失败');
+    }
+  }
+
+  void close() {
+    if (_ownsClient) _client.close();
+  }
+
+  static Future<AppUpdateTarget> resolveTarget() async {
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      final abis = (await DeviceInfoPlugin().androidInfo).supportedAbis;
+      // 按设备声明的优先顺序选择，模拟器不能误选ARM翻译包。
+      for (final abi in abis) {
+        switch (abi) {
+          case 'arm64-v8a':
+            return AppUpdateTarget.androidArm64;
+          case 'armeabi-v7a':
+            return AppUpdateTarget.androidArmv7;
+          case 'x86_64':
+            return AppUpdateTarget.androidX64;
+        }
+      }
+      throw UnsupportedError('尚无适用于当前Android架构的安装包');
+    }
+    if (defaultTargetPlatform == TargetPlatform.windows) {
+      return AppUpdateTarget.windowsX64;
+    }
+    throw UnsupportedError('当前平台请通过项目发布页检查更新');
+  }
+
+  Stream<Map<String, dynamic>> _releases(String version) async* {
+    Uri? next = Uri.parse(releasesUrl);
+    while (next != null) {
+      final response = await _client
+          .get(
+            next,
+            headers: {
+              'Accept': 'application/vnd.github+json',
+              'User-Agent': 'OpenLegado/$version',
+            },
+          )
+          .timeout(const Duration(seconds: 10));
+      if (response.statusCode != 200) {
+        throw StateError('获取发布信息失败（HTTP ${response.statusCode}）');
+      }
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      if (decoded is! List) throw const FormatException('发布信息不是列表');
+      for (final release in decoded) {
+        if (release is Map<String, dynamic>) yield release;
+      }
+      // Alpha较多时正式版可能位于下一页，不能只查第一页后报告无正式版。
+      final link = RegExp(r'<([^>]+)>;\s*rel="next"')
+          .firstMatch(response.headers['link'] ?? '');
+      next = link == null ? null : Uri.parse(link.group(1)!);
+    }
+  }
+
+  /// 无更新返回null；缺少当前平台包及网络/响应错误分别明确报告。
   Future<AppUpdateInfo?> check({
     String? currentVersion,
-    AppVariant variant = AppVariant.official,
-    bool preferArm = true,
-    bool sameMajorOnly = true,
+    int? currentBuildNumber,
+    bool? includePrereleases,
+    AppUpdateTarget? target,
   }) async {
-    final version = currentVersion ?? await resolveCurrentVersionName();
-    final releases = await _fetchReleases(userAgentVersion: version);
-    final selected = _selectUpdateRelease(
-      releases: releases,
-      appVariant: variant,
-      currentVersionName: version,
-      preferArm: preferArm,
-      sameMajorOnly: sameMajorOnly,
-    );
-    if (selected == null) return null;
-
-    final downloadUrl = resolveAppUpdateDownloadUrl(
-      selected.name,
-      selected.downloadUrl,
-    );
-    final backup = resolveAppUpdateBackupUrl(downloadUrl, selected.downloadUrl);
-    return AppUpdateInfo(
-      tagName: selected.versionName,
-      updateLog: selected.note,
-      downloadUrl: downloadUrl,
-      fileName: selected.name,
-      backupDownloadUrl: backup,
-    );
-  }
-
-  Future<bool> isIgnored(String versionName) async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(PrefKeys.ignoreUpdateVersion) == versionName;
-  }
-
-  Future<void> setIgnored(String? versionName) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (versionName == null || versionName.isEmpty) {
-      await prefs.remove(PrefKeys.ignoreUpdateVersion);
-    } else {
-      await prefs.setString(PrefKeys.ignoreUpdateVersion, versionName);
-    }
-  }
-
-  Future<List<_ReleaseCandidate>> _fetchReleases({
-    required String userAgentVersion,
-  }) async {
-    final res = await _client
-        .get(
-          Uri.parse(releasesUrl),
-          headers: {
-            'Accept': 'application/vnd.github+json',
-            'User-Agent': 'legado-flutter/$userAgentVersion',
-          },
-        )
-        .timeout(const Duration(seconds: 10));
-    if (res.statusCode < 200 || res.statusCode >= 300) {
-      throw StateError('获取新版本出错(${res.statusCode})');
-    }
-    if (res.body.trim().isEmpty) {
-      throw StateError('获取新版本出错');
-    }
-    final decoded = jsonDecode(res.body);
-    if (decoded is! List) throw StateError('获取新版本出错');
-    final out = <_ReleaseCandidate>[];
-    for (final item in decoded) {
-      if (item is! Map<String, dynamic>) continue;
-      final pre = item['prerelease'] == true;
-      if (pre) continue;
-      final body = (item['body'] as String?) ?? '';
-      final tag = (item['tag_name'] as String?) ?? '';
-      final assets = item['assets'];
+    final package = currentVersion == null || currentBuildNumber == null
+        ? await resolveCurrentPackage()
+        : null;
+    final version = currentVersion ?? package!.version;
+    final build = currentBuildNumber ?? int.parse(package!.buildNumber);
+    final selectedTarget = target ?? await resolveTarget();
+    final includeAlpha = includePrereleases ?? await acceptsPrereleases();
+    AppUpdateInfo? selected;
+    var hasProjectRelease = false;
+    var hasPlatformAsset = false;
+    await for (final release in _releases(version)) {
+      if (release['draft'] == true) continue;
+      final tag = release['tag_name'];
+      if (tag is! String) continue;
+      final metadata = RegExp(r'^v(\d+\.\d+\.\d+)(?:-alpha\.(\d+))?$')
+          .firstMatch(tag);
+      if (metadata == null) continue;
+      final alpha = metadata.group(2) != null;
+      if (release['prerelease'] != alpha || (alpha && !includeAlpha)) continue;
+      hasProjectRelease = true;
+      final assets = release['assets'];
       if (assets is! List) continue;
-      for (final raw in assets) {
-        if (raw is! Map<String, dynamic>) continue;
-        final contentType = raw['content_type'] as String? ?? '';
-        final state = raw['state'] as String? ?? '';
-        if (contentType != 'application/vnd.android.package-archive' ||
-            state != 'uploaded') {
+      for (final asset in assets) {
+        if (asset is! Map<String, dynamic> || asset['state'] != 'uploaded') {
           continue;
         }
-        final name = raw['name'] as String? ?? '';
-        final apkUrl = raw['browser_download_url'] as String? ?? '';
-        final createdAt = raw['created_at'] as String? ?? '';
-        if (name.isEmpty || apkUrl.isEmpty) continue;
-        final versionName = parseReleaseVersionName(tag, name);
-        if (versionName.isEmpty) continue;
-        out.add(
-          _ReleaseCandidate(
-            appVariant: inferAppVariant(name, pre),
-            createdAtMs:
-                DateTime.tryParse(createdAt)?.millisecondsSinceEpoch ?? 0,
-            note: body,
-            name: name,
-            downloadUrl: apkUrl,
-            versionName: versionName,
-          ),
+        final name = asset['name'];
+        if (name is! String) continue;
+        final artifact = RegExp(r'^OpenLegado-(\d+\.\d+\.\d+)\+(\d+)-(.+)$')
+            .firstMatch(name);
+        if (artifact == null ||
+            artifact.group(1) != metadata.group(1) ||
+            artifact.group(3) != selectedTarget.assetSuffix) {
+          continue;
+        }
+        final candidateBuild = int.parse(artifact.group(2)!);
+        if (alpha && candidateBuild != int.parse(metadata.group(2)!)) continue;
+        final downloadUrl = asset['browser_download_url'];
+        final releaseUrl = release['html_url'];
+        if (downloadUrl is! String || releaseUrl is! String) continue;
+        hasPlatformAsset = true;
+        final candidateVersion = artifact.group(1)!;
+        final comparison = compareReleaseVersions(candidateVersion, version);
+        if (comparison < 0 || candidateBuild <= build) {
+          continue;
+        }
+        if (selected != null) {
+          final order = compareReleaseVersions(
+            candidateVersion,
+            selected.version,
+          );
+          if (order < 0 ||
+              (order == 0 && candidateBuild <= selected.buildNumber)) {
+            continue;
+          }
+        }
+        selected = AppUpdateInfo(
+          tagName: tag,
+          version: candidateVersion,
+          buildNumber: candidateBuild,
+          isPrerelease: alpha,
+          updateLog: release['body'] as String? ?? '',
+          downloadUrl: downloadUrl,
+          releaseUrl: releaseUrl,
+          fileName: name,
         );
       }
     }
-    out.sort((a, b) => b.createdAtMs.compareTo(a.createdAtMs));
-    return out;
-  }
-}
-
-/// 对齐 AppUpdateSelector.selectUpdateRelease
-_ReleaseCandidate? _selectUpdateRelease({
-  required List<_ReleaseCandidate> releases,
-  required AppVariant appVariant,
-  required String currentVersionName,
-  required bool preferArm,
-  bool sameMajorOnly = false,
-}) {
-  final currentMajor = _versionMajor(currentVersionName);
-  final candidates = releases.where((r) {
-    if (r.appVariant != appVariant) return false;
-    if (compareReleaseVersions(r.versionName, currentVersionName) <= 0) {
-      return false;
+    if (hasProjectRelease && !hasPlatformAsset) {
+      throw StateError('尚无当前平台/架构的发布包，请查看项目发布页');
     }
-    if (sameMajorOnly && currentMajor != null) {
-      final maj = _versionMajor(r.versionName);
-      if (maj != currentMajor) return false;
+    // 项目尚未发布正式版时，不将“无正式版”误报为“当前最新版”。
+    if (!hasProjectRelease) {
+      throw StateError(includeAlpha ? '暂无可用的项目发布版本' : '暂无正式版，可开启接收测试版更新');
     }
-    return true;
-  }).toList();
-  if (candidates.isEmpty) return null;
-  candidates.sort((a, b) {
-    final v = compareReleaseVersions(a.versionName, b.versionName);
-    if (v != 0) return v;
-    return a.createdAtMs.compareTo(b.createdAtMs);
-  });
-  final latest = candidates.last;
-  final sameVersion =
-      candidates
-          .where(
-            (c) =>
-                compareReleaseVersions(c.versionName, latest.versionName) == 0,
-          )
-          .toList()
-        ..sort((a, b) => b.createdAtMs.compareTo(a.createdAtMs));
-  if (sameVersion.isEmpty) return null;
-  if (preferArm) {
-    return sameVersion.firstWhere(
-      (c) => !isUniversalPackageName(c.name),
-      orElse: () => sameVersion.first,
-    );
+    return selected;
   }
-  return sameVersion.firstWhere(
-    (c) => isUniversalPackageName(c.name),
-    orElse: () => sameVersion.first,
-  );
 }
 
 int compareReleaseVersions(String left, String right) {
-  final leftParts = _toVersionParts(left);
-  final rightParts = _toVersionParts(right);
-  if (leftParts.isEmpty || rightParts.isEmpty) {
-    return left.compareTo(right);
-  }
-  final n = leftParts.length > rightParts.length
-      ? leftParts.length
-      : rightParts.length;
-  for (var i = 0; i < n; i++) {
-    final l = i < leftParts.length ? leftParts[i] : 0;
-    final r = i < rightParts.length ? rightParts[i] : 0;
-    if (l != r) return l.compareTo(r);
+  final a = left.split('.').map(int.parse).toList();
+  final b = right.split('.').map(int.parse).toList();
+  for (var index = 0; index < 3; index++) {
+    final order = a[index].compareTo(b[index]);
+    if (order != 0) return order;
   }
   return 0;
-}
-
-List<int> _toVersionParts(String version) {
-  final m = RegExp(r'\d+(?:\.\d+)+').firstMatch(version);
-  if (m == null) return const [];
-  final normalized = normalizeLegadoVersionName(m.group(0)!);
-  return normalized
-      .split('.')
-      .map((p) => int.tryParse(p))
-      .whereType<int>()
-      .toList();
-}
-
-int? _versionMajor(String version) {
-  final parts = _toVersionParts(version);
-  return parts.isEmpty ? null : parts.first;
-}
-
-bool isUniversalPackageName(String fileName) {
-  return fileName.contains('通用') ||
-      fileName.toLowerCase().contains('universal') ||
-      fileName.contains('_._');
-}
-
-String resolveAppUpdateDownloadUrl(String fileName, String githubUrl) {
-  if (fileName.contains('_._')) return githubUrl;
-  return 'https://cdn.mgz.la/app/$fileName';
-}
-
-String? resolveAppUpdateBackupUrl(String primaryUrl, String githubUrl) {
-  return githubUrl == primaryUrl ? null : githubUrl;
-}
-
-AppVariant inferAppVariant(String assetName, bool preRelease) {
-  final releaseA = RegExp(
-    r'(?:^|[_\-.])releasea(?:[_\-.]|$)',
-    caseSensitive: false,
-  );
-  final release = RegExp(
-    r'(?:^|[_\-.])release(?:[_\-.]|$)',
-    caseSensitive: false,
-  );
-  if (releaseA.hasMatch(assetName)) return AppVariant.betaReleaseA;
-  if (release.hasMatch(assetName)) return AppVariant.betaRelease;
-  if (preRelease) return AppVariant.betaRelease;
-  return AppVariant.official;
-}
-
-String parseReleaseVersionName(String releaseTag, String assetName) {
-  final versionPattern = RegExp(r'\d+(?:\.\d+)+');
-  final fromTag = versionPattern.firstMatch(releaseTag)?.group(0);
-  final fromAsset = versionPattern.firstMatch(assetName)?.group(0);
-  final versionName = fromTag ?? fromAsset;
-  if (versionName == null) return '';
-  return normalizeLegadoVersionName(versionName);
-}
-
-String normalizeLegadoVersionName(String versionName) {
-  final versionPattern = RegExp(r'\d+(?:\.\d+)+');
-  final version = versionPattern.firstMatch(versionName)?.group(0);
-  if (version == null) return versionName;
-  final legacy = RegExp(r'^3\.(\d{2})\.(\d{6,})$').firstMatch(version);
-  if (legacy != null) {
-    final mid = legacy.group(1)!;
-    final rest = legacy.group(2)!.substring(0, 6);
-    return '3.$mid$rest';
-  }
-  final compact = RegExp(r'^3\.(\d{8,})$').firstMatch(version);
-  if (compact != null) {
-    return '3.${compact.group(1)!.substring(0, 8)}';
-  }
-  return version;
 }

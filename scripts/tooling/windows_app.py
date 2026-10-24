@@ -28,7 +28,8 @@ def copy_bundle_dll(source: Path, destination: Path):
 
 
 def build_windows_app(root: Path, profile: str, cargo_target_dir: Path | None = None,
-                      quickjs=True, clean=False, run=False) -> Path:
+                      quickjs=True, clean=False, run=False, *, build_name=None,
+                      build_number=None, dart_defines=()) -> Path:
     require_windows(profile, quickjs)
     flutter, env = flutter_command({**os.environ, "PYTHON": sys.executable})
     app = root / "flutter_legado"
@@ -50,6 +51,11 @@ def build_windows_app(root: Path, profile: str, cargo_target_dir: Path | None = 
         command = [*flutter, "run", "-d", "windows", f"--{profile}"]
     else:
         command = [*flutter, "build", "windows", f"--{profile}"]
+    if build_name is not None:
+        command += ["--build-name", build_name]
+    if build_number is not None:
+        command += ["--build-number", str(build_number)]
+    command += [f"--dart-define={value}" for value in dart_defines]
     run_command(command, app, env)
     if not executable.is_file() or not executable.stat().st_size:
         raise ToolError(f"Flutter 未产生 Windows 应用：{executable}")

@@ -50,6 +50,10 @@ python scripts/dev.py generate bridge --check
 `run windows` 通过一次 `flutter run` 构建并启动，避免先执行重复的 Flutter build；
 命令保持到开发会话退出。`build windows` 完成后直接交付应用路径。
 
+发布CI可向`build windows`追加`--build-name X.Y.Z --build-number N`及可重复的
+`--dart-define KEY=VALUE`，按参数数组传给Flutter，不改写pubspec；本地不传时保持SDK默认值。
+发布渠道及构建号来源统一见[CI编排](CI_ORCHESTRATION_20261010.md#项目发布与更新2026-10-25)。
+
 ## 产物来源与复制
 
 Cargo 使用项目 stable 工具链、`--locked`、明确的 `x86_64-pc-windows-msvc` target/profile/features。

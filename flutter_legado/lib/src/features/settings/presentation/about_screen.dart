@@ -1,8 +1,10 @@
 import '../../../app/routing/app_navigation.dart';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../widgets/app_scaffold.dart';
+import '../../../widgets/app_snack_bar.dart';
 import '../../../widgets/legado_app_bar.dart';
 
 import 'package:flutter/services.dart';
@@ -31,23 +33,58 @@ class AboutScreen extends ConsumerStatefulWidget {
 }
 
 class _AboutScreenState extends ConsumerState<AboutScreen> {
-  static const _contributorsUrl =
-      'https://github.com/gedoor/legado/graphs/contributors';
+  static const _projectUrl = AppUpdateService.projectUrl;
+  static const _contributorsUrl = '$_projectUrl/graphs/contributors';
   static const _privacyUrl =
       'https://gedoor.github.io/legado/#/md/privacyPolicy';
 
   bool _checkingUpdate = false;
   String _appVersion = '';
+  final _updates = AppUpdateService();
+  bool? _acceptsPrereleases;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadAppVersion());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadAppVersion();
+      _loadUpdatePreference();
+    });
+  }
+
+  @override
+  void dispose() {
+    _updates.close();
+    super.dispose();
+  }
+
+  Future<void> _loadUpdatePreference() async {
+    try {
+      final enabled = await _updates.acceptsPrereleases();
+      if (mounted) setState(() => _acceptsPrereleases = enabled);
+    } catch (e) {
+      if (mounted) showAppSnackBar(context, '读取更新设置失败：$e');
+    }
+  }
+
+  Future<void> _setUpdatePreference(bool enabled) async {
+    try {
+      await _updates.setAcceptsPrereleases(enabled);
+      if (mounted) setState(() => _acceptsPrereleases = enabled);
+    } catch (e) {
+      if (mounted) showAppSnackBar(context, '保存更新设置失败：$e');
+    }
   }
 
   Future<void> _loadAppVersion() async {
     try {
-      final v = await AppUpdateService.resolveCurrentVersionName();
+      final package = await AppUpdateService.resolveCurrentPackage();
+      final channel = switch (AppUpdateService.buildChannel) {
+        'stable' => '正式版',
+        'alpha' => '测试版',
+        _ => '开发版',
+      };
+      final v = '${package.version}（${package.buildNumber}，$channel）';
       if (mounted) setState(() => _appVersion = v);
     } catch (e) {
       debugPrint('获取应用版本号失败: $e');
@@ -67,35 +104,22 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
 
   Future<void> _checkUpdate() async {
     setState(() => _checkingUpdate = true);
-    final service = AppUpdateService();
     try {
-      final version = _appVersion.isEmpty
-          ? await AppUpdateService.resolveCurrentVersionName()
-          : _appVersion;
-      if (mounted && _appVersion.isEmpty) {
-        setState(() => _appVersion = version);
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        await _launch('${AppUpdateService.projectUrl}/releases');
+        return;
       }
-      final info = await service.check(currentVersion: version);
+      final info = await _updates.check();
       if (!mounted) return;
-      setState(() => _checkingUpdate = false);
       if (info == null) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('当前已是最新版本 v$version')));
+        showAppSnackBar(context, '当前已是所选渠道的最新版本');
         return;
       }
-      if (await service.isIgnored(info.tagName)) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('已忽略版本 ${info.tagName}')));
-        return;
-      }
-      if (!mounted) return;
-      await showAppUpdateDialog(context, info: info, service: service);
+      await showAppUpdateDialog(context, info: info);
     } catch (e) {
-      if (!mounted) return;
-      setState(() => _checkingUpdate = false);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('检查更新\n$e')));
+      if (mounted) showAppSnackBar(context, '检查更新失败：$e');
+    } finally {
+      if (mounted) setState(() => _checkingUpdate = false);
     }
   }
 
@@ -146,8 +170,13 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
             SettingsGroup(
               children: [
                 SettingTile(
+                  title: '项目主页',
+                  subtitle: 'xldgo/OpenLegado',
+                  onTap: () => _launch(_projectUrl),
+                ),
+                SettingTile(
                   title: '开发人员',
-                  subtitle: 'gedoor、Invinciblelee 和 Xwite 等，详情请在 GitHub 中查看',
+                  subtitle: '查看本项目的 GitHub 贡献者',
                   onTap: () => _launch(_contributorsUrl),
                 ),
                 SettingTile(
@@ -166,6 +195,15 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                       : null,
                   onTap: _checkingUpdate ? null : _checkUpdate,
                 ),
+                if (defaultTargetPlatform == TargetPlatform.android ||
+                    defaultTargetPlatform == TargetPlatform.windows)
+                  SettingSwitchRow(
+                    title: '接收测试版更新',
+                    value: _acceptsPrereleases ?? false,
+                    onChanged: _acceptsPrereleases == null || _checkingUpdate
+                        ? null
+                        : _setUpdatePreference,
+                  ),
               ],
             ),
             const SizedBox(height: 16),
@@ -187,7 +225,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                   title: '开源许可',
                   onTap: () => showLicensePage(
                     context: context,
-                    applicationName: '阅读',
+                    applicationName: 'OpenLegado',
                     applicationVersion: _appVersion,
                     applicationLegalese: 'GNU General Public License v3.0',
                   ),

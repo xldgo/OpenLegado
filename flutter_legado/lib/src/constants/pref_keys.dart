@@ -248,8 +248,8 @@ class PrefKeys {
 
   // ===== 检查更新（LocalConfig）=====
 
-  /// 忽略的更新版本号（对齐 LocalConfig.ignoreUpdateVersion）
-  static const ignoreUpdateVersion = 'ignoreUpdateVersion';
+  /// 用户对测试版更新的显式选择；未设置时按构建渠道决定默认值。
+  static const acceptPrereleaseUpdates = 'acceptPrereleaseUpdates';
 
   // ===== 备份与恢复（pref_config_backup.xml）=====
 

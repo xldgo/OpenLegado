@@ -92,7 +92,7 @@ iOS 图标兼容处理、plist 诊断和 IPA 打包也使用该 Python 入口；
 | [Flutter CI](.github/workflows/flutter-ci.yml) | dev/master push、PR 按改动执行 Dart 分析与测试；支持手动完整检查 |
 | [iOS CI](.github/workflows/ios-ci.yml) | **仅手动**运行模拟器编译、图标状态检查和离线搜索阅读测试，不作为 PR 必需检查 |
 | [iOS Build](.github/workflows/ios-build.yml) | dev/master 的应用相关改动自动构建设备 IPA，其他分支手动；签名配置见 [iOS 构建说明](docs/IOS_CI_SIGNING_SETUP.md) |
-| [Release](.github/workflows/release.yml) | 手动运行生成发布工件，`v*` tag 触发构建并发布 |
+| [Release](.github/workflows/release.yml) | 手动选择平台及是否发布（默认只构建）；正式`vX.Y.Z` tag发布，Alpha使用独立构建标签 |
 | [PR Code Review](.github/workflows/pr-review.yml) | 同仓库非草稿、非机器人 PR 添加 `review` 标签后审查；保留标签时随提交更新重审 |
 | [Triage Labels](.github/workflows/triage-labels.yml) | 自动按内容与路径打标签；历史 Issue/PR 标签回填仅手动运行 |
 | [Stale Issues](.github/workflows/stale.yml) | 按 30+5 天参数清理 Issue；豁免 `confirmed`、`in-progress` 标签，不自动处理 PR |

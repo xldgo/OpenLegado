@@ -139,12 +139,17 @@ class WindowsTests(unittest.TestCase):
 
     def test_app_build_copies_requested_release_dll(self):
         with patch.object(app, "flutter_command", return_value=(["flutter"], {})):
-            executable = app.build_windows_app(self.root, "release")
+            executable = app.build_windows_app(
+                self.root, "release", build_name="2.0.439", build_number="10009",
+                dart_defines=("OPENLEGADO_CHANNEL=alpha", "OPENLEGADO_COMMIT=abc123"))
         self.assertTrue(executable.is_file())
         source = win.verify_windows_ffi(self.root, "release")
         self.assertEqual(source.read_bytes(), (executable.parent / source.name).read_bytes())
         command, env = self.calls[-1]
-        self.assertEqual(command, ["flutter", "build", "windows", "--release"])
+        self.assertEqual(command, ["flutter", "build", "windows", "--release",
+                                   "--build-name", "2.0.439", "--build-number", "10009",
+                                   "--dart-define=OPENLEGADO_CHANNEL=alpha",
+                                   "--dart-define=OPENLEGADO_COMMIT=abc123"])
         self.assertEqual(env["LEGADO_RUST_FFI_DIR"], str(source.parent.parent))
 
     def test_run_builds_via_flutter_run_once_without_preceding_flutter_build(self):
