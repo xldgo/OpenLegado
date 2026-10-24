@@ -389,6 +389,9 @@ showContent后手写标题/列表而绕过共用行主题；长列表由壳提�
 标题对齐由ThemeData的AppSheetTheme扩展统一配置，默认居中；AppBottomSheet与
 AppSettingsSheet共用NavigationToolbar，左右操作不等宽时标题仍居中，局部可显式覆盖。
 标题旁状态通过titleSuffix接入同一标题组，不另起一行。
+公用入口关闭框架独立的48dp横条区域，使用紧凑横条与标题栏组合；普通字号下头部约72dp，
+标题两侧操作仍保留48dp栏高，整张弹层的拖动和调用方关闭策略不变。
+横条显隐继续遵循入口参数及主题；已有自绘横条的独立弹层关闭框架横条，避免重复。
 AppBottomSheet（含show/content）和AppSettingsSheet正文默认EdgeInsets.zero，
 设置行铺满正文并用ListTile.contentPadding保留文字留白；共用正文的默认行形状为
 矩形，分组可自行覆盖。弹层由外层Material按Sheet形状裁剪Ink。标题、键盘避让和

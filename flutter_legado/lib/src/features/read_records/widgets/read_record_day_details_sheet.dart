@@ -11,9 +11,9 @@ import '../read_record_screen.dart' show formatDuring;
 
 /// 日历日期明细只展示当天记录，不直接跳转阅读器。— Codex + UI
 Future<void> showReadRecordDayDetails(BuildContext context, DateTime date) =>
-    showModalBottomSheet<void>(
+    AppBottomSheet.showContent<void>(
       context: context,
-      isScrollControlled: true,
+      useSafeArea: false,
       builder: (_) => ReadRecordDayDetailsSheet(date: date),
     );
 

@@ -24,6 +24,7 @@ Future<int?> showMd3WheelPickerSheet({
   // 此处不设 shape，确认走主题默认。
   return showModalBottomSheet<int>(
     context: context,
+    showDragHandle: false,
     builder: (sheetContext) {
       return SafeArea(
         top: false,

@@ -568,6 +568,7 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final action = await showModalBottomSheet<String>(
       context: context,
+      showDragHandle: false,
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,

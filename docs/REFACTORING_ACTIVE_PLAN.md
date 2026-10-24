@@ -65,7 +65,7 @@
 | 合并范围及原编号 | 现有证据 | 剩余验收与完成条件 |
 |---|---|---|
 | 备份恢复：BACKUP-RESTORE-20261024 B1～B5 | 五批实现均已提交；24集合/ID保留、统一ZIP/资源、本地密码与敏感区、保留策略及前台自动化；Rust/57项Dart定向回归、真实宿主FFI、分析/架构及Windows库配对通过，见`build/backup-{b3,b4,b5,final}-*.log`和[支持边界](BACKUP_RESTORE_ALIGNMENT_PLAN_20261024.md#实现后的支持边界) | 移动设备检查ZIP选择/资源字体与背景/密码安全存储、跨设备恢复及真实WebDAV传输清理；自动备份只承诺启动/前台到期执行，不承诺系统后台定时唤醒。真实原版/参考版ZIP按已列映射验收，不声称未知字段及全部Android设置无损兼容 |
-| 混合Sheet边距：SHEET-CONTENT-INSETS-20261024 | HTTP/云TTS引擎及源编辑行数已按内容分块留白，交互行铺满正文；定向分析及5项既有编辑行为回归通过，规则见[设计系统](design_system.md) | 移动设备检查展开行和开关点击反馈、长表单及键盘体验；纯表单与卡片外边距保留，未安装验收 |
+| Sheet头部与正文边距：SHEET-CONTENT-INSETS-20261024 | 公用入口合并紧凑横条与标题留白，修正滚轮/RSS重复横条；混合正文按区块留白，交互行铺满。定向分析及既有交互回归通过，规则见[设计系统](design_system.md) | 移动设备检查紧凑头部、下滑关闭、展开行点击反馈、长表单及键盘体验；纯表单与卡片外边距保留，未安装验收 |
 | 离线缓存导出：OFFLINE-EXPORT-SHEET-20261024 | 单本导出已改为公用Sheet，保留格式/编码/模板/范围与目录、WebDAV参数；修复忙碌状态和上传失败误报成功，导出及离线缓存页15项定向回归通过 | 移动设备目录选择、文件写入与WebDAV真实连接；表单滚动及输入法体验。未安装或做设备验收，不重复新增控件样式测试 |
 | 源编辑框行数：SOURCE-EDITOR-LINES-20261024 | 已接通共享仓储、设置Sheet及书源/RSS多行字段；52项定向回归、改动分析与架构检查通过，`build/source-editor-lines-*.log`；语义见[设置架构](SETTINGS_ARCHITECTURE.md#源编辑框行数2026-10-24) | 主应用检查“不限”及至少10行的显示/内滚动、保存重开后生效、单行字段与完整文本保持；未安装或进行设备验收，不为通用控件新增页面测试 |
 | 音频焦点/中断/媒体会话：AUDIO-FOCUS-POLICY-20261024、TTS-INTERRUPTION-20261021、TTS-AUDIO-SESSION / AUDIO-SERVICE-20261020 | `1843f5141`及`build/audio-focus-{core-final,wiring-final,analysis-final,architecture}.log`；既有媒体服务和焦点定向验证 | Android混播、拒绝焦点、耳机拔出；iOS混音、来电/Siri后手动恢复、后台/蓝牙及锁屏媒体操作。不开启忽略时原行为保持，用户暂停不自动续播 |

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:material_ui/material_ui.dart';
 
 import '../theme/app_sheet_theme.dart';
+import 'settings_widgets.dart' show SheetDragHandle;
 
 /// 通用底部弹窗 — 带标题的底部弹窗
 class AppBottomSheet extends StatelessWidget {
@@ -69,7 +70,7 @@ class AppBottomSheet extends StatelessWidget {
           children: [
             // 标题组相对整张Sheet居中，左右操作宽度不同也不推偏。— Codex + UI
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
               child: SizedBox(
                 height: math.max(
                   kMinInteractiveDimension,
@@ -169,11 +170,34 @@ class AppBottomSheet extends StatelessWidget {
     ShapeBorder? shape,
   }) => showModalBottomSheet<T>(
     context: context,
-    builder: builder,
+    builder: (sheetContext) {
+      final displayHandle =
+          showDragHandle ??
+          (enableDrag &&
+              (Theme.of(sheetContext).bottomSheetTheme.showDragHandle ??
+                  false));
+      if (!displayHandle) return builder(sheetContext);
+
+      // 紧凑横条与正文共用外层拖动，不再叠加框架的48dp横条区域。— Codex + UI
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Semantics(
+            label: MaterialLocalizations.of(sheetContext)
+                .modalBarrierDismissLabel,
+            button: true,
+            onTap: () => Navigator.maybePop(sheetContext),
+            child: const Center(child: SheetDragHandle()),
+          ),
+          Flexible(child: builder(sheetContext)),
+        ],
+      );
+    },
     isScrollControlled: isScrollControlled,
     useRootNavigator: useRootNavigator,
     useSafeArea: useSafeArea,
-    showDragHandle: showDragHandle,
+    showDragHandle: false,
     isDismissible: isDismissible,
     enableDrag: enableDrag,
     constraints: constraints,
