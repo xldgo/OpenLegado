@@ -80,6 +80,10 @@ legado-layout = { path = "legado-layout" }
 legado-net = { path = "legado-net" }
 legado-parser = { path = "legado-parser" }
 
+# 开发及默认测试保留堆栈文件名和行号，减少类型与变量调试信息的磁盘占用。
+[profile.dev]
+debug = "line-tables-only"
+
 # 发布档只显式声明非默认项：opt-level = 3、panic = "unwind"、codegen-units = 16
 # 都是 Cargo 的 release 默认值，不重复写。
 #
