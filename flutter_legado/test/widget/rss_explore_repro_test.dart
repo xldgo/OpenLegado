@@ -72,11 +72,20 @@ void main() {
 
   testWidgets('订阅页有数据渲染无异常', (tester) async {
     SharedPreferences.setMockInitialValues({});
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final mockApi = MockRustApi();
     when(() => mockApi.rssSourceRepository.getRssSources()).thenAnswer(
       (_) async => const [
         RssSource(sourceUrl: 'u1', sourceName: '源一'),
-        RssSource(sourceUrl: 'u2', sourceName: '源二', sourceGroup: '分组A'),
+        RssSource(
+          sourceUrl: 'u2',
+          sourceName: '需要两行显示的订阅源名称',
+          sourceGroup: '分组A',
+        ),
+        RssSource(sourceUrl: 'u3', sourceName: '源三'),
+        RssSource(sourceUrl: 'u4', sourceName: '源四'),
+        RssSource(sourceUrl: 'u5', sourceName: '源五'),
       ],
     );
     when(() => mockApi.rssSourceRepository.importRssSources(any()))
@@ -86,8 +95,20 @@ void main() {
 
     expect(find.byType(ErrorWidget), findsNothing);
     expect(find.text('源一'), findsOneWidget);
-    expect(find.text('源二'), findsOneWidget);
+    expect(find.text('需要两行显示的订阅源名称'), findsOneWidget);
     expect(find.text('规则订阅'), findsOneWidget);
+    final shortItem = tester.getRect(find.byKey(const ValueKey('u1')));
+    final longItem = tester.getRect(find.byKey(const ValueKey('u2')));
+    final nextRow = tester.getRect(find.byKey(const ValueKey('u5')));
+    // 同行顶部对齐，反馈随真实文字高度变化，下一行避开最长项目。
+    expect(shortItem.top, longItem.top);
+    expect(shortItem.height, lessThan(longItem.height));
+    expect(shortItem.width, greaterThanOrEqualTo(72));
+    expect(
+      nextRow.top,
+      greaterThan(longItem.bottom),
+      reason: 'short=$shortItem long=$longItem next=$nextRow',
+    );
     final shell = tester.state<NestedScrollViewState>(
       find.byType(NestedScrollView),
     );

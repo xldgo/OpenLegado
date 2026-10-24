@@ -3,6 +3,7 @@ import '../../../app/routing/route_arguments.dart';
 import '../../../widgets/app_menu.dart';
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:material_ui/material_ui.dart';
@@ -207,13 +208,12 @@ class _RssScreenState extends ConsumerState<RssScreen> {
                     ? context.l10n.emptyGroupRssSources
                     : null);
 
-          // [UI_SYNC_REFACTOR T1] 一比一对齐参考 RssScreen：头部双卡
-          //（规则订阅|收藏，span 全宽）+ Adaptive 72dp 小瓦片网格
+          // 入口卡片与源网格共用页面留白，网格按剩余宽度自适应列数。
           return AppScrollView(
             slivers: [
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(
                     children: [
                       _buildEntryCard(
@@ -237,17 +237,57 @@ class _RssScreenState extends ConsumerState<RssScreen> {
                   ),
                 ),
               ),
-              SliverGrid(
-                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 72,
-                  mainAxisExtent: 120,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                sliver: SliverLayoutBuilder(
+                  builder: (context, constraints) {
+                    const spacing = 12.0;
+                    const minItemWidth = 72.0;
+                    final columns = math.max(
+                      1,
+                      ((constraints.crossAxisExtent + spacing) /
+                              (minItemWidth + spacing))
+                          .floor(),
+                    );
+                    final itemWidth =
+                        (constraints.crossAxisExtent -
+                            spacing * (columns - 1)) /
+                        columns;
+                    final rows = (displaySources.length / columns).ceil();
+                    // 每行按最高内容占位，各项的反馈仍贴合自身自然高度。
+                    return SliverList.builder(
+                      itemCount: rows,
+                      itemBuilder: (context, row) {
+                        final start = row * columns;
+                        final end = math.min(
+                          start + columns,
+                          displaySources.length,
+                        );
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            bottom: row == rows - 1 ? 0 : spacing,
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              for (var index = start; index < end; index++) ...[
+                                if (index > start)
+                                  const SizedBox(width: spacing),
+                                SizedBox(
+                                  width: itemWidth,
+                                  child: _buildSourceItem(
+                                    context,
+                                    displaySources[index],
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
                 ),
-                delegate: SliverChildBuilderDelegate((context, index) {
-                  final source = displaySources[index];
-                  return _buildSourceItem(context, source);
-                }, childCount: displaySources.length),
               ),
               if (emptyMsg != null)
                 SliverToBoxAdapter(
@@ -339,8 +379,7 @@ class _RssScreenState extends ConsumerState<RssScreen> {
     );
   }
 
-  /// [UI_SYNC_REFACTOR T1] 72dp 小瓦片（对齐参考 RssSourceGridItem：
-  /// 48dp 图标 + 8dp + labelMedium 2 行名居中，无卡底，长按删除确认）
+  /// 自然高度源图标项：48dp 图标、8dp 间距、最多两行名称。
   Widget _buildSourceItem(BuildContext context, RssSource source) {
     final cs = Theme.of(context).colorScheme;
     final hasIcon = source.sourceIcon.trim().isNotEmpty;
@@ -352,6 +391,7 @@ class _RssScreenState extends ConsumerState<RssScreen> {
       child: Padding(
         padding: const EdgeInsets.all(8),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(
               width: 48,
