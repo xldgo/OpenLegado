@@ -16,6 +16,7 @@ final class AppGeneralSettingsRepository implements GeneralSettingsRepository {
   static final _addresses = {
     _address(PrefKeys.defaultBookTreeUri),
     _address(PrefKeys.showAddToShelfAlert),
+    _address(PrefKeys.showMangaUi),
     _address(PrefKeys.webPort),
     _address(PrefKeys.defaultToRead),
     _address(PrefKeys.sourceEditMaxLine),
@@ -29,6 +30,7 @@ final class AppGeneralSettingsRepository implements GeneralSettingsRepository {
   GeneralSettings _decode(AppSettingsSnapshot snapshot) => GeneralSettings(
     defaultBookTreeUri: _read(snapshot, PrefKeys.defaultBookTreeUri, ''),
     showAddToShelfAlert: _read(snapshot, PrefKeys.showAddToShelfAlert, true),
+    showMangaUi: _read(snapshot, PrefKeys.showMangaUi, true),
     webPort: _read(snapshot, PrefKeys.webPort, 1122),
     defaultToRead: _read(snapshot, PrefKeys.defaultToRead, false),
     sourceEditMaxLines: switch (snapshot[_address(
@@ -66,6 +68,7 @@ final class AppGeneralSettingsRepository implements GeneralSettingsRepository {
   Future<void> update({
     String? defaultBookTreeUri,
     bool? showAddToShelfAlert,
+    bool? showMangaUi,
     int? webPort,
     bool? defaultToRead,
     int? sourceEditMaxLines,
@@ -85,6 +88,7 @@ final class AppGeneralSettingsRepository implements GeneralSettingsRepository {
             ? null
             : defaultBookTreeUri,
       _address(PrefKeys.showAddToShelfAlert): ?showAddToShelfAlert,
+      _address(PrefKeys.showMangaUi): ?showMangaUi,
       _address(PrefKeys.webPort): ?webPort,
       _address(PrefKeys.defaultToRead): ?defaultToRead,
       _address(PrefKeys.sourceEditMaxLine): ?sourceEditMaxLines,

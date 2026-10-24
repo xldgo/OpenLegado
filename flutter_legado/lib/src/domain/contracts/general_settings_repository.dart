@@ -9,6 +9,7 @@ abstract interface class GeneralSettingsRepository {
   Future<void> update({
     String? defaultBookTreeUri,
     bool? showAddToShelfAlert,
+    bool? showMangaUi,
     int? webPort,
     bool? defaultToRead,
     int? sourceEditMaxLines,

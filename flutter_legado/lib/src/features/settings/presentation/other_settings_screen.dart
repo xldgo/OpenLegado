@@ -75,7 +75,6 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
   bool get _showAddToShelfAlert =>
       ref.read(generalSettingsRepositoryProvider).current.showAddToShelfAlert;
   bool _autoUpdateVariant = true;
-  bool _showMangaUi = true;
   String _jsSourceApiToken = '';
   int get _webPort =>
       ref.read(generalSettingsRepositoryProvider).current.webPort;
@@ -142,10 +141,6 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
     );
     _autoUpdateVariant = await s.getBoolPref(
       PrefKeys.autoUpdateVariant,
-      defaultValue: true,
-    );
-    _showMangaUi = await s.getBoolPref(
-      PrefKeys.showMangaUi,
       defaultValue: true,
     );
     _processText = await s.getBoolPref(
@@ -432,9 +427,14 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                 ),
                 SettingSwitchRow(
                   title: context.l10n.advancedMangaViewer,
-                  value: _showMangaUi,
-                  onChanged: null,
-                  subtitle: '待实现',
+                  value: general.value?.showMangaUi ?? true,
+                  onChanged: general.hasValue
+                      ? (value) => _saveMainPreferences(
+                          () => ref
+                              .read(generalSettingsRepositoryProvider)
+                              .update(showMangaUi: value),
+                        )
+                      : null,
                 ),
                 SettingTile(
                   title: '视频设置',

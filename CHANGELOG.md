@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 - 高亮管理改用右下角新增按钮与通用编辑面板，加入预设、导入、导出和只读效果预览；规则资源随完整备份恢复；贡献者：Codex + Rust / UI。
 - 阅读器自动高亮接入统一测量与分页，支持标题/正文范围、线条、背景图与字体样式，保留原生选区；贡献者：Codex + UI。
 - 高亮规则增加稳定UUID、MD3预设及完整样式解析，导入按UUID原子合并并保留本地主键；贡献者：Codex + Rust / UI。
+- 接通高级设置中的漫画浏览，在线漫画可选择专用界面或普通阅读器，本地漫画保持原路径；贡献者：Codex + UI。
 - 备份设备名称支持自动读取系统名称，手动名称优先，清空后恢复自动；贡献者：Codex + UI。
 - 备份覆盖24类业务集合与用户字体、背景资源，本地和WebDAV共用完整ZIP并可选择远程备份恢复；贡献者：Codex + Rust / UI。
 - 备份页加入本地密码、认证加密及可选云TTS凭据导出；连接密码与远程服务器配置只进入加密载荷；贡献者：Codex + Rust / UI。
@@ -16,6 +17,7 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - 修复绑定库名异常导致Android启动时Rust初始化失败的问题，生成及安装检查加入实际加载和初始化确认；贡献者：Codex + Tool / Bridge。
 - 修复WSL关闭Windows PATH继承时无法发现已启动MuMu的问题，自动读取宿主安装信息并连接实际ADB端点；贡献者：Codex + Tool。
+- 阅读器编辑正文改用底部Sheet，统一标题操作栏、滚动与键盘避让；贡献者：Codex + UI。
 - 单项数字设置面板打开时自动聚焦，支持键盘完成后提交校验；源编辑行数的不限模式不弹键盘；贡献者：Codex + UI。
 - 精简公用底部面板的横条与标题留白，移除滚轮和RSS操作面板的重复横条；贡献者：Codex + UI。
 - 修复本地恢复跳过失败条目仍提示成功的问题，业务数据整批回滚并展示真实恢复数量；贡献者：Codex + Rust / UI。

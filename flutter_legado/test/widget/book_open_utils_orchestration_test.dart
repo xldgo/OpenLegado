@@ -16,6 +16,7 @@ import 'package:flutter_legado/src/app/routing/route_names.dart';
 import 'package:flutter_legado/src/services/platform_bridge_service.dart';
 import 'package:flutter_legado/src/utils/book_open_utils.dart';
 import 'package:flutter_legado/src/widgets/book_cover.dart';
+import 'package:flutter_legado/src/providers/general_settings_provider.dart';
 
 import '../mocks/mocks.dart';
 
@@ -284,9 +285,44 @@ void main() {
     );
   });
 
-  testWidgets('本地 cbz（LOCAL|image=0x1040）→ 漫画阅读器 /reader-comic（参数 bookUrl）', (
-    tester,
-  ) async {
+  testWidgets('在线漫画开关改变下次开书目标，不改变书籍图片类型', (tester) async {
+    SharedPreferences.setMockInitialValues({'showMangaUi': false});
+    const book = Book(
+      bookUrl: 'https://comic.example/book',
+      origin: 'https://comic.example',
+      bookType: BookType.image,
+    );
+    final reader = _RecordingReaderNotifier();
+    final api = MockRustApi();
+    when(() => api.bookSourceRepository.getBookSources())
+        .thenAnswer((_) async => []);
+    await tester.pumpWidget(
+      harness(book: book, api: api, readerNotifier: reader),
+    );
+    final repository = ProviderScope.containerOf(
+      tester.element(find.text('open')),
+    ).read(generalSettingsRepositoryProvider);
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(observer.lastName, AppRoutes.reader);
+    expect(reader.openedBook?.bookType, BookType.image);
+    final navigator = Navigator.of(
+      tester.element(find.text('stub:${AppRoutes.reader}')),
+    );
+    navigator.pop();
+    await tester.pumpAndSettle();
+
+    await repository.update(showMangaUi: true);
+    reader.openedBook = null;
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(observer.lastName, AppRoutes.readerComic);
+    expect(observer.lastArguments, book.bookUrl);
+    expect(reader.openedBook, isNull);
+  });
+
+  testWidgets('关闭在线漫画界面仍保留本地 cbz 专用阅读与参数', (tester) async {
+    SharedPreferences.setMockInitialValues({'showMangaUi': false});
     const book = Book(
       bookUrl: 'file:///storage/books/本地漫画.cbz',
       name: '本地漫画',

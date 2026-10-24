@@ -7,6 +7,7 @@ import '../../utils/error_message.dart';
 import '../book_detail/book_detail_notifier.dart';
 
 import '../../providers/reading_provider.dart';
+import '../../providers/general_settings_provider.dart';
 import '../privacy/privacy_gate.dart';
 import '../../widgets/app_menu.dart';
 import '../../widgets/book_cover.dart';
@@ -601,15 +602,19 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     _openingBook = true;
     try {
       if (ModalRoute.of(context)?.isCurrent == false) return;
+      final settings = ref.read(generalSettingsRepositoryProvider);
       final prepared = await ref
           .read(bookDetailServiceProvider)
           .resolveReading(book);
+      final route = await BookOpenUtils.routeForBook(
+        book: book,
+        typeBits: prepared.typeBits,
+        settings: settings,
+      );
       if (!context.mounted || ModalRoute.of(context)?.isCurrent == false) {
         return;
       }
       final bookToOpen = prepared.book;
-      final typeBits = prepared.typeBits;
-      final route = BookOpenUtils.routeForTypeBits(typeBits);
       if (BookOpenUtils.needsReaderNotifier(route)) {
         ref.read(readerNotifierProvider.notifier).openBook(bookToOpen);
         await GoRouter.of(context).pushAppRoute(
